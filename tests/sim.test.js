@@ -1,0 +1,743 @@
+'use strict';
+
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+
+const root = path.resolve(__dirname, '..');
+const source = [
+  fs.readFileSync(path.join(root, 'js', 'data.js'), 'utf8'),
+  fs.readFileSync(path.join(root, 'js', 'sim.js'), 'utf8'),
+  `
+const assert = __assert;
+let passed = 0;
+
+function test(name, fn) {
+  try {
+    fn();
+    passed++;
+    console.log('✓ ' + name);
+  } catch (err) {
+    console.error('✗ ' + name);
+    throw err;
+  }
+}
+
+function makePlayer(overrides = {}) {
+  return Object.assign({
+    id: ++__playerId, name: '테스터', isAI: false, color: '#4da6ff',
+    charId: 'cat', weaponId: 'sword', coins: 5, coinsLost: 0,
+    augments: [], augmentBaselines: {}, copiedSkill: null, gamble: false,
+    trollCondition: false, damageRewardMult: 1,
+    wins: 0, losses: 0, streak: 0, rounds: 0, totalDmg: 0,
+  }, overrides);
+}
+
+function makeBattle(a = {}, c = {}) {
+  const b = new Battle('square', [makePlayer(a), makePlayer(Object.assign({ isAI: true, color: '#ff6b6b' }, c))]);
+  b.phase = 'fight';
+  b.simT = 0;
+  return b;
+}
+
+test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한다', () => {
+  assert.deepEqual(Object.fromEntries(Object.entries(CHARACTERS).map(([id, c]) => [id, [c.hp, c.move, c.size]])), {
+    cat: [100, 172, 1], wak: [100, 166, 1], soft: [100, 156, 1.05],
+    bomb: [100, 160, 0.95], bball: [100, 165, 1], balloon: [100, 162, 1.12],
+  });
+  assert.deepEqual(
+    [WEAPONS.sword.dmg, WEAPONS.sword.hitCd, WEAPONS.sword.reach, WEAPONS.sword.rot],
+    [20, 0.2, 60, 3],
+  );
+  assert.deepEqual(
+    [WEAPONS.dagger.dmg, WEAPONS.dagger.hitCd, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
+    [15, 0.2, 30, 5],
+  );
+  assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval], [12, 1]);
+  assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [6, 5, 0.12, 3]);
+  assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [25, 2.5]);
+  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval, WEAPONS.mine.maxMines], [10, 3, 5]);
+});
+
+test('정리된 기획 증강 105종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
+  assert.equal(AUGMENTS.length, 105);
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 105);
+  for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas', 'motionSickness',
+    'berserker', 'desperateSpin', 'brink', 'autoExpert']) assert.ok(AUG_BY_ID[id], id);
+  for (const id of ['crit', 'lateFocus', 'slowStart', 'bloodThirst', 'coinHeal', 'phoenix', 'hastePact',
+    'equalTrade', 'rotFreak', 'tank', 'berserkEngine', 'collisionGuard', 'cycler', 'pushAug', 'stickyTrail',
+    'sacrifice', 'deathBoom', 'revengeSpeed', 'multiSystem', 'overHeal', 'rotPower', 'w_guard', 'powerReward']) {
+    assert.equal(AUG_BY_ID[id], undefined, id + '는 삭제되어야 한다');
+  }
+});
+
+test('기본 이동·회전 수치와 메인 공 벽 반사가 정상이다', () => {
+  const b = makeBattle({ charId: 'cat', weaponId: 'sword' });
+  const f = b.fighters[0];
+  computeStats(f);
+  assert.equal(f.st.move, CHARACTERS.cat.move * WEAPONS.sword.moveMult);
+  assert.equal(f.st.rot, WEAPONS.sword.rot);
+  f.x = b.arena.H - f.radius - 1; f.y = 0; f.vx = 1; f.vy = 0;
+  moveFighter(b, f, 0.1);
+  assert.ok(f.vx < 0, '벽에서 진행 방향이 반사되어야 한다');
+  assert.ok(f.x <= b.arena.H - f.radius + 1e-9, '본체가 경기장 안에 있어야 한다');
+});
+
+test('투사체가 메인 공의 radius를 사용해 실제 피해를 준다', () => {
+  const b = makeBattle({ weaponId: 'pistol' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  const before = e.hp;
+  spawnProj(b, f, { kind: 'bullet', x: e.x, y: e.y, ang: 0, spd: 0, dmg: 5, r: 4, life: 1, weapon: true });
+  b.updateProjectiles(1 / 60);
+  assert.ok(e.hp < before);
+  assert.equal(b.projectiles.length, 0);
+});
+
+test('활 차지 샷은 1초 충전 후 두 번째 입력에만 횟수를 소비한다', () => {
+  const b = makeBattle({ weaponId: 'bow' });
+  const f = b.fighters[0];
+  assert.equal(useSkill(b, f, 'weapon'), true);
+  assert.equal(f.skillUses.weapon, 1);
+  updateTimers(b, f, 0.99);
+  assert.equal(useSkill(b, f, 'weapon'), false);
+  assert.equal(f.skillUses.weapon, 1);
+  updateTimers(b, f, 0.02);
+  assert.equal(useSkill(b, f, 'weapon'), true);
+  assert.equal(f.skillUses.weapon, 0);
+  const charge = b.projectiles.find(p => p.kind === 'charge');
+  assert.ok(charge);
+  assert.equal(charge.dmg, 30);
+  assert.equal(charge.pierce, true);
+  assert.equal(charge.pierceObstacles, true);
+  const obstacleArena = new Arena('obstacle');
+  charge.x = obstacleArena.pillars[0].x;
+  charge.y = obstacleArena.pillars[0].y;
+  charge.vx = 1; charge.vy = 0;
+  assert.equal(obstacleArena.reflectProj(charge), false, '차지 샷은 내부 장애물을 관통해야 한다');
+});
+
+test('시한폭발과 최후의 3초가 정확한 만료 전환에서 한 번 발동한다', () => {
+  const b = makeBattle({ charId: 'bomb', augments: ['lastStand'] });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  e.x = f.x; e.y = f.y;
+  const before = e.hp;
+  assert.equal(useSkill(b, f, 'char'), true);
+  updateTimers(b, f, 0.99);
+  assert.equal(e.hp, before);
+  updateTimers(b, f, 0.02);
+  assert.ok(e.hp < before);
+  dealDamage(b, e, f, f.maxHp * 10, { kind: 'weapon' });
+  assert.equal(f.dead, false);
+  assert.ok(f.timers.actingDead > 0);
+  updateTimers(b, f, 2.99);
+  assert.equal(f.dead, false);
+  updateTimers(b, f, 0.02);
+  assert.equal(f.dead, true);
+});
+
+test('권총 고정 사격은 3초간 회전을 멈추고 재장전 없이 난사한다', () => {
+  const b = makeBattle({ weaponId: 'pistol' });
+  const f = b.fighters[0];
+  const start = f.weaponAngle;
+  assert.equal(useSkill(b, f, 'weapon'), true);
+  let guard = 0;
+  while (f.gun.focus && guard++ < 200) {
+    computeStats(f);
+    updateTimers(b, f, 1 / 60);
+    updateWeapon(b, f, 1 / 60);
+  }
+  assert.ok(guard >= 179 && guard <= 181, '정확히 약 3초간 유지되어야 한다');
+  assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9);
+  assert.equal(b.projectiles.filter(p => p.kind === 'bullet').length, 25);
+  assert.ok(f.gun.reloadT > WEAPONS.pistol.reload - 0.02 && f.gun.reloadT <= WEAPONS.pistol.reload,
+    '난사 종료 후 재장전을 시작해야 한다');
+});
+
+test('출혈은 영구·무제한 중첩되며 프레임마다가 아니라 1초마다 중첩당 고정 피해 1을 준다', () => {
+  const b = makeBattle({ weaponId: 'dagger', augments: ['d_bleed', 'atk15', 'dmg10'] });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  onWeaponHitEffects(b, f, e);
+  const hp = e.hp;
+  const fx = b.fx.length;
+  updateTimers(b, e, 0.99);
+  assert.equal(e.hp, hp, '첫 1초 전에는 출혈 피해가 없어야 한다');
+  assert.equal(b.fx.length, fx, '매 프레임 피격 연출을 만들면 안 된다');
+  updateTimers(b, e, 0.02);
+  assert.ok(Math.abs(e.hp - (hp - 1)) < 1e-9, '공격력 A와 모든 피해 D를 제외하고 중첩당 고정 피해 1만 적용해야 한다');
+
+  onWeaponHitEffects(b, f, e);
+  const stackedHp = e.hp;
+  updateTimers(b, e, 0.97);
+  assert.equal(e.hp, stackedHp);
+  updateTimers(b, e, 0.02);
+  assert.ok(Math.abs(e.hp - (stackedHp - 1)) < 1e-9,
+    '새 중첩이 기존 중첩의 다음 피해 시점에 묶여 즉시 피해를 주면 안 된다');
+  updateTimers(b, e, 0.02);
+  assert.ok(Math.abs(e.hp - (stackedHp - 2)) < 1e-9,
+    '각 중첩은 자신이 붙은 시점부터 1초 뒤에 고정 피해 1을 줘야 한다');
+
+  const permanent = makeBattle({ weaponId: 'dagger', augments: ['d_bleed', 'dmg10'] });
+  const [pf, pe] = permanent.fighters;
+  computeStats(pf); computeStats(pe);
+  pe.maxHp = pe.hp = 1000;
+  for (let i = 0; i < 8; i++) onWeaponHitEffects(permanent, pf, pe);
+  assert.equal(pe.bleed.n, 8, '출혈 중첩에는 상한이 없어야 한다');
+  const permanentHp = pe.hp;
+  updateTimers(permanent, pe, 3.99);
+  assert.ok(Math.abs(pe.hp - (permanentHp - 8 * 3)) < 1e-9,
+    '출혈은 3초가 지나도 사라지지 않아야 한다');
+  updateTimers(permanent, pe, 0.02);
+  assert.ok(Math.abs(pe.hp - (permanentHp - 8 * 4)) < 1e-9,
+    '영구 중첩은 전투가 끝날 때까지 매초 피해를 계속 줘야 한다');
+});
+
+test('검 일섬은 정확히 한 바퀴 돌며 검기 시너지를 한 번 발동한다', () => {
+  const b = makeBattle({ weaponId: 'sword', augments: ['w_beam'] });
+  const f = b.fighters[0];
+  const start = f.weaponAngle;
+  assert.equal(useSkill(b, f, 'weapon'), true);
+  let guard = 0;
+  while (f.spinRemaining > 0 && guard++ < 60) {
+    computeStats(f);
+    updateWeapon(b, f, 1 / 60);
+  }
+  assert.ok(guard >= 35 && guard <= 37);
+  assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9);
+  const beams = b.projectiles.filter(p => p.kind === 'beam');
+  assert.equal(beams.length, 1);
+  assert.equal(beams[0].dmg, 12);
+  assert.equal(beams[0].pierce, true);
+});
+
+test('마력 폭주는 3초간 기존·신규 마법 투사체 크기만 2배로 만든다', () => {
+  const b = makeBattle({ weaponId: 'staff' });
+  const f = b.fighters[0];
+  const p = spawnProj(b, f, { kind: 'orb', x: 0, y: 0, ang: 0, spd: WEAPONS.staff.projSpeed, dmg: 1, r: 9, life: 5, bounces: 0, weapon: true });
+  assert.equal(useSkill(b, f, 'weapon'), true);
+  fireStaff(b, f);
+  const fresh = b.projectiles.at(-1);
+  b.updateProjectiles(0.1);
+  assert.equal(p.r, 18);
+  assert.equal(fresh.r, 18);
+  assert.ok(Math.abs(p.x - WEAPONS.staff.projSpeed * 0.1) < 1e-9, '이동속도는 변하면 안 된다');
+  updateTimers(b, f, 3.01);
+  const x = p.x;
+  b.updateProjectiles(0.01);
+  assert.equal(p.r, 9);
+  assert.equal(fresh.r, 9);
+  assert.ok(Math.abs(p.x - x - WEAPONS.staff.projSpeed * 0.01) < 1e-9);
+});
+
+test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용된다', () => {
+  const giantBattle = makeBattle({ weaponId: 'sword', augments: ['w_giant'] });
+  const [giant, giantTarget] = giantBattle.fighters;
+  computeStats(giant); computeStats(giantTarget);
+  assert.equal(weaponScale(giant), 1.5);
+  assert.equal(giant.perm.atk, 1);
+  assert.equal(giant.perm.move, WEAPONS.sword.moveMult);
+  assert.equal(giant.perm.rot, 1);
+  assert.equal(weaponDamage(giantBattle, giant, giantTarget, WEAPONS.sword.dmg), 20);
+
+  const dashBattle = makeBattle({ weaponId: 'dagger' });
+  const [dasher, dashTarget] = dashBattle.fighters;
+  computeStats(dasher); computeStats(dashTarget);
+  dasher.dash = { kind: 'dash' }; dasher.timers.dashT = 1; dasher.dashHit = new Set();
+  const beforeDash = dashTarget.hp;
+  tryDashHit(dashBattle, dasher, dashTarget);
+  assert.equal(beforeDash - dashTarget.hp, 30);
+
+  const bayonetBattle = makeBattle({ weaponId: 'pistol', augments: ['p_bayonet'] });
+  const [gunner, bayonetTarget] = bayonetBattle.fighters;
+  computeStats(gunner); computeStats(bayonetTarget);
+  gunner.x = gunner.y = 0; gunner.weaponAngle = 0; gunner.gun.reloadT = 1;
+  bayonetTarget.x = 45; bayonetTarget.y = 0;
+  const beforeBayonet = bayonetTarget.hp;
+  updateWeapon(bayonetBattle, gunner, 1 / 60);
+  assert.equal(beforeBayonet - bayonetTarget.hp, 15);
+
+  const mineBattle = makeBattle({ weaponId: 'mine' });
+  const [miner, mineTarget] = mineBattle.fighters;
+  computeStats(miner); computeStats(mineTarget);
+  miner.x = miner.y = 0; mineTarget.x = 90; mineTarget.y = 0;
+  mineBattle.mines.push({ uid: ++UID, owner: miner, x: 0, y: 0, blast: 62, dmg: 10 });
+  miner.timers.det = 0.01;
+  const beforeMine = mineTarget.hp;
+  updateTimers(mineBattle, miner, 0.02);
+  assert.equal(beforeMine - mineTarget.hp, 18);
+  assert.equal(mineBattle.mines.length, 0);
+
+  const spreadBattle = makeBattle({ weaponId: 'bow', augments: ['b_triple'] });
+  const archer = spreadBattle.fighters[0];
+  fireBow(spreadBattle, archer);
+  assert.equal(spreadBattle.projectiles.length, 3);
+  assert.ok(spreadBattle.projectiles.every(p => p.dmg === WEAPONS.bow.dmg));
+});
+
+test('팽창은 권총탄·검기·지뢰의 외형과 판정을 함께 키운다', () => {
+  const b = makeBattle({ charId: 'balloon', weaponId: 'pistol' });
+  const f = b.fighters[0];
+  useSkill(b, f, 'char');
+  fireGun(b, f);
+  assert.equal(b.projectiles.at(-1).r, 4 * 1.7);
+  spawnProj(b, f, { kind: 'beam', x: 0, y: 0, ang: 0, spd: 1, dmg: 1, r: 6, life: 1, weapon: true });
+  assert.equal(b.projectiles.at(-1).r, 6 * 1.7);
+
+  const mb = makeBattle({ charId: 'balloon', weaponId: 'mine' });
+  const mf = mb.fighters[0];
+  useSkill(mb, mf, 'char');
+  computeStats(mf); mf.cd.mine = 0;
+  updateWeapon(mb, mf, 1 / 60);
+  const mine = mb.mines[0];
+  assert.ok(mine.r > 11);
+  assert.equal(mine.trig, WEAPONS.mine.triggerR * 1.6);
+  assert.equal(mine.blast, WEAPONS.mine.blastR * 1.6);
+  assert.equal(mine.dmg, WEAPONS.mine.dmg);
+});
+
+test('핏빛 질주는 기존 연승을 포함하고 다른 성장 증강은 획득 후 기록만 센다', () => {
+  const p = makePlayer({ wins: 3, losses: 2, streak: 3, rounds: 5, coinsLost: 2 });
+  applyAugmentPick(p, AUG_BY_ID.winMomentum);
+  applyAugmentPick(p, AUG_BY_ID.bloodRush);
+  applyAugmentPick(p, AUG_BY_ID.seasonedExp);
+  applyAugmentPick(p, AUG_BY_ID.fallenPower);
+  let b = new Battle('square', [p, makePlayer({ isAI: true })]);
+  let f = b.fighters[0];
+  assert.ok(Math.abs(f.perm.atk - 1.18) < 1e-9, '기존 3연승을 즉시 포함해야 한다');
+  assert.equal(f.perm.dmg, 1);
+  p.wins++; p.streak++; p.rounds++; p.coinsLost++;
+  b = new Battle('square', [p, makePlayer({ isAI: true })]);
+  f = b.fighters[0];
+  assert.ok(Math.abs(f.perm.atk - 1.04 * 1.24 * 1.03) < 1e-9);
+  assert.equal(f.perm.dmg, 1.05);
+  p.losses++; p.streak = 0;
+  p.wins++; p.streak = 1;
+  b = new Battle('square', [p, makePlayer({ isAI: true })]);
+  f = b.fighters[0];
+  assert.ok(Math.abs(f.perm.atk - 1.08 * 1.06 * 1.03) < 1e-9);
+});
+
+test('변경된 조건부 증강 수치와 코인 증강 상태가 정확히 적용된다', () => {
+  const p = makePlayer({ coins: 2, augments: ['berserker', 'firstStrike', 'rampage20', 'brink'] });
+  const b = new Battle('square', [p, makePlayer({ isAI: true })]);
+  const f = b.fighters[0];
+  f.hp = f.maxHp * 0.5; b.simT = 5; computeStats(f);
+  assert.ok(Math.abs(f.st.atk - 1.25 * 1.3) < 1e-9, '체력 50%면 광전사 +25%, 첫 10초 선제공격 +30%');
+  assert.equal(f.st.dmg, 1, '코인이 2개면 벼랑 끝이 발동하면 안 된다');
+  b.simT = 15; computeStats(f);
+  assert.ok(Math.abs(f.st.atk - 1.25) < 1e-9, '10초 이후 선제공격은 끝나야 한다');
+  b.simT = 20; computeStats(f);
+  assert.ok(Math.abs(f.st.atk - 1.25 * 1.2) < 1e-9, '20초부터 폭주 시간이 발동해야 한다');
+
+  f.hp = f.maxHp * 0.02; computeStats(f);
+  assert.ok(f.st.atk <= 1.5 * 1.2 + 1e-9, '광전사는 최대 +50%를 넘으면 안 된다');
+
+  const brinkBattle = makeBattle({ coins: 1, augments: ['brink'] });
+  assert.equal(brinkBattle.fighters[0].perm.dmg, 1.2);
+  const devilBattle = makeBattle({ augments: ['devilDeal'] });
+  assert.equal(devilBattle.fighters[0].perm.atk, 1.25);
+
+  const troll = makePlayer({ coins: 3 });
+  applyAugmentPick(troll, AUG_BY_ID.trollCondition);
+  assert.equal(troll.trollCondition, true);
+  assert.equal(augEligible(AUG_BY_ID.gamble, troll), false, '서로 충돌하는 다음 전투 계약은 동시에 얻지 못해야 한다');
+});
+
+test('트롤의 조건과 승부사 기질은 다음 전투 결과를 정확히 처리하고 숨김 증강을 만들지 않는다', () => {
+  const trollLose = makePlayer({ coins: 3, streak: 2 });
+  applyAugmentPick(trollLose, AUG_BY_ID.trollCondition);
+  loseCoin(trollLose);
+  assert.equal(trollLose.coins, 3);
+  assert.equal(trollLose.damageRewardMult, 1.1);
+  assert.equal(trollLose.trollCondition, false);
+  assert.equal(trollLose.losses, 1);
+  assert.equal(trollLose.streak, 0);
+
+  const trollWin = makePlayer({ coins: 3 });
+  applyAugmentPick(trollWin, AUG_BY_ID.trollCondition);
+  winRound(trollWin);
+  assert.equal(trollWin.coins, 2);
+  assert.equal(trollWin.coinsLost, 1);
+  assert.equal(trollWin.damageRewardMult, 1);
+  assert.equal(trollWin.trollCondition, false);
+
+  const gamblerWin = makePlayer({ coins: 3 });
+  applyAugmentPick(gamblerWin, AUG_BY_ID.gamble);
+  winRound(gamblerWin);
+  assert.equal(gamblerWin.damageRewardMult, 1.2);
+  assert.equal(gamblerWin.gamble, false);
+  assert.equal(gamblerWin.augments.includes('powerReward'), false);
+
+  const rewardBattle = new Battle('square', [gamblerWin, makePlayer({ isAI: true })]);
+  assert.equal(rewardBattle.fighters[0].perm.dmg, 1.2);
+});
+
+test('수면 가스는 1초간 이동·무기·스킬을 막고 자동화 전문가는 쿨타임을 30% 줄인다', () => {
+  const b = makeBattle({ augments: ['sleepGas', 'autoExpert'] });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  assert.equal(f.autoCdMult, 0.7);
+  f.cd.gasT = 0;
+  autoSystems(b, f, 1 / 60);
+  assert.ok(e.timers.stun > 0);
+  assert.equal(f.cd.gasT, 7);
+
+  const x = e.x, y = e.y, ang = e.weaponAngle;
+  moveFighter(b, e, 0.2);
+  updateWeapon(b, e, 0.2);
+  assert.equal(e.x, x); assert.equal(e.y, y); assert.equal(e.weaponAngle, ang);
+  assert.equal(useSkill(b, e, 'char'), false);
+  updateTimers(b, e, 1.01);
+  assert.equal(e.timers.stun, 0);
+});
+
+test('멀미 치료는 회전 배율을 이동·무기 공격속도·공격력으로 1대1 전환한다', () => {
+  const b = makeBattle({ weaponId: 'sword', augments: ['rot15', 'motionSickness'] });
+  const f = b.fighters[0];
+  computeStats(f);
+  assert.equal(f.st.rot, 0);
+  assert.ok(Math.abs(f.st.atk - 1.15) < 1e-9);
+  assert.ok(Math.abs(f.st.move - CHARACTERS.cat.move * WEAPONS.sword.moveMult * 1.15) < 1e-9);
+  assert.ok(Math.abs(f.st.fr - 1.15) < 1e-9);
+});
+
+test('자동 공격·소환수·유체화·반사 충전의 변경 수치가 적용된다', () => {
+  const autoBattle = makeBattle({ augments: ['missile', 'flame'] });
+  const auto = autoBattle.fighters[0];
+  computeStats(auto); auto.cd.missile = 0; auto.cd.flame = 0;
+  autoSystems(autoBattle, auto, 1 / 60);
+  assert.equal(autoBattle.projectiles.filter(p => p.kind === 'missile').length, 2);
+  assert.ok(autoBattle.projectiles.filter(p => p.kind === 'missile').every(p => p.dmg === 3));
+  assert.equal(autoBattle.flames[0].life, 2);
+
+  const legionBattle = makeBattle({ augments: ['miniBall', 'legion'] });
+  const minion = legionBattle.fighters[0].summons[0];
+  assert.equal(minion.maxHp, 39);
+  assert.equal(minion.dmg, 13);
+  assert.ok(Math.abs(minion.r - 16.9) < 1e-9);
+  assert.equal(minion.spd, 205);
+
+  const phaseBattle = makeBattle({ weaponId: 'dagger', augments: ['d_phase'] });
+  const [phase, phaseTarget] = phaseBattle.fighters;
+  computeStats(phase); computeStats(phaseTarget);
+  weaponDamage(phaseBattle, phase, phaseTarget, 1);
+  assert.equal(phase.timers.untouchable, 1);
+
+  const reflectBattle = makeBattle({ augments: ['reflectCharge'] });
+  const [charged, reflectTarget] = reflectBattle.fighters;
+  computeStats(charged); computeStats(reflectTarget); charged.charged = true;
+  const before = reflectTarget.hp;
+  weaponDamage(reflectBattle, charged, reflectTarget, 10);
+  assert.ok(Math.abs(before - reflectTarget.hp - 13) < 1e-9);
+});
+
+test('고양이 발바닥 카피는 1초 후 중앙에 피해 24를 준다', () => {
+  const b = makeBattle({ copiedSkill: 'cat' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e); e.x = e.y = 0;
+  const before = e.hp;
+  assert.equal(useSkill(b, f, 'common'), true);
+  assert.equal(f.timers.pawDrop, 1);
+  updateTimers(b, f, 1.01);
+  assert.equal(before - e.hp, 24);
+});
+
+test('파괴 폭주의 5초 후 약화는 전투가 끝날 때까지 유지된다', () => {
+  const b = makeBattle({ charId: 'wak' });
+  const f = b.fighters[0];
+  useSkill(b, f, 'char');
+  computeStats(f);
+  assert.ok(f.st.atk > 1);
+  updateTimers(b, f, 5.01);
+  assert.equal(f.berserkPhase, 2);
+  updateTimers(b, f, 20);
+  computeStats(f);
+  assert.equal(f.berserkPhase, 2);
+  assert.ok(f.st.atk < 1);
+});
+
+test('같은 틱에 최후의 3초가 끝난 양측은 순서 편향 없이 무승부 처리된다', () => {
+  const b = makeBattle({ augments: ['lastStand'] }, { augments: ['lastStand'] });
+  const [a, c] = b.fighters;
+  computeStats(a); computeStats(c);
+  dealDamage(b, c, a, a.maxHp * 10, { kind: 'weapon' });
+  dealDamage(b, a, c, c.maxHp * 10, { kind: 'weapon' });
+  a.timers.actingDead = 0.01;
+  c.timers.actingDead = 0.01;
+  b.step(0.02);
+  assert.equal(a.dead, true);
+  assert.equal(c.dead, true);
+  assert.equal(b.result.draw, true);
+});
+
+test('로켓 관통은 매우 빠르게 돌진하며 이동 경로의 적을 통과해 피해를 준다', () => {
+  const b = makeBattle({ charId: 'cat', weaponId: 'sword', augments: ['rocketStart'] });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = -250; f.y = 0; f.vx = 1; f.vy = 0;
+  e.x = -80; e.y = 0; e.vx = 0; e.vy = 1;
+
+  const startX = f.x;
+  const beforeHp = e.hp;
+  const dt = 0.3;
+  const ordinaryDistance = CHARACTERS.cat.move * WEAPONS.sword.moveMult * dt;
+  moveFighter(b, f, dt);
+
+  assert.ok(f.x - startX >= ordinaryDistance * 3.5, '로켓 돌진은 평상시 이동보다 훨씬 빨라야 한다');
+  assert.ok(f.x > e.x + e.radius, '적에게 막히지 않고 반대편까지 관통해야 한다');
+  assert.ok(e.hp < beforeHp, '한 프레임 사이에 지나친 적도 피해를 받아야 한다');
+  assert.equal(f.rocketActive, true, '적을 관통해도 첫 벽 충돌 전까지 돌진은 유지되어야 한다');
+});
+
+test('꼬마볼은 적을 추적하지 않고 직진·벽 반사하며 우연히 부딪힌 적에게만 피해를 준다', () => {
+  const b = makeBattle({ augments: ['miniBall'] });
+  const [f, e] = b.fighters;
+  const m = f.summons[0];
+  computeStats(f); computeStats(e);
+
+  m.x = 0; m.y = 0; m.vx = 1; m.vy = 0; m.spd = 200;
+  e.x = 0; e.y = 250;
+  b.updateMinions(0.2);
+  assert.ok(Math.abs(m.vx - 1) < 1e-9 && Math.abs(m.vy) < 1e-9,
+    '적이 옆에 있어도 이동 방향을 적 쪽으로 틀면 안 된다');
+
+  m.x = b.arena.H - m.r - 1; m.y = 0; m.vx = 1; m.vy = 0;
+  b.updateMinions(0.02);
+  assert.ok(m.vx < 0, '벽에 닿으면 다른 공처럼 반사되어야 한다');
+  assert.ok(m.x <= b.arena.H - m.r + 1e-9, '벽 밖으로 빠져나가면 안 된다');
+
+  m.x = 0; m.y = 0; m.vx = 1; m.vy = 0; m.spd = 0; m.cd = 0;
+  e.x = m.r + e.radius - 1; e.y = 0;
+  const beforeHp = e.hp;
+  b.updateMinions(1 / 1000);
+  assert.ok(e.hp < beforeHp, '이동 중 우연히 적과 겹치면 몸통박치기 피해를 줘야 한다');
+});
+
+test('분열은 같은 캐릭터·무기·증강 빌드의 공 둘을 10% 체력과 절반 공격력으로 만든다', () => {
+  const augments = ['split', 'atk15', 'p_dual', 'missile'];
+  const b = makeBattle({ charId: 'balloon', weaponId: 'pistol', augments });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  const parentMaxHp = f.maxHp;
+  const parentDamageStat = f.st.atk * f.st.dmg;
+
+  dealDamage(b, e, f, f.maxHp * 10, { kind: 'weapon' });
+  assert.equal(f.mainDead, true);
+  assert.equal(f.splitBalls.length, 2, '정확히 두 개로 분열해야 한다');
+
+  for (const clone of f.splitBalls) {
+    assert.equal(clone.charId, f.charId, '캐릭터를 그대로 복제해야 한다');
+    assert.equal(clone.weaponId, f.weaponId, '장착 무기를 그대로 복제해야 한다');
+    assert.equal(clone.flags.dualPistol, f.flags.dualPistol, '무기 전용 증강을 그대로 복제해야 한다');
+    assert.equal(clone.flags.missile, f.flags.missile, '자동 공격 증강을 그대로 복제해야 한다');
+    assert.ok(Math.abs(clone.maxHp - parentMaxHp * 0.1) < 1e-9, '최대 체력은 본체의 10%여야 한다');
+    assert.ok(Math.abs(clone.hp - clone.maxHp) < 1e-9, '분열 시 10% 체력으로 시작해야 한다');
+    computeStats(clone);
+    assert.ok(Math.abs(clone.st.atk * clone.st.dmg - parentDamageStat * 0.5) < 1e-9,
+      '같은 빌드의 공격 피해 배율은 본체의 절반이어야 한다');
+  }
+
+  e.maxHp = e.hp = 10000;
+  const parentDealt = weaponDamage(b, f, e, 10);
+  const cloneDealt = weaponDamage(b, f.splitBalls[0], e, 10);
+  assert.ok(Math.abs(cloneDealt - parentDealt * 0.5) < 1e-9,
+    '분열체의 실제 무기 피해도 본체의 절반이어야 한다');
+
+  const [firstClone, secondClone] = f.splitBalls;
+  b.projectiles.length = 0;
+  firstClone.gun.reloadT = 0;
+  firstClone.gun.shotT = 0.001;
+  firstClone.gun.burst = Math.max(1, firstClone.gun.burst);
+  updateWeapon(b, firstClone, 0.01);
+  assert.equal(b.projectiles.length, 2, '분열체도 실제 무기 업데이트로 쌍권총을 발사해야 한다');
+  assert.ok(b.projectiles.every(p => p.owner === firstClone), '분열체가 만든 탄환은 분열체를 소유자로 기록해야 한다');
+
+  e.x = 300; e.y = 300;
+  const allyHp = secondClone.hp;
+  for (const p of b.projectiles) {
+    p.x = secondClone.x; p.y = secondClone.y; p.spd = 0;
+  }
+  b.updateProjectiles(1 / 1000);
+  assert.equal(secondClone.hp, allyHp, '분열체 탄환은 같은 원본 팀의 형제 분열체를 공격하면 안 된다');
+
+  b.projectiles.length = 0;
+  firstClone.x = 0; firstClone.y = 0; firstClone.vx = 1; firstClone.vy = 0;
+  secondClone.x = -250; secondClone.y = -250;
+  e.x = firstClone.radius + e.radius - 8; e.y = 0; e.vx = -1; e.vy = 0;
+  b.updateMinions(0);
+  assert.ok(dist(firstClone.x, firstClone.y, e.x, e.y) >= firstClone.radius + e.radius - 1e-9,
+    '분열체는 적 본체와 물리 충돌하고 서로 밀려나야 한다');
+
+  dealDamage(b, e, firstClone, firstClone.hp * 100, { kind: 'weapon' });
+  assert.equal(f.splitBalls.length, 1);
+  assert.equal(f.dead, false, '분열체 하나가 남아 있으면 원본 팀은 생존해야 한다');
+  assert.equal(b.fighterAlive(f), true);
+  assert.equal(b.result, null);
+
+  dealDamage(b, e, secondClone, secondClone.hp * 100, { kind: 'weapon' });
+  assert.equal(f.splitBalls.length, 0);
+  assert.equal(f.dead, true, '두 분열체가 모두 죽으면 원본도 최종 사망해야 한다');
+  assert.equal(b.fighterAlive(f), false);
+  assert.equal(b.result.winner, e, '마지막 분열체 사망 시 상대 승리로 전투가 끝나야 한다');
+});
+
+test('쌍권총은 같은 방향의 두 발이 아니라 정확히 서로 반대 방향으로 한 발씩 쏜다', () => {
+  const b = makeBattle({ weaponId: 'pistol', augments: ['p_dual'] });
+  const f = b.fighters[0];
+  f.weaponAngle = 0.37;
+  fireGun(b, f);
+
+  assert.equal(b.projectiles.length, 2);
+  assert.ok(b.projectiles.every(p => p.dmg === WEAPONS.pistol.dmg));
+  const [front, back] = b.projectiles;
+  const dot = front.vx * back.vx + front.vy * back.vy;
+  assert.ok(Math.abs(dot + 1) < 1e-9, '두 탄환의 진행 방향은 180도 반대여야 한다');
+  assert.ok(Math.abs((front.x - f.x) + (back.x - f.x)) < 1e-9);
+  assert.ok(Math.abs((front.y - f.y) + (back.y - f.y)) < 1e-9);
+});
+
+test('지팡이 투사체와 지뢰는 같은 종류끼리도 소유자를 확실히 구분할 수 있다', () => {
+  const staffBattle = makeBattle({ weaponId: 'staff' }, { weaponId: 'staff' });
+  const [localStaff, enemyStaff] = staffBattle.fighters;
+  fireStaff(staffBattle, localStaff);
+  fireStaff(staffBattle, enemyStaff);
+  const localOrb = staffBattle.projectiles.find(p => p.owner === localStaff);
+  const enemyOrb = staffBattle.projectiles.find(p => p.owner === enemyStaff);
+  assert.ok(localOrb && enemyOrb);
+  assert.equal(localOrb.owner.pid, localStaff.player.id);
+  assert.equal(enemyOrb.owner.pid, enemyStaff.player.id);
+  assert.notEqual(localOrb.owner.pid, enemyOrb.owner.pid);
+
+  const mineBattle = makeBattle({ weaponId: 'mine' }, { weaponId: 'mine' });
+  const [localMiner, enemyMiner] = mineBattle.fighters;
+  for (const fighter of mineBattle.fighters) {
+    computeStats(fighter);
+    fighter.cd.mine = 0;
+    updateWeapon(mineBattle, fighter, 1 / 60);
+  }
+  const localMine = mineBattle.mines.find(m => m.owner === localMiner);
+  const enemyMine = mineBattle.mines.find(m => m.owner === enemyMiner);
+  assert.ok(localMine && enemyMine);
+  assert.equal(localMine.owner.pid, localMiner.player.id);
+  assert.equal(enemyMine.owner.pid, enemyMiner.player.id);
+  assert.notEqual(localMine.owner.pid, enemyMine.owner.pid);
+});
+
+test('같은 공격자의 겹친 화염은 대상당 한 틱에 한 번만 피해를 준다', () => {
+  const players = [
+    makePlayer({ isAI: true, augments: ['flame'] }),
+    makePlayer({ isAI: true, augments: ['flame'], color: '#6bd968' }),
+    makePlayer({ isAI: true, color: '#ff6b6b' }),
+  ];
+  const b = new Battle('square', players);
+  b.phase = 'fight'; b.simT = 0;
+  const [a, c, target] = b.fighters;
+  for (const f of b.fighters) computeStats(f);
+  a.x = c.x = 250; a.y = c.y = 250;
+  target.x = target.y = 0;
+
+  b.flameTick = 0;
+  b.flames = [
+    { owner: a, x: 0, y: 0, r: 16, life: 3, dps: 1 },
+    { owner: a, x: 0, y: 0, r: 16, life: 3, dps: 1 },
+  ];
+  const beforeOneOwner = target.hp;
+  b.updateGroundFx(0.01);
+  assert.ok(Math.abs(beforeOneOwner - target.hp - 1 * 0.25) < 1e-9,
+    '같은 소유자의 화염 두 개가 겹쳐도 기본 한 틱 피해만 적용해야 한다');
+
+  target.hp = target.maxHp;
+  b.flameTick = 0;
+  b.flames = [
+    { owner: a, x: 0, y: 0, r: 16, life: 3, dps: 1 },
+    { owner: c, x: 0, y: 0, r: 16, life: 3, dps: 1 },
+  ];
+  const beforeTwoOwners = target.hp;
+  b.updateGroundFx(0.01);
+  assert.ok(Math.abs(beforeTwoOwners - target.hp - 2 * 1 * 0.25) < 1e-9,
+    '서로 다른 공격자의 화염은 각각 피해를 줘야 한다');
+});
+
+test('이벤트 전투 옵션은 원형 경기장에 보급·기둥과 피해 배율을 적용한다', () => {
+  const b = new Battle('circle', [
+    makePlayer({ eventDamageMult: 1.3, damageRewardMult: 1.2 }),
+    makePlayer({ isAI: true }),
+  ], { eventFfa: true, powerSupply: true, twoPillars: true });
+
+  assert.equal(b.eventFfa, true);
+  assert.equal(b.eventPowerSupply, true);
+  assert.equal(b.eventTwoPillars, true);
+  assert.ok(b.arena.cube);
+  assert.equal(b.arena.cube.respT, 2.5);
+  assert.equal(b.arena.pillars.length, 2);
+  assert.ok(Math.abs(b.fighters[0].perm.dmg - 1.56) < 1e-9);
+
+  const pillar = b.arena.pillars[0];
+  const body = {
+    kind: 'main', radius: 10,
+    x: pillar.x - pillar.r - 9, y: pillar.y,
+    vx: 1, vy: 0,
+  };
+  assert.equal(b.arena.collideBody(body), 1);
+  assert.ok(body.vx < 0);
+
+  const projectile = {
+    r: 3,
+    x: pillar.x - pillar.r - 2, y: pillar.y,
+    vx: 1, vy: 0, ang: 0,
+  };
+  assert.equal(b.arena.reflectProj(projectile), true);
+  assert.ok(projectile.vx < 0);
+
+  const piercingProjectile = {
+    r: 3,
+    x: pillar.x - pillar.r - 2, y: pillar.y,
+    vx: 1, vy: 0, ang: 0,
+    pierceObstacles: true,
+  };
+  assert.equal(b.arena.reflectProj(piercingProjectile), false);
+  assert.equal(piercingProjectile.vx, 1);
+});
+
+test('105개 증강 각각이 실제 전투에서 런타임 오류 없이 동작한다', () => {
+  for (const a of AUGMENTS) {
+    const weaponId = a.weapon || 'sword';
+    const copiedSkill = a.cat === 'copy' ? a.charId : null;
+    const b = makeBattle({ weaponId, augments: [a.id], copiedSkill, isAI: true }, { weaponId: 'bow', isAI: true });
+    for (let i = 0; i < 60 * 30 && !b.finished; i++) b.update(1 / 60);
+    assert.ok(b.result, a.id + ' 전투가 종료되어야 한다');
+  }
+});
+
+test('무기 6×6 조합 전투가 멈추지 않고 피해와 정상 종료를 만든다', () => {
+  const weapons = Object.keys(WEAPONS);
+  const chars = Object.keys(CHARACTERS);
+  let damaged = 0, knockouts = 0, timeouts = 0;
+  for (let i = 0; i < weapons.length; i++) {
+    for (let j = 0; j < weapons.length; j++) {
+      const b = makeBattle(
+        { charId: chars[i % chars.length], weaponId: weapons[i], isAI: true },
+        { charId: chars[j % chars.length], weaponId: weapons[j], isAI: true },
+      );
+      for (let step = 0; step < 60 * 30 && !b.result; step++) b.update(1 / 60);
+      assert.ok(b.result, weapons[i] + ' vs ' + weapons[j]);
+      if (b.fighters.some(f => f.hp < f.maxHp || f.dead || f.mainDead)) damaged++;
+      if (b.fighters.some(f => f.dead)) knockouts++;
+      if (b.result.reason === '체력 비율 판정') timeouts++;
+    }
+  }
+  console.log('  전투 지표: 피해 발생 ' + damaged + '/36 · KO ' + knockouts + '/36 · 체력 판정 ' + timeouts + '/36');
+  assert.ok(damaged >= 32, '대부분의 무기 조합에서 실제 피해가 발생해야 한다');
+  assert.ok(knockouts >= 1, '적어도 일부 전투는 HP 0 KO로 종료되어야 한다');
+});
+
+console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
+`,
+].join('\n');
+
+let playerId = 0;
+const context = vm.createContext({ console, __assert: assert, __playerId: playerId });
+vm.runInContext(source, context, { filename: 'bounce-royal-sim.test.bundle.js' });
