@@ -266,6 +266,8 @@ function setAugmentRefresh(count, onRefresh) {
 let eventVoteView = { offers: [], players: [], keys: [], votes: new Map(), locked: false, selectedKey: null, onVote: null };
 let eventVoteRevealSession = 0;
 const eventVoteRevealTimers = new Set();
+// 당첨자를 공개한 뒤 증강 선택으로 자동 전환하기까지의 대기 시간
+const EVENT_RESULT_HOLD_MS = 1000;
 
 function cancelEventVoteReveal() {
   eventVoteRevealSession++;
@@ -568,29 +570,12 @@ function showEventVoteResult(result = {}, onContinue) {
   if ($('event-winning-desc')) $('event-winning-desc').textContent = winningEvent ? winningCopy.desc : '최종 이벤트 정보를 확인할 수 없습니다.';
   const winnerName = playerSource(winnerPlayer).name || '당첨자';
   const status = $('event-status');
-  if (status) {
-    status.textContent = '투표 마감 · 당첨자를 추첨합니다…';
-    status.classList.add('locked');
-  }
+  if (status) status.classList.add('locked');
+  // 룰렛 연출과 별도 결과 패널 없이, 당첨자를 곧바로 비추고
+  // EVENT_RESULT_HOLD_MS 뒤에 증강 선택으로 자동 전환한다.
   $('event-result')?.classList.add('hidden');
-
   const continueButton = $('btn-event-continue');
-  if (continueButton) {
-    let continued = false;
-    continueButton.disabled = true;
-    continueButton.onclick = null;
-    continueButton.dataset.pendingContinue = 'true';
-    const enableContinue = () => {
-      delete continueButton.dataset.pendingContinue;
-      continueButton.disabled = typeof onContinue !== 'function';
-      continueButton.onclick = continueButton.disabled ? null : () => {
-      if (continued) return;
-      continued = true; continueButton.disabled = true; playUI();
-      onContinue(winningEvent, winnerPlayer);
-      };
-    };
-    continueButton._enableAfterEventReveal = enableContinue;
-  }
+  if (continueButton) { continueButton.disabled = true; continueButton.onclick = null; }
 
   const portraitOrder = players.map((rawPlayer, index) => {
     const key = eventPlayerKey(rawPlayer, index);
@@ -599,40 +584,26 @@ function showEventVoteResult(result = {}, onContinue) {
   let winnerIndex = players.findIndex((rawPlayer, index) => eventPlayerKey(rawPlayer, index) === winnerKey);
   if (winnerIndex < 0) winnerIndex = Number.isInteger(result.winnerIndex) ? result.winnerIndex : 0;
   const finalPortrait = portraitOrder[winnerIndex] || portraitOrder[0] || null;
+  let continued = false;
   const revealFinal = () => {
     if (revealSession !== eventVoteRevealSession) return;
     portraitOrder.forEach(el => el.classList.remove('spotlight'));
     finalPortrait?.classList.add('winner');
     document.querySelectorAll('#event-cards .event-card').forEach(card => card.classList.toggle('winning', card.dataset.eventId === winningKey));
     if (status) status.textContent = `${winnerName}님의 표가 당첨되어 최종 이벤트가 결정되었습니다.`;
-    const resultPanel = $('event-result');
-    resultPanel?.classList.remove('hidden');
-    requestAnimationFrame(() => resultPanel?.scrollIntoView({ behavior:'smooth', block:'nearest' }));
     if (typeof SFX !== 'undefined' && SFX && typeof SFX.tone === 'function') {
       SFX.tone(1040, .16, 'triangle', .13, 260); SFX.tone(1320, .13, 'triangle', .1, 0, .11);
     }
     const vibrationEnabled = typeof Profile === 'undefined' || Profile.data?.vibration !== false;
     if (vibrationEnabled && navigator.vibrate) navigator.vibrate([35, 45, 70]);
-    continueButton?._enableAfterEventReveal?.();
+    if (typeof onContinue !== 'function') return;
+    eventVoteTimer(() => {
+      if (continued) return;
+      continued = true;
+      onContinue(winningEvent, winnerPlayer);
+    }, EVENT_RESULT_HOLD_MS, revealSession);
   };
-
-  if (!portraitOrder.length) revealFinal();
-  else {
-    const baseSteps = 16;
-    const correction = (winnerIndex - ((baseSteps - 1) % portraitOrder.length) + portraitOrder.length) % portraitOrder.length;
-    const totalSteps = baseSteps + correction;
-    let step = 0;
-    const tick = () => {
-      portraitOrder.forEach(el => el.classList.remove('spotlight'));
-      portraitOrder[step % portraitOrder.length]?.classList.add('spotlight');
-      if (typeof SFX !== 'undefined' && SFX && typeof SFX.tone === 'function') SFX.tone(680, .055, 'triangle', .075);
-      step++;
-      if (step >= totalSteps) { eventVoteTimer(revealFinal, 460, revealSession); return; }
-      const progress = step / Math.max(1, totalSteps - 1);
-      eventVoteTimer(tick, 75 + Math.round(Math.pow(progress, 2.35) * 330), revealSession);
-    };
-    eventVoteTimer(tick, 260, revealSession);
-  }
+  revealFinal();
   return { event: winningEvent, winnerPlayer, votes, revealSession };
 }
 
