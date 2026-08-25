@@ -707,7 +707,7 @@ test('105개 증강 각각이 실제 전투에서 런타임 오류 없이 동작
     const weaponId = a.weapon || 'sword';
     const copiedSkill = a.cat === 'copy' ? a.charId : null;
     const b = makeBattle({ weaponId, augments: [a.id], copiedSkill, isAI: true }, { weaponId: 'bow', isAI: true });
-    for (let i = 0; i < 60 * 30 && !b.finished; i++) b.update(1 / 60);
+    for (let i = 0; i < 60 * (BATTLE_TIME + OVERTIME + 10) && !b.finished; i++) b.update(1 / 60);
     assert.ok(b.result, a.id + ' 전투가 종료되어야 한다');
   }
 });
@@ -722,7 +722,7 @@ test('무기 6×6 조합 전투가 멈추지 않고 피해와 정상 종료를 �
         { charId: chars[i % chars.length], weaponId: weapons[i], isAI: true },
         { charId: chars[j % chars.length], weaponId: weapons[j], isAI: true },
       );
-      for (let step = 0; step < 60 * 30 && !b.result; step++) b.update(1 / 60);
+      for (let step = 0; step < 60 * (BATTLE_TIME + OVERTIME + 10) && !b.result; step++) b.update(1 / 60);
       assert.ok(b.result, weapons[i] + ' vs ' + weapons[j]);
       if (b.fighters.some(f => f.hp < f.maxHp || f.dead || f.mainDead)) damaged++;
       if (b.fighters.some(f => f.dead)) knockouts++;
@@ -756,6 +756,35 @@ test('조준 예측선은 이벤트로 생긴 기둥을 실제 반사와 동일�
   assert.ok(bounced, '실제 몸통도 기둥에 반사되어야 한다');
   assert.ok(Math.hypot(body.x - hit.x, body.y - hit.y) < 2, '예측 지점과 실제 반사 지점이 일치해야 한다');
   assert.ok(Math.hypot(body.vx - rx, body.vy - ry) < 1e-6, '예측 반사 방향이 실제와 일치해야 한다');
+});
+
+test('본전투 30초 뒤 연장전 10초는 1배속에서 5초에 걸쳐 2배속까지 가속한다', () => {
+  assert.equal(BATTLE_TIME, 30, '본전투는 30초여야 한다');
+  assert.equal(OVERTIME, 10, '연장전은 10초여야 한다');
+  const b = makeBattle({ isAI: true }, { isAI: true });
+  // 판정 전에 KO로 끝나지 않도록 체력만 크게 잡는다
+  for (const f of b.fighters) { f.maxHp = 1e9; f.hp = 1e9; }
+  const RDT = 1 / 60;
+  const samples = new Map();
+  let mainTicks = 0, otTicks = 0;
+  for (let i = 0; i < 60 * 120 && !b.result; i++) {
+    const phase = b.phase, wasOvertime = b.overtime;
+    b.update(RDT);
+    if (phase === 'fight') { if (wasOvertime) otTicks++; else mainTicks++; }
+    if (b.overtime) {
+      const elapsed = OVERTIME - b.otT;
+      for (const mark of [0, 2.5, 5, 7.5]) {
+        if (!samples.has(mark) && elapsed >= mark) samples.set(mark, b.timeScale);
+      }
+    }
+  }
+  assert.ok(b.result, '연장전이 끝나면 체력 비율 판정으로 종료되어야 한다');
+  assert.ok(Math.abs(mainTicks * RDT - BATTLE_TIME) < 0.1, '본전투는 실시간 30초여야 한다');
+  assert.ok(Math.abs(otTicks * RDT - OVERTIME) < 0.1, '연장전은 실시간 10초여야 한다');
+  assert.ok(Math.abs(samples.get(0) - 1) < 0.02, '연장 진입 순간에는 아직 1배속이어야 한다');
+  assert.ok(Math.abs(samples.get(2.5) - 1.5) < 0.02, '절반 지점에서는 1.5배속이어야 한다');
+  assert.equal(samples.get(5), 2, '5초째에 정확히 2배속에 도달해야 한다');
+  assert.equal(samples.get(7.5), 2, '5초 이후로는 2배속을 유지해야 한다');
 });
 
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');

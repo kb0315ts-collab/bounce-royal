@@ -423,7 +423,7 @@ function boltFx(b, x1, y1, x2, y2) {
 /* ============================================================
  * 전투
  * ============================================================ */
-const BATTLE_TIME = 20, OVERTIME = 5;
+const BATTLE_TIME = 30, OVERTIME = 10, OVERTIME_RAMP = 5;
 
 class Battle {
   constructor(mapId, players, opts = {}) {
@@ -603,11 +603,14 @@ class Battle {
       const dt = rdt * this.timeScale;
       this.simT += dt;
       if (!this.overtime && this.simT >= BATTLE_TIME) {
-        this.overtime = true; this.otT = OVERTIME; this.timeScale = 2;
+        this.overtime = true; this.otT = OVERTIME; this.timeScale = 1;
         for (const f of this.fighters) if (f.flags.marathoner && this.fighterAlive(f)) healFighter(this, f, (f.maxHp - f.hp) * 0.5);
       } else if (this.overtime) {
         this.otT -= rdt;
         if (this.otT <= 0) { this.timeoutResolve(); return; }
+        // 연장전은 1배속에서 시작해 OVERTIME_RAMP초에 걸쳐 2배속까지 서서히 오르고,
+        // 그 이후 남은 시간은 2배속을 유지한다.
+        this.timeScale = 1 + Math.min(1, (OVERTIME - this.otT) / OVERTIME_RAMP);
       }
       this.step(dt);
     } else if (this.phase === 'ending') {

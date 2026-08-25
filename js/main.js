@@ -653,7 +653,7 @@ const Game = {
           if (fb.phase === 'fight') { banner('FIGHT!', '', 650); SFX.shoot(); }
           fb._lastPhase = fb.phase;
         }
-        if (fb.overtime && !fb._otShown) { fb._otShown = true; banner('연장전!', '전투 속도 2배', 900); }
+        if (fb.overtime && !fb._otShown) { fb._otShown = true; banner('연장전!', '5초에 걸쳐 2배속까지 가속', 900); }
         if (fb.result && !fb._endShown) {
           fb._endShown = true;
           const h = fb.human();
@@ -891,7 +891,7 @@ const Game = {
       const { battles } = makeBattlesFor(this);
       for (const b of battles) {
         let steps = 0;
-        while (!b.result && steps++ < 60 * 50) b.update(1 / 60);
+        while (!b.result && steps++ < 60 * (BATTLE_TIME + OVERTIME + 10)) b.update(1 / 60);
         if (!b.result) b.finish(b.fighters[0], '강제 종료');
       }
       applyResultsFor(this, battles);
@@ -1407,7 +1407,7 @@ window.__autotest = function (n = 10) {
         for (const b of battles) {
           b.update(0.016); // aim/count 진행용
           let steps = 0;
-          while (!b.result && steps++ < 60 * 50) b.update(1 / 60);
+          while (!b.result && steps++ < 60 * (BATTLE_TIME + OVERTIME + 10)) b.update(1 / 60);
           if (!b.result) b.finish(b.fighters[0], '강제 종료');
           if (b.result.reason === '체력 비율 판정') timeouts++;
           if (b.result.draw) draws++;
