@@ -73,7 +73,16 @@ function drawArena(b) {
     ctx.beginPath(); ctx.moveTo(i, -360); ctx.lineTo(i, 360); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-360, i); ctx.lineTo(360, i); ctx.stroke();
   }
-  if (A.type === 'circle') {
+  if (A.type === 'diamond') {
+    const L = A.L;
+    ctx.beginPath();
+    ctx.moveTo(0, -L); ctx.lineTo(L, 0); ctx.lineTo(0, L); ctx.lineTo(-L, 0); ctx.closePath();
+    ctx.fillStyle = 'rgba(16,24,48,.55)'; ctx.fill();
+    ctx.lineWidth = 7; ctx.strokeStyle = '#2c3d6e'; ctx.stroke();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(120,160,255,.55)';
+    ctx.shadowColor = 'rgba(100,140,255,.5)'; ctx.shadowBlur = 18;
+    ctx.stroke(); ctx.shadowBlur = 0;
+  } else if (A.type === 'circle') {
     ctx.beginPath(); ctx.arc(0, 0, A.R, 0, TAU);
     ctx.fillStyle = 'rgba(16,24,48,.55)'; ctx.fill();
     ctx.lineWidth = 7; ctx.strokeStyle = '#2c3d6e'; ctx.stroke();

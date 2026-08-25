@@ -104,7 +104,7 @@ function aliveOf(state) { return state.players.filter(p => !p.eliminated && p.co
 
 // 현재 라이브 매치에서는 원형 경기장만 사용한다. 다른 경기장 정의와
 // 시뮬레이션 코드는 이후 재사용할 수 있도록 data.js/sim.js에 보존한다.
-const ACTIVE_MAP_IDS = ['circle'];
+const ACTIVE_MAP_IDS = ['diamond'];
 
 /* 전투가 모두 끝난 뒤의 진행 타이밍. 라운드 결과 화면은 표시하지 않고,
  * ROUND_RESOLVE_MS에 결과를 반영해 HUD를 갱신한 다음

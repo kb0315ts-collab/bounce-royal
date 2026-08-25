@@ -862,6 +862,65 @@ test('회전이 멈춘 멀미 치료 상태에서도 근접 무기는 상시 타
   assert.equal(r.hits, 1, '회전이 0이면 접촉이 계속 유지되므로 1회만 맞아야 한다 (실제 ' + r.hits + '회)');
 });
 
+test('다이아 경기장은 조준 예측선과 실제 반사가 정확히 일치한다', () => {
+  const arena = new Arena('diamond');
+  const radius = 22;
+  let worst = 0, checked = 0;
+  for (let k = 0; k < 720; k++) {
+    const ang = k * Math.PI * 2 / 720, dx = Math.cos(ang), dy = Math.sin(ang);
+    const hit = arena.castRay(-120, 60, dx, dy, radius);
+    assert.ok(hit, '경기장 안에서는 항상 벽을 만나야 한다');
+    // 네 변의 법선은 (±1,±1)/√2 상수여야 한다
+    assert.ok(Math.abs(Math.abs(hit.nx) - Math.SQRT1_2) < 1e-12, '법선 x성분이 축 고정이어야 한다');
+    assert.ok(Math.abs(Math.abs(hit.ny) - Math.SQRT1_2) < 1e-12, '법선 y성분이 축 고정이어야 한다');
+    const dot = dx * hit.nx + dy * hit.ny;
+    const predicted = Math.atan2(dy - 2 * dot * hit.ny, dx - 2 * dot * hit.nx);
+    const body = { kind:'main', x:-120, y:60, vx:dx, vy:dy, radius };
+    let actual = null;
+    for (let step = 0; step < 4000; step++) {
+      body.x += body.vx * 160 / 60; body.y += body.vy * 160 / 60;
+      if (arena.collideBody(body) > 0) { actual = Math.atan2(body.vy, body.vx); break; }
+    }
+    assert.ok(actual !== null, '실제 몸통도 벽에 반사되어야 한다');
+    let diff = actual - predicted;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    worst = Math.max(worst, Math.abs(diff));
+    checked++;
+  }
+  assert.equal(checked, 720);
+  assert.ok(worst < 1e-9, '마름모는 법선이 상수라 오차가 없어야 한다 (실제 ' + worst + ')');
+});
+
+test('다이아 경기장은 어떤 궤도에서도 공을 밖으로 새게 하지 않는다', () => {
+  const arena = new Arena('diamond');
+  const radius = 22;
+  const limit = arena.L - radius * Math.SQRT2;
+  let worstSum = 0;
+  for (let k = 0; k < 120; k++) {
+    const ang = k * Math.PI * 2 / 120;
+    const body = { kind:'main', x:0, y:0, vx:Math.cos(ang), vy:Math.sin(ang), radius };
+    for (let step = 0; step < 60 * 30; step++) {
+      body.x += body.vx * 300 / 60; body.y += body.vy * 300 / 60;
+      arena.collideBody(body);
+      worstSum = Math.max(worstSum, Math.abs(body.x) + Math.abs(body.y));
+    }
+  }
+  // 한 스텝(5유닛) 만큼의 파고듦은 다음 틱에 되돌려지므로 꼭짓점을 넘지 않으면 된다
+  assert.ok(worstSum < arena.L, '공 중심이 꼭짓점 밖으로 나가면 안 된다 (최대 ' + worstSum.toFixed(1) + ')');
+  assert.ok(worstSum < limit + 10, '한 스텝 이상 파고들면 안 된다');
+});
+
+test('4인 난투 스폰 위치가 다이아 경기장 안에 들어간다', () => {
+  const players = [1, 2, 3, 4].map(id => makePlayer({ id, isAI:true }));
+  const b = new Battle('diamond', players);
+  const limit = b.arena.L - 22 * Math.SQRT2;
+  for (const f of b.fighters) {
+    assert.ok(Math.abs(f.x) + Math.abs(f.y) <= limit,
+      '스폰 (' + f.x + ',' + f.y + ')이 경기장 밖이면 안 된다');
+  }
+});
+
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
 `,
 ].join('\n');

@@ -35,6 +35,7 @@ class Arena {
     this.type = type;
     this.R = 378;          // 원형 반지름
     this.H = 350;          // 사각형 절반 폭
+    this.L = 405;          // 마름모 중심에서 꼭짓점까지 (|x|+|y| <= L)
     this.pillars = [];     // 장애물 {x,y,r}
     if (type === 'obstacle') {
       this.H = 335;
@@ -50,7 +51,19 @@ class Arena {
   collideBody(b) {
     let n = 0;
     const br = bodyRadius(b);
-    if (this.type === 'circle') {
+    if (this.type === 'diamond') {
+      // 네 변의 법선은 (±1,±1)/√2 상수다. 중심에서 변까지의 거리는 (|x|+|y|)/√2.
+      const lim = this.L - br * Math.SQRT2;
+      const sum = Math.abs(b.x) + Math.abs(b.y);
+      if (sum > lim) {
+        const sx = b.x >= 0 ? 1 : -1, sy = b.y >= 0 ? 1 : -1;
+        const nx = sx * Math.SQRT1_2, ny = sy * Math.SQRT1_2;
+        const dot = b.vx * nx + b.vy * ny;
+        if (dot > 0) { b.vx -= 2 * dot * nx; b.vy -= 2 * dot * ny; n++; }
+        const push = (sum - lim) * 0.5;
+        b.x -= sx * push; b.y -= sy * push;
+      }
+    } else if (this.type === 'circle') {
       const d = Math.hypot(b.x, b.y), lim = this.R - br;
       if (d > lim) {
         const nx = b.x / (d || 1), ny = b.y / (d || 1);
@@ -80,7 +93,19 @@ class Arena {
   /* 투사체용: 벽에 닿으면 반사(단위벡터 갱신). hit 여부 반환 */
   reflectProj(p) {
     let hit = false;
-    if (this.type === 'circle') {
+    if (this.type === 'diamond') {
+      const lim = this.L - p.r * Math.SQRT2;
+      const sum = Math.abs(p.x) + Math.abs(p.y);
+      if (sum > lim) {
+        const sx = p.x >= 0 ? 1 : -1, sy = p.y >= 0 ? 1 : -1;
+        const nx = sx * Math.SQRT1_2, ny = sy * Math.SQRT1_2;
+        const dot = p.vx * nx + p.vy * ny;
+        if (dot > 0) { p.vx -= 2 * dot * nx; p.vy -= 2 * dot * ny; }
+        const push = (sum - lim) * 0.5;
+        p.x -= sx * push; p.y -= sy * push;
+        hit = true;
+      }
+    } else if (this.type === 'circle') {
       const d = Math.hypot(p.x, p.y), lim = this.R - p.r;
       if (d > lim) {
         const nx = p.x / (d || 1), ny = p.y / (d || 1);
@@ -112,7 +137,18 @@ class Arena {
   /* 조준 예측용 광선: 첫 벽 충돌 지점과 반사 방향 */
   castRay(x, y, dx, dy, r) {
     let best = null;
-    if (this.type === 'circle') {
+    if (this.type === 'diamond') {
+      // 볼록 도형이므로 진행 방향과 마주보는 변 중 가장 가까운 교차점이 첫 충돌이다.
+      const lim = this.L - r * Math.SQRT2;
+      for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const denom = sx * dx + sy * dy;
+        if (denom <= 0) continue;
+        const t = (lim - (sx * x + sy * y)) / denom;
+        if (t > 0 && (!best || t < best.t)) {
+          best = { t, x: x + dx * t, y: y + dy * t, nx: sx * Math.SQRT1_2, ny: sy * Math.SQRT1_2 };
+        }
+      }
+    } else if (this.type === 'circle') {
       const lim = this.R - r;
       const b = x * dx + y * dy, c = x * x + y * y - lim * lim;
       const disc = b * b - c;
@@ -469,7 +505,9 @@ class Battle {
       this.setPos(this.fighters[0], -185, 0, 0);
       this.setPos(this.fighters[1], 185, 0, Math.PI);
     } else {
-      const pos = [[-210, -210], [210, -210], [210, 210], [-210, 210]];
+      const pos = this.arena.type === 'diamond'
+        ? [[-150, -150], [150, -150], [150, 150], [-150, 150]]
+        : [[-210, -210], [210, -210], [210, 210], [-210, 210]];
       for (let i = 0; i < n; i++) {
         const [x, y] = pos[i % 4];
         this.setPos(this.fighters[i], x, y, Math.atan2(-y, -x));

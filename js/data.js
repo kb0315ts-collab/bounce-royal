@@ -41,6 +41,7 @@ const WEAPONS = {
 };
 
 const MAPS = {
+  diamond:{ name:'다이아 경기장', desc:'45도로 기울인 마름모. 반사가 정확하고 궤도가 경기장 전체를 고르게 훑는다' },
   circle: { name:'원형 경기장', desc:'벽 반사 각도가 계속 달라지는 클래식 서클배틀' },
   square: { name:'정사각형 경기장', desc:'예상하기 쉬운 직선 반사' },
   obstacle:{ name:'장애물 경기장', desc:'내부 기둥들이 복잡한 반사 경로를 만든다' },
