@@ -248,7 +248,7 @@ function buildFighter(player, battle) {
     },
     st: { atk: 1, dmg: 1, move: ch.move * wp.moveMult, rot: wp.rot, fr: 1, size: 1 },
     pinStacks: 0, warmStacks: 0, rotStacks: 0, hitChargeStacks: 0, collisionStacks: 0,
-    cd: {}, hitCds: new Map(), markHits: new Map(),
+    cd: {}, meleeContact: new Set(), markHits: new Map(),
     gun: null, charging: null, tracking: null, dash: null, dashHit: null, dashPrepDir: null,
     berserkPhase: 0, bleed: { n: 0, stacks: [] }, frost: { n: 0, t: 0 },
     bounceRun: 0, charged: false, counterReady: false, pushReady: false,
@@ -1243,12 +1243,11 @@ function updateCooldowns(b, f, dt) {
   f.collisionCd = Math.max(0, f.collisionCd - dt);
   f.flash = Math.max(0, f.flash - dt);
   f.gunFlash = Math.max(0, (f.gunFlash || 0) - dt);
-  for (const [k, v] of f.hitCds) { const nv = v - dt * f.st.fr; if (nv <= 0) f.hitCds.delete(k); else f.hitCds.set(k, nv); }
 }
 
 function updateWeapon(b, f, dt) {
-  if (f.mainDead || f.dead) return;
-  if (f.timers.stun > 0) return;
+  if (f.mainDead || f.dead) { f.meleeContact.clear(); return; }
+  if (f.timers.stun > 0) { f.meleeContact.clear(); return; }
   const wp = WEAPONS[f.weaponId];
   const fr = f.st.fr;
   // 회전
@@ -1274,6 +1273,7 @@ function updateWeapon(b, f, dt) {
   if (f.timers.weaponLock > 0 || f.charging) {
     // 무기 정지/충전 중에는 발사 없음 (회전만)
     if (f.timers.weaponLock <= 0 && wp.type === 'melee') meleeHits(b, f, dt);
+    else f.meleeContact.clear();
     return;
   }
   if (wp.type === 'melee') {
@@ -1283,6 +1283,7 @@ function updateWeapon(b, f, dt) {
     if (f.cd.fire <= 0) { f.cd.fire = wp.interval; fireBow(b, f); }
   } else if (f.weaponId === 'pistol') {
     const g = f.gun;
+    if (!(f.flags.bayonet && g.reloadT > 0)) f.meleeContact.clear();
     if (f.timers.gunBarrage > 0) {
       g.focus = true;
       g.reloadT = 0;
@@ -1294,7 +1295,7 @@ function updateWeapon(b, f, dt) {
     } else if (g.reloadT > 0) {
       g.reloadT -= dt * fr;
       if (g.reloadT <= 0) { g.burst = g.mag; g.shotT = 0.35; }
-      if (f.flags.bayonet) meleeHits(b, f, dt, { reach: 30, tip: 9, dmg: 15, hitCd: 0.2 });
+      if (f.flags.bayonet) meleeHits(b, f, dt, { reach: 30, tip: 9, dmg: 15 });
     } else if (g.shotT > 0) {
       g.shotT -= dt * fr;
       if (g.shotT <= 0) {
@@ -1325,27 +1326,34 @@ function updateWeapon(b, f, dt) {
   }
 }
 
+/* 근접 무기는 시간 쿨다운이 아니라 접촉 상태로 재타격을 막는다.
+ * 칼날 판정에 새로 들어온 순간에만 1회 피해를 주고, 칼날에서 완전히
+ * 벗어났다가 다시 닿아야 다음 타격이 나간다. 칼날마다 따로 추적하므로
+ * 쌍단검은 각 칼날이 독립적으로 한 번씩 맞힌다. */
 function meleeHits(b, f, dt, override) {
   const wp = WEAPONS[f.weaponId];
-  const def = override || { reach: wp.reach, tip: wp.tip, dmg: wp.dmg, hitCd: wp.hitCd };
+  const def = override || { reach: wp.reach, tip: wp.tip, dmg: wp.dmg };
   const ws = weaponScale(f);
   const angles = [f.weaponAngle];
   if (f.flags.dualDagger) angles.push(f.weaponAngle + Math.PI);
-  for (const ang of angles) {
+  const contact = new Set();
+  for (let blade = 0; blade < angles.length; blade++) {
+    const ang = angles[blade];
     const tipDist = f.radius + def.reach * ws;
     const ax = f.x + Math.cos(ang) * f.radius * 0.4, ay = f.y + Math.sin(ang) * f.radius * 0.4;
     const bx = f.x + Math.cos(ang) * tipDist, by = f.y + Math.sin(ang) * tipDist;
     const tipR = def.tip * ws;
     for (const e of b.enemiesOf(f)) {
       for (const body of b.bodiesOf(e)) {
-        if ((f.hitCds.get(body.uid) || 0) > 0) continue;
-        if (segDist(body.x, body.y, ax, ay, bx, by) < bodyRadius(body) + tipR) {
-          const dealt = weaponDamage(b, f, body, def.dmg);
-          if (dealt > 0) f.hitCds.set(body.uid, def.hitCd);
-        }
+        if (segDist(body.x, body.y, ax, ay, bx, by) >= bodyRadius(body) + tipR) continue;
+        const key = blade + ':' + body.uid;
+        if (f.meleeContact.has(key)) { contact.add(key); continue; }
+        // 무적 등으로 피해가 들어가지 않았다면 접촉으로 치지 않고 다음 프레임에 다시 시도한다
+        if (weaponDamage(b, f, body, def.dmg) > 0) contact.add(key);
       }
     }
   }
+  f.meleeContact = contact;
 }
 
 function fireBow(b, f) {

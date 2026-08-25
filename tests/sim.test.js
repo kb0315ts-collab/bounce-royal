@@ -47,12 +47,12 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
     bomb: [100, 160, 0.95], bball: [100, 165, 1], balloon: [100, 162, 1.12],
   });
   assert.deepEqual(
-    [WEAPONS.sword.dmg, WEAPONS.sword.hitCd, WEAPONS.sword.reach, WEAPONS.sword.rot],
-    [20, 0.2, 60, 3],
+    [WEAPONS.sword.dmg, WEAPONS.sword.reach, WEAPONS.sword.rot],
+    [20, 60, 3],
   );
   assert.deepEqual(
-    [WEAPONS.dagger.dmg, WEAPONS.dagger.hitCd, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
-    [15, 0.2, 30, 5],
+    [WEAPONS.dagger.dmg, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
+    [15, 30, 5],
   );
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval], [12, 1]);
   assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [6, 5, 0.12, 3]);
@@ -785,6 +785,81 @@ test('본전투 30초 뒤 연장전 10초는 1배속에서 5초에 걸쳐 2배�
   assert.ok(Math.abs(samples.get(2.5) - 1.5) < 0.02, '절반 지점에서는 1.5배속이어야 한다');
   assert.equal(samples.get(5), 2, '5초째에 정확히 2배속에 도달해야 한다');
   assert.equal(samples.get(7.5), 2, '5초 이후로는 2배속을 유지해야 한다');
+});
+
+// 표적을 칼날 앞에 고정한 채 공격자만 회전시켜 타격 횟수를 센다
+function meleeTrial(weaponId, dist, seconds, opts = {}) {
+  const b = makeBattle({ weaponId, augments: opts.augments || [] }, { isAI: true });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.weaponAngle = opts.startAngle === undefined ? -1.6 : opts.startAngle;
+  e.maxHp = 1e9; e.hp = 1e9;
+  let prev = e.hp, hits = 0, onBlade = 0, left = false;
+  for (let i = 0; i < 60 * seconds; i++) {
+    e.x = dist; e.y = 0;
+    computeStats(f);
+    if (opts.forcedFr !== undefined) f.st.fr = opts.forcedFr;
+    updateCooldowns(b, f, 1 / 60);
+    updateWeapon(b, f, 1 / 60);
+    if (f.meleeContact.size > 0) onBlade++; else if (onBlade) left = true;
+    if (e.hp < prev) { hits++; prev = e.hp; }
+    if (opts.singlePass && left) break;
+  }
+  return { hits, onBlade, left };
+}
+
+test('근접 무기는 칼날에 머무는 내내가 아니라 새로 닿는 순간에만 한 번 맞힌다', () => {
+  // 가까울수록 칼날 판정 안에 오래 머문다. 예전에는 그동안 2~3회 맞았다.
+  for (const dist of [44, 55, 70, 82]) {
+    const r = meleeTrial('sword', dist, 3, { singlePass: true });
+    assert.ok(r.onBlade > 12, dist + '유닛에서는 칼날 판정에 12틱 이상 머물러야 한다');
+    assert.equal(r.hits, 1, dist + '유닛에서 한 번 지나갈 때 정확히 1회만 맞아야 한다');
+  }
+  const dagger = meleeTrial('dagger', 44, 3, { singlePass: true });
+  assert.equal(dagger.hits, 1, '단검도 한 번 지나갈 때 1회만 맞아야 한다');
+});
+
+test('칼날에서 벗어났다 다시 닿으면 재타격된다', () => {
+  // 검은 3.0rad/s라 한 바퀴에 약 2.09초. 6초면 두세 바퀴를 돈다.
+  const r = meleeTrial('sword', 55, 6, { startAngle: 0 });
+  assert.ok(r.hits >= 2, '여러 바퀴를 돌면 그 횟수만큼 다시 맞아야 한다 (실제 ' + r.hits + '회)');
+  assert.ok(r.hits <= 4, '한 바퀴에 한 번을 넘게 맞으면 안 된다 (실제 ' + r.hits + '회)');
+});
+
+test('검과 단검은 공격속도의 영향을 받지 않고, 원거리·지뢰만 영향을 받는다', () => {
+  for (const weaponId of ['sword', 'dagger']) {
+    const slow = meleeTrial(weaponId, 55, 6, { forcedFr: 0.35 }).hits;
+    const base = meleeTrial(weaponId, 55, 6, { forcedFr: 1 }).hits;
+    const fast = meleeTrial(weaponId, 55, 6, { forcedFr: 3 }).hits;
+    assert.equal(slow, base, weaponId + '은 공격속도가 느려도 타격 수가 같아야 한다');
+    assert.equal(fast, base, weaponId + '은 공격속도가 빨라도 타격 수가 같아야 한다');
+  }
+  // 원거리·지뢰는 여전히 공격속도에 비례해야 한다
+  for (const weaponId of ['bow', 'pistol', 'staff', 'mine']) {
+    const count = fr => {
+      const b = makeBattle({ weaponId }, { isAI: true });
+      const f = b.fighters[0];
+      let fired = 0;
+      for (let i = 0; i < 60 * 6; i++) {
+        computeStats(f); f.st.fr = fr;
+        updateCooldowns(b, f, 1 / 60); updateWeapon(b, f, 1 / 60);
+        fired = Math.max(fired, b.projectiles.length + b.mines.length);
+      }
+      return fired;
+    };
+    assert.ok(count(3) > count(0.35), weaponId + '은 공격속도가 빠를수록 더 많이 나가야 한다');
+  }
+});
+
+test('쌍단검은 두 칼날이 각각 독립적으로 한 번씩 맞힌다', () => {
+  const single = meleeTrial('dagger', 55, 6, { startAngle: 0 }).hits;
+  const dual = meleeTrial('dagger', 55, 6, { startAngle: 0, augments: ['d_dual'] }).hits;
+  assert.equal(dual, single * 2, '칼날이 둘이면 정확히 두 배로 맞아야 한다 (단일 ' + single + ' / 쌍 ' + dual + ')');
+});
+
+test('회전이 멈춘 멀미 치료 상태에서도 근접 무기는 상시 타격이 되지 않는다', () => {
+  const r = meleeTrial('sword', 55, 5, { augments: ['motionSickness'], startAngle: 0 });
+  assert.equal(r.hits, 1, '회전이 0이면 접촉이 계속 유지되므로 1회만 맞아야 한다 (실제 ' + r.hits + '회)');
 });
 
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
