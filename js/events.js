@@ -7,7 +7,8 @@ const GAME_EVENTS = Object.freeze([
   Object.freeze({ id:'nextFfa', ico:'⚔️', name:'전원 집결', desc:'다음 한 라운드는 4인 난투. 1등 코인 +1, 2등 변화 없음, 3·4등 코인 -1. 탈락자가 있으면 남은 전원이 참가합니다.' }),
   Object.freeze({ id:'powerSupply', ico:'🎁', name:'중앙 보급', desc:'앞으로 경기장 중앙에 일시적인 파워를 얻는 보급이 등장합니다.' }),
   Object.freeze({ id:'twoPillars', ico:'🗿', name:'쌍둥이 기둥', desc:'앞으로 경기장에 충돌과 투사체를 막는 장애물 기둥 2개가 생성됩니다.' }),
-  Object.freeze({ id:'doubleAugments', ico:'✦', name:'두 배의 선택', desc:'앞으로 라운드마다 증강을 2개씩 선택합니다. 코인이 5개 미만인 모두가 코인 1개를 얻습니다.' }),
+  Object.freeze({ id:'doubleAugments', ico:'✦', name:'두 배의 선택', desc:'앞으로 라운드마다 증강을 2개씩 선택합니다.' }),
+  Object.freeze({ id:'coinRelief', ico:'🪙', name:'구호 자금', desc:'코인이 5개 미만인 생존자 모두가 코인 1개를 얻습니다.' }),
   Object.freeze({ id:'refreshTen', ico:'↻', name:'새로운 가능성', desc:'추가 새로고침을 10개 얻습니다.' }),
   Object.freeze({ id:'reverseCoins', ico:'🔄', name:'승자의 보상', desc:'다음 한 라운드에는 패배해도 코인을 잃지 않고, 승리하면 코인 1개를 얻습니다.' }),
   Object.freeze({ id:'lossAugment', ico:'🩹', name:'패배의 교훈', desc:'앞으로 패배할 때마다 그 라운드의 증강을 하나 더 선택합니다.' }),
@@ -67,6 +68,8 @@ function applyGameEvent(game, eventOrId) {
       break;
     case 'doubleAugments':
       game.eventDoubleAugments = true;
+      break;
+    case 'coinRelief':
       for (const player of game.players) if (!player.eliminated) player.coins = Math.min(5, player.coins + 1);
       break;
     case 'refreshTen':

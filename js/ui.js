@@ -469,7 +469,7 @@ function showEventVote(offers, players, onVote) {
   renderEventVoteCards();
 
   const sub = $('event-sub'), status = $('event-status'), result = $('event-result');
-  if (sub) sub.textContent = '9개 중 무작위로 정해진 세 이벤트입니다. 이번 게임에 적용할 하나를 선택하세요.';
+  if (sub) sub.textContent = '10개 중 무작위로 정해진 세 이벤트입니다. 이번 게임에 적용할 하나를 선택하세요.';
   if (status) {
     status.textContent = '네 명이 각각 한 표를 행사합니다. 새로고침은 없습니다.';
     status.classList.remove('locked');

@@ -59,13 +59,13 @@ function makeGame(overrides = {}) {
   }, overrides);
 }
 
-test('게임 이벤트는 정확히 9종이며 ID가 모두 고유하다', () => {
+test('게임 이벤트는 정확히 10종이며 ID가 모두 고유하다', () => {
   const ids = Array.from(GAME_EVENTS, event => event.id);
-  assert.equal(ids.length, 9);
-  assert.equal(new Set(ids).size, 9);
+  assert.equal(ids.length, 10);
+  assert.equal(new Set(ids).size, 10);
   assert.deepEqual(ids, [
-    'nextFfa', 'powerSupply', 'twoPillars', 'doubleAugments', 'refreshTen',
-    'reverseCoins', 'lossAugment', 'globalDamage30', 'noChange',
+    'nextFfa', 'powerSupply', 'twoPillars', 'doubleAugments', 'coinRelief',
+    'refreshTen', 'reverseCoins', 'lossAugment', 'globalDamage30', 'noChange',
   ]);
   for (const id of ids) assert.equal(GAME_EVENT_BY_ID[id].id, id);
 });
@@ -96,12 +96,20 @@ test('투표 결과는 다수결이 아니라 무작위로 뽑힌 4명 중 한 �
   assert.equal(result.eventId, 'noChange', '다른 세 명의 다수표가 결과를 덮어쓰면 안 된다');
 });
 
-test('두 배의 선택은 생존자 중 코인 5개 미만에게만 코인 1개를 준다', () => {
+test('두 배의 선택은 코인을 건드리지 않고 증강만 2개씩 뽑게 한다', () => {
   const game = makeGame();
   applyGameEvent(game, 'doubleAugments');
   assert.equal(game.eventDoubleAugments, true);
-  assert.deepEqual(game.players.map(player => player.coins), [1, 5, 5, 2]);
+  assert.deepEqual(game.players.map(player => player.coins), [0, 4, 5, 2], '코인은 그대로여야 한다');
   assert.equal(eventAugmentPickCount(game, game.players[0]), 2);
+});
+
+test('구호 자금은 생존자 중 코인 5개 미만에게만 코인 1개를 주고 증강 수는 그대로 둔다', () => {
+  const game = makeGame();
+  applyGameEvent(game, 'coinRelief');
+  assert.deepEqual(game.players.map(player => player.coins), [1, 5, 5, 2], '5개인 생존자와 탈락자는 제외');
+  assert.equal(game.eventDoubleAugments, false, '증강 2개 선택은 켜지지 않아야 한다');
+  assert.equal(eventAugmentPickCount(game, game.players[0]), 1);
 });
 
 test('새로운 가능성은 현재 새로고침에 정확히 10개를 더한다', () => {
