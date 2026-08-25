@@ -106,6 +106,12 @@ function aliveOf(state) { return state.players.filter(p => !p.eliminated && p.co
 // 시뮬레이션 코드는 이후 재사용할 수 있도록 data.js/sim.js에 보존한다.
 const ACTIVE_MAP_IDS = ['circle'];
 
+/* 전투가 모두 끝난 뒤의 진행 타이밍. 라운드 결과 화면은 표시하지 않고,
+ * ROUND_RESOLVE_MS에 결과를 반영해 HUD를 갱신한 다음
+ * 전투 종료로부터 ROUND_ADVANCE_MS가 지나면 다음 단계로 자동 전환한다. */
+const ROUND_RESOLVE_MS = 700;
+const ROUND_ADVANCE_MS = 1000;
+
 function makeBattlesFor(state) {
   const alive = aliveOf(state);
   const mapId = pick(ACTIVE_MAP_IDS);
@@ -500,6 +506,7 @@ const Game = {
   matchMode: null, refreshes: 0, room: null, ratingAwarded: false,
   rankedSearchTimer: null, otherBattleOffered: false,
   eventVoteTimers: [], eventVoteSession: 0,
+  roundAdvanceTimer: null, roundAdvanceSession: 0,
 
   newDemo() {
     const players = [];
@@ -589,6 +596,7 @@ const Game = {
   returnToTitle() {
     this.cancelRankedSearch();
     cancelEventVoteTimers(this);
+    this.cancelRoundAdvance();
     this.state = 'title';
     this.players = [];
     this.human = null;
@@ -679,7 +687,7 @@ const Game = {
         this.resolving = true;
         this.otherBattleOffered = false;
         setWatchOtherButton(false);
-        setTimeout(() => this.resolveRound(), 700);
+        setTimeout(() => this.resolveRound(), ROUND_RESOLVE_MS);
       }
     } else if (this.demo && TitleDemo.shouldRunLive()) {
       this.demo.update(dt);
@@ -733,8 +741,7 @@ const Game = {
   resolveRound() {
     if (typeof closePlayerDetail === 'function') closePlayerDetail();
     setWatchOtherButton(false);
-    const lines = applyResultsFor(this, this.battles);
-    this.battles = this.battles; // 유지 (렌더용)
+    applyResultsFor(this, this.battles);
     updatePlayersPanel(this);
     const aliveN = aliveOf(this).length;
     if (aliveN <= 1) { this.gameOver(); return; }
@@ -746,13 +753,20 @@ const Game = {
       this.fastSim();
       return;
     }
+    // 라운드 결과 화면 없이, 전투 종료로부터 ROUND_ADVANCE_MS가 지나면 넘어간다.
     this.state = 'roundResult';
-    showResult(
-      `라운드 ${this.round} 결과`,
-      lines,
-      eventVotePending ? '이벤트 투표 →' : '증강 선택 →',
-      () => eventVotePending ? this.eventVotePhase() : this.augmentPhase(),
-    );
+    const session = ++this.roundAdvanceSession;
+    this.roundAdvanceTimer = setTimeout(() => {
+      this.roundAdvanceTimer = null;
+      if (session !== this.roundAdvanceSession || this.state !== 'roundResult') return;
+      if (eventVotePending) this.eventVotePhase(); else this.augmentPhase();
+    }, Math.max(0, ROUND_ADVANCE_MS - ROUND_RESOLVE_MS));
+  },
+
+  cancelRoundAdvance() {
+    this.roundAdvanceSession++;
+    if (this.roundAdvanceTimer) clearTimeout(this.roundAdvanceTimer);
+    this.roundAdvanceTimer = null;
   },
 
   eventVotePhase() {

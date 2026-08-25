@@ -58,7 +58,7 @@ const source = [
   `globalThis.__roundFlowApi = {
     Game, aliveOf, makeBattlesFor, applyResultsFor, ffaPlacements, resetGameEventState,
     GAME_EVENT_BY_ID, fillAutomaticEventVotes, automaticEventVotePlan,
-    stageEventVote, commitEventVoteResult,
+    stageEventVote, commitEventVoteResult, ROUND_RESOLVE_MS, ROUND_ADVANCE_MS,
   };`,
 ].join('\n');
 vm.runInContext(source, context, { filename:'bounce-royal-round-flow.test.bundle.js' });
@@ -66,7 +66,7 @@ vm.runInContext(source, context, { filename:'bounce-royal-round-flow.test.bundle
 const {
   Game, makeBattlesFor, applyResultsFor, resetGameEventState,
   GAME_EVENT_BY_ID, fillAutomaticEventVotes, automaticEventVotePlan,
-  stageEventVote, commitEventVoteResult,
+  stageEventVote, commitEventVoteResult, ROUND_RESOLVE_MS, ROUND_ADVANCE_MS,
 } = context.__roundFlowApi;
 const realFastSim = Game.fastSim;
 
@@ -317,16 +317,14 @@ test('코인 역전은 승자 +1·패자 코인 보존과 승패 통계를 함�
   assert.equal(state.eventCoinReversalRound, 0, '해당 역전 라운드 정산 직후 일회성 플래그를 소비해야 한다');
 });
 
-test('3라운드에 인간이 탈락해도 결과 화면에서 이벤트 투표로 진행할 수 있다', () => {
+test('3라운드에 인간이 탈락해도 결과 화면 없이 이벤트 투표로 자동 전환한다', () => {
   const human = makePlayer(1, 0);
   human.isAI = false;
   human.eliminated = true;
   const players = [human, makePlayer(2), makePlayer(3), makePlayer(4)];
-  let shown = null;
+  let resultShown = false;
   let eventPhaseCalled = false;
-  context.showResult = (title, lines, buttonLabel, onContinue) => {
-    shown = { title, lines, buttonLabel, onContinue };
-  };
+  context.showResult = () => { resultShown = true; };
   Object.assign(Game, makeState(players, { round:3, eventVoteDone:false }), {
     human,
     battles:[],
@@ -337,15 +335,20 @@ test('3라운드에 인간이 탈락해도 결과 화면에서 이벤트 투표�
     gameOver() { throw new Error('AI가 3명 생존 중이므로 게임 종료가 아니다'); },
   });
 
+  const scheduled = [];
+  const realSetTimeout = context.setTimeout;
+  context.setTimeout = (fn, delay) => { scheduled.push({ fn, delay }); return scheduled.length; };
   Game.resolveRound();
+  context.setTimeout = realSetTimeout;
 
+  assert.equal(resultShown, false, '라운드 결과 화면은 더 이상 표시하지 않는다');
   assert.equal(Game.state, 'roundResult');
-  assert.ok(shown);
-  assert.equal(shown.title, '라운드 3 결과');
-  assert.equal(shown.buttonLabel, '이벤트 투표 →');
-  assert.equal(typeof shown.onContinue, 'function');
-  shown.onContinue();
-  assert.equal(eventPhaseCalled, true, '결과 화면 버튼은 이벤트 투표 단계에 연결되어야 한다');
+  assert.equal(scheduled.length, 1, '다음 단계 전환이 정확히 한 번 예약되어야 한다');
+  assert.equal(scheduled[0].delay, ROUND_ADVANCE_MS - ROUND_RESOLVE_MS,
+    '전투 종료로부터 총 ' + ROUND_ADVANCE_MS + 'ms 뒤에 넘어가야 한다');
+  assert.equal(eventPhaseCalled, false, '예약만 하고 아직 넘어가면 안 된다');
+  scheduled[0].fn();
+  assert.equal(eventPhaseCalled, true, '예약된 전환은 이벤트 투표 단계로 이어져야 한다');
 });
 
 test('실제 fastSim 경로는 전투를 만들기 전에 라운드를 증가시킨다', () => {
