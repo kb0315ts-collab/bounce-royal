@@ -734,6 +734,30 @@ test('무기 6×6 조합 전투가 멈추지 않고 피해와 정상 종료를 �
   assert.ok(knockouts >= 1, '적어도 일부 전투는 HP 0 KO로 종료되어야 한다');
 });
 
+test('조준 예측선은 이벤트로 생긴 기둥을 실제 반사와 동일하게 계산한다', () => {
+  const arena = new Arena('circle');
+  const sx = -300, sy = -65, r = 22;
+  const wallOnly = arena.castRay(sx, sy, 1, 0, r);
+  // '쌍둥이 기둥' 이벤트가 원형 경기장에 심는 것과 같은 배치
+  arena.pillars.push({ x: -145, y: -65, r: 42 }, { x: 145, y: 65, r: 42 });
+  const hit = arena.castRay(sx, sy, 1, 0, r);
+  assert.ok(wallOnly && hit, '두 경우 모두 충돌 지점을 찾아야 한다');
+  assert.ok(hit.t < wallOnly.t, '기둥이 반대편 벽보다 먼저 맞아야 한다');
+
+  const dot = hit.nx;
+  const rx = 1 - 2 * dot * hit.nx, ry = -2 * dot * hit.ny;
+
+  const body = { kind: 'main', x: sx, y: sy, vx: 1, vy: 0, radius: r };
+  let bounced = false;
+  for (let step = 0; step < 2000 && !bounced; step++) {
+    body.x += body.vx; body.y += body.vy;
+    bounced = arena.collideBody(body) > 0;
+  }
+  assert.ok(bounced, '실제 몸통도 기둥에 반사되어야 한다');
+  assert.ok(Math.hypot(body.x - hit.x, body.y - hit.y) < 2, '예측 지점과 실제 반사 지점이 일치해야 한다');
+  assert.ok(Math.hypot(body.vx - rx, body.vy - ry) < 1e-6, '예측 반사 방향이 실제와 일치해야 한다');
+});
+
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
 `,
 ].join('\n');

@@ -127,6 +127,19 @@ class Arena {
       for (const c of cands) if (c.t > 0 && (!best || c.t < best.t)) best = c;
       if (best) { best.x = x + dx * best.t; best.y = y + dy * best.t; }
     }
+    // 기둥이 벽보다 가까우면 기둥 표면이 첫 충돌 지점이 된다.
+    // '쌍둥이 기둥' 이벤트로 원형 경기장에 기둥이 생겨도 예측선이 실제 반사와 일치해야 한다.
+    for (const p of this.pillars) {
+      const R = p.r + r;
+      const ox = x - p.x, oy = y - p.y;
+      const pb = ox * dx + oy * dy, pc = ox * ox + oy * oy - R * R;
+      const pdisc = pb * pb - pc;
+      if (pdisc <= 0) continue;
+      const t = -pb - Math.sqrt(pdisc);
+      if (t <= 0 || (best && t >= best.t)) continue;
+      const hx = x + dx * t, hy = y + dy * t;
+      best = { t, x: hx, y: hy, nx: (hx - p.x) / R, ny: (hy - p.y) / R };
+    }
     return best;
   }
 
