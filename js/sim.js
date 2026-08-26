@@ -6,6 +6,9 @@
 
 const TAU = Math.PI * 2;
 const ROCKET_SPEED = 760;
+const DIAMOND_L = 405;      // 다이아 경기장 기본 크기 (4인 난투)
+const DUEL_ARENA_L = 320;   // 1대1은 조우율을 위해 좁힌다
+const PISTOL_BARRAGE_ROT = TAU * 2;  // 회전 난사 중 초당 2바퀴
 let UID = 0;
 
 /* ---------------- utils ---------------- */
@@ -35,7 +38,7 @@ class Arena {
     this.type = type;
     this.R = 378;          // 원형 반지름
     this.H = 350;          // 사각형 절반 폭
-    this.L = 405;          // 마름모 중심에서 꼭짓점까지 (|x|+|y| <= L)
+    this.L = DIAMOND_L;    // 마름모 중심에서 꼭짓점까지 (|x|+|y| <= L)
     this.pillars = [];     // 장애물 {x,y,r}
     if (type === 'obstacle') {
       this.H = 335;
@@ -202,7 +205,7 @@ function applyAugmentBattle(f, id, player) {
     case 'hp15': P.hp *= 1.15; break;
     case 'atk15': P.atk *= 1.15; break;
     case 'dmg10': P.dmg *= 1.10; break;
-    case 'rot15': P.rot *= 1.15; break;
+    case 'rot15': P.aspd *= 1.15; break;
     case 'move15': P.move *= 1.15; break;
     case 'lifesteal': Fl.lifesteal = (Fl.lifesteal || 0) + 0.08; break;
     case 'giant': P.size *= 1.2; P.hp *= 1.5; break;
@@ -219,7 +222,7 @@ function applyAugmentBattle(f, id, player) {
     case 'vengeance': P.atk *= 1 + 0.07 * gained('losses'); break;
     case 'learnLoss': P.hp *= 1 + 0.08 * gained('losses'); break;
     case 'survivor': P.hp *= 1 + 0.03 * gained('rounds'); break;
-    case 'battleExp': P.rot *= 1 + 0.02 * gained('rounds'); break;
+    case 'battleExp': P.aspd *= 1 + 0.02 * gained('rounds'); break;
     case 'seasonedExp': P.atk *= 1 + 0.03 * gained('rounds'); break;
     case 'fallenPower': P.dmg *= 1 + 0.05 * gained('coinsLost'); break;
     case 'brink':
@@ -227,7 +230,7 @@ function applyAugmentBattle(f, id, player) {
       break;
     case 'devilDeal': P.atk *= 1.25; break;
     case 'glass': P.atk *= 1.2; P.hp *= 0.85; break;
-    case 'brute': P.atk *= 1.25; P.rot *= 0.75; break;
+    case 'brute': P.atk *= 1.25; P.aspd *= 0.75; break;
     case 'bloodWeapon': P.atk *= 1.3; Fl.bloodWeapon = 1; break;
     case 'pinball': case 'reflectCharge': case 'wallClimb': case 'shockwave':
     case 'collisionMania':
@@ -243,7 +246,7 @@ function applyAugmentBattle(f, id, player) {
     case 'warmonger': case 'rotMomentum': case 'chase': case 'vampiric':
     case 'mark': case 'counter': case 'hitCharge':
     case 'battery': case 'weaponMastery': case 'talent':
-    case 'autoExpert': case 'speedPower': case 'motionSickness':
+    case 'autoExpert': case 'speedPower':
       Fl[id] = 1; break;
     case 'w_giant': Fl.giantBlade = 1; break;
     case 'w_beam': Fl.swordBeam = 1; break;
@@ -272,7 +275,7 @@ function buildFighter(player, battle) {
     uid: ++UID, kind: 'main', b: battle,
     player, pid: player.id, name: player.name, isAI: player.isAI, color: player.color,
     charId: player.charId, weaponId: player.weaponId,
-    perm: { atk: 1, dmg: (player.damageRewardMult || 1) * (player.eventDamageMult || 1), hp: 1, move: wp.moveMult, rot: 1, size: ch.size, dmgTaken: 1 },
+    perm: { atk: 1, dmg: (player.damageRewardMult || 1) * (player.eventDamageMult || 1), hp: 1, move: wp.moveMult, aspd: 1, size: ch.size, dmgTaken: 1 },
     flags: {},
     x: 0, y: 0, vx: 1, vy: 0, hp: 1, maxHp: 1, shield: 0, radius: 22,
     weaponAngle: rand(0, TAU), spinAcc: 0, spinRemaining: 0,
@@ -478,6 +481,8 @@ class Battle {
         { x: 145, y: 65, r: 42 },
       );
     }
+    // 1대1은 서로 만날 확률을 높이기 위해 경기장을 좁힌다. 4인 난투는 그대로 둔다.
+    if (this.arena.type === 'diamond' && players.length <= 2) this.arena.L = DUEL_ARENA_L;
     this.fighters = players.map(p => buildFighter(p, this));
     this.placeFighters();
     this.phase = 'aim';           // aim → count → fight → ending
@@ -501,9 +506,11 @@ class Battle {
 
   placeFighters() {
     const n = this.fighters.length;
+    const A = this.arena;
     if (n === 2) {
-      this.setPos(this.fighters[0], -185, 0, 0);
-      this.setPos(this.fighters[1], 185, 0, Math.PI);
+      const k = A.type === 'diamond' ? A.L / DIAMOND_L : 1;   // 경기장이 좁아지면 스폰도 같은 비율로
+      this.setPos(this.fighters[0], -185 * k, 0, 0);
+      this.setPos(this.fighters[1], 185 * k, 0, Math.PI);
     } else {
       const pos = this.arena.type === 'diamond'
         ? [[-150, -150], [150, -150], [150, 150], [-150, 150]]
@@ -964,40 +971,38 @@ function computeStats(f) {
   const t = f.b.simT;
   const ch = CHARACTERS[f.charId], wp = WEAPONS[f.weaponId];
   let atk = f.perm.atk, dmg = f.perm.dmg;
-  let move = ch.move * f.perm.move, rot = wp.rot * f.perm.rot, fr = 1, size = f.perm.size;
+  // 공격속도(aspd) 하나로 통합했다. 근접은 무기 회전속도로, 원거리·지뢰는 발사 빈도로 쓰인다.
+  let move = ch.move * f.perm.move, aspd = f.perm.aspd, size = f.perm.size;
   const T = f.timers, Fl = f.flags;
   if (Fl.warmup) atk *= 1 + 0.04 * Math.floor(t / 5);
-  if (Fl.accelRot) rot *= 1 + 0.10 * Math.floor(t / 5);
+  if (Fl.accelRot) aspd *= 1 + 0.10 * Math.floor(t / 5);
   if (Fl.speedster) move *= 1 + 0.06 * Math.floor(t / 5);
-  if (Fl.rampage20 && t >= 20) { atk *= 1.2; move *= 1.2; rot *= 1.2; }
+  if (Fl.rampage20 && t >= 20) { atk *= 1.2; move *= 1.2; aspd *= 1.2; }
   if (Fl.firstStrike && t < 10) atk *= 1.3;
   const hpRatio = clamp(f.hp / f.maxHp, 0, 1);
   if (Fl.berserker) atk *= 1 + Math.min(0.5, (1 - hpRatio) * 0.5);
-  if (Fl.desperateSpin && hpRatio <= 0.3) rot *= 1.5;
+  if (Fl.desperateSpin && hpRatio <= 0.3) aspd *= 1.5;
   if (Fl.escapeInstinct && hpRatio <= 0.3) move *= 1.4;
   atk *= 1 + 0.05 * f.warmStacks;
-  rot *= 1 + 0.06 * f.rotStacks;
+  aspd *= 1 + 0.06 * f.rotStacks;
   atk *= 1 + 0.04 * f.pinStacks;
   atk *= 1 + 0.03 * f.collisionStacks;
   dmg *= 1 + 0.03 * f.hitChargeStacks;
   if (T.chase > 0) move *= 1.2;
   if (T.elastic > 0) move *= 1.25;
-  if (T.freeze > 0) { move *= 0.3; rot *= 0.3; fr *= 0.35; }
+  if (T.freeze > 0) { move *= 0.3; aspd *= 0.3; }
   if (f.frost.n > 0) move *= 1 - 0.1 * Math.min(3, f.frost.n);
   if (T.balloon > 0) size *= 1.6;
   if (T.atkBuff > 0) atk *= 1.3;
   if (T.spdBuff > 0) move *= 1.3;
   if (f.rocketActive) move = Math.max(move, ROCKET_SPEED);
-  if (f.berserkPhase === 1) { atk *= 1.45; move *= 1.45; rot *= 1.45; dmg *= 1.15; }
-  if (f.berserkPhase === 2) { atk *= 0.72; move *= 0.72; rot *= 0.72; dmg *= 0.85; }
-  if (Fl.motionSickness) {
-    const rotationRatio = Math.max(0, rot / wp.rot);
-    atk *= rotationRatio;
-    move *= rotationRatio;
-    fr *= rotationRatio;
-    rot = 0;
-  }
-  if (f.gun && f.gun.focus) rot = 0;
+  if (f.berserkPhase === 1) { atk *= 1.45; move *= 1.45; aspd *= 1.45; dmg *= 1.15; }
+  if (f.berserkPhase === 2) { atk *= 0.72; move *= 0.72; aspd *= 0.72; dmg *= 0.85; }
+  // 무기를 실제로 돌리는 경우에만 회전속도가 생긴다.
+  // 근접은 항상, 권총은 '회전 난사' 스킬 중에만 돈다. 나머지 원거리는 상대를 조준한다.
+  let rot = 0;
+  if (wp.type === 'melee') rot = wp.rot * aspd;
+  else if (f.weaponId === 'pistol' && T.gunBarrage > 0) rot = PISTOL_BARRAGE_ROT * aspd;
   if (Fl.speedPower) {
     const baseMove = ch.move * wp.moveMult;
     dmg *= 1 + Math.max(0, move / baseMove - 1) / 3;
@@ -1005,7 +1010,7 @@ function computeStats(f) {
   // Split copies retain the full build, with one explicit global outgoing
   // attack penalty. st.dmg is used by weapons, projectiles and auto systems.
   dmg *= f.attackScale || 1;
-  f.st = { atk, dmg, move, rot, fr, size };
+  f.st = { atk, dmg, move, rot, fr: aspd, aspd, size };
   f.radius = 22 * size;
 }
 
@@ -1288,7 +1293,7 @@ function updateWeapon(b, f, dt) {
   if (f.timers.stun > 0) { f.meleeContact.clear(); return; }
   const wp = WEAPONS[f.weaponId];
   const fr = f.st.fr;
-  // 회전
+  // 회전하거나(근접·회전 난사) 상대를 조준하거나(그 외 원거리·지뢰) 둘 중 하나다.
   if (f.timers.weaponLock <= 0) {
     let applied;
     if (f.spinRemaining > 0) {
@@ -1296,6 +1301,11 @@ function updateWeapon(b, f, dt) {
       f.spinRemaining = Math.max(0, f.spinRemaining - applied);
     } else {
       applied = f.st.rot * dt;
+    }
+    if (applied === 0) {
+      // 표창처럼 상대의 현재 위치를 그대로 겨눈다
+      const target = b.nearestEnemyBody(f) || b.nearestEnemyMain(f);
+      if (target) f.weaponAngle = Math.atan2(target.y - f.y, target.x - f.x);
     }
     f.weaponAngle = (f.weaponAngle + applied) % TAU;
     if (f.flags.swordBeam) {
@@ -1829,10 +1839,10 @@ function useSkill(b, f, slot) {
     }
     case 'pistol': {
       const g = f.gun;
-      f.timers.gunBarrage = 3;
+      f.timers.gunBarrage = 1.5;
       g.reloadT = 0; g.burst = g.mag; g.shotT = 0;
       g.focus = true;
-      popup(b, f.x, f.y - f.radius - 24, '고정 사격!', '#ffe08a', true);
+      popup(b, f.x, f.y - f.radius - 24, '회전 난사!', '#ffe08a', true);
       break;
     }
     case 'staff':

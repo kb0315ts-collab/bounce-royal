@@ -60,12 +60,13 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval, WEAPONS.mine.maxMines], [10, 3, 5]);
 });
 
-test('정리된 기획 증강 105종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
-  assert.equal(AUGMENTS.length, 105);
-  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 105);
-  for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas', 'motionSickness',
+test('정리된 기획 증강 104종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
+  assert.equal(AUGMENTS.length, 104);
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 104);
+  for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas',
     'berserker', 'desperateSpin', 'brink', 'autoExpert']) assert.ok(AUG_BY_ID[id], id);
-  for (const id of ['crit', 'lateFocus', 'slowStart', 'bloodThirst', 'coinHeal', 'phoenix', 'hastePact',
+  for (const id of ['motionSickness',
+    'crit', 'lateFocus', 'slowStart', 'bloodThirst', 'coinHeal', 'phoenix', 'hastePact',
     'equalTrade', 'rotFreak', 'tank', 'berserkEngine', 'collisionGuard', 'cycler', 'pushAug', 'stickyTrail',
     'sacrifice', 'deathBoom', 'revengeSpeed', 'multiSystem', 'overHeal', 'rotPower', 'w_guard', 'powerReward']) {
     assert.equal(AUG_BY_ID[id], undefined, id + '는 삭제되어야 한다');
@@ -138,22 +139,26 @@ test('시한폭발과 최후의 3초가 정확한 만료 전환에서 한 번 �
   assert.equal(f.dead, true);
 });
 
-test('권총 고정 사격은 3초간 회전을 멈추고 재장전 없이 난사한다', () => {
+test('권총 회전 난사는 1.5초간 돌면서 재장전 없이 난사한다', () => {
   const b = makeBattle({ weaponId: 'pistol' });
   const f = b.fighters[0];
-  const start = f.weaponAngle;
   assert.equal(useSkill(b, f, 'weapon'), true);
-  let guard = 0;
-  while (f.gun.focus && guard++ < 200) {
+  let guard = 0, turned = 0;
+  while (f.timers.gunBarrage > 0 && guard++ < 300) {
     computeStats(f);
+    const before = f.weaponAngle;
     updateTimers(b, f, 1 / 60);
     updateWeapon(b, f, 1 / 60);
+    let step = f.weaponAngle - before;
+    while (step > Math.PI) step -= Math.PI * 2;
+    while (step < -Math.PI) step += Math.PI * 2;
+    turned += Math.abs(step);
   }
-  assert.ok(guard >= 179 && guard <= 181, '정확히 약 3초간 유지되어야 한다');
-  assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9);
-  assert.equal(b.projectiles.filter(p => p.kind === 'bullet').length, 25);
-  assert.ok(f.gun.reloadT > WEAPONS.pistol.reload - 0.02 && f.gun.reloadT <= WEAPONS.pistol.reload,
-    '난사 종료 후 재장전을 시작해야 한다');
+  assert.ok(guard >= 89 && guard <= 91, '약 1.5초간 유지되어야 한다 (실제 ' + guard + '틱)');
+  assert.ok(turned > Math.PI * 2 * 2.5,
+    '난사 중 여러 바퀴 돌아야 한다 (실제 ' + (turned / (Math.PI * 2)).toFixed(1) + '바퀴)');
+  const bullets = b.projectiles.filter(p => p.kind === 'bullet').length;
+  assert.ok(bullets >= 10 && bullets <= 16, '재장전 없이 연속 발사해야 한다 (실제 ' + bullets + '발)');
 });
 
 test('출혈은 영구·무제한 중첩되며 프레임마다가 아니라 1초마다 중첩당 고정 피해 1을 준다', () => {
@@ -239,7 +244,7 @@ test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용�
   assert.equal(weaponScale(giant), 1.5);
   assert.equal(giant.perm.atk, 1);
   assert.equal(giant.perm.move, WEAPONS.sword.moveMult);
-  assert.equal(giant.perm.rot, 1);
+  assert.equal(giant.perm.aspd, 1);
   assert.equal(weaponDamage(giantBattle, giant, giantTarget, WEAPONS.sword.dmg), 20);
 
   const dashBattle = makeBattle({ weaponId: 'dagger' });
@@ -392,16 +397,6 @@ test('수면 가스는 1초간 이동·무기·스킬을 막고 자동화 전문
   assert.equal(useSkill(b, e, 'char'), false);
   updateTimers(b, e, 1.01);
   assert.equal(e.timers.stun, 0);
-});
-
-test('멀미 치료는 회전 배율을 이동·무기 공격속도·공격력으로 1대1 전환한다', () => {
-  const b = makeBattle({ weaponId: 'sword', augments: ['rot15', 'motionSickness'] });
-  const f = b.fighters[0];
-  computeStats(f);
-  assert.equal(f.st.rot, 0);
-  assert.ok(Math.abs(f.st.atk - 1.15) < 1e-9);
-  assert.ok(Math.abs(f.st.move - CHARACTERS.cat.move * WEAPONS.sword.moveMult * 1.15) < 1e-9);
-  assert.ok(Math.abs(f.st.fr - 1.15) < 1e-9);
 });
 
 test('자동 공격·소환수·유체화·반사 충전의 변경 수치가 적용된다', () => {
@@ -826,23 +821,30 @@ test('칼날에서 벗어났다 다시 닿으면 재타격된다', () => {
   assert.ok(r.hits <= 4, '한 바퀴에 한 번을 넘게 맞으면 안 된다 (실제 ' + r.hits + '회)');
 });
 
-test('검과 단검은 공격속도의 영향을 받지 않고, 원거리·지뢰만 영향을 받는다', () => {
+test('공격속도 하나가 근접은 회전으로, 원거리·지뢰는 발사 빈도로 나타난다', () => {
+  // 근접: 공격속도 배율이 그대로 무기 회전속도가 된다
   for (const weaponId of ['sword', 'dagger']) {
-    const slow = meleeTrial(weaponId, 55, 6, { forcedFr: 0.35 }).hits;
-    const base = meleeTrial(weaponId, 55, 6, { forcedFr: 1 }).hits;
-    const fast = meleeTrial(weaponId, 55, 6, { forcedFr: 3 }).hits;
-    assert.equal(slow, base, weaponId + '은 공격속도가 느려도 타격 수가 같아야 한다');
-    assert.equal(fast, base, weaponId + '은 공격속도가 빨라도 타격 수가 같아야 한다');
+    const base = makeBattle({ weaponId }).fighters[0];
+    computeStats(base);
+    const fast = makeBattle({ weaponId, augments: ['rot15', 'rot15'] }).fighters[0];
+    computeStats(fast);
+    assert.ok(Math.abs(fast.st.aspd - base.st.aspd * 1.15 * 1.15) < 1e-9, weaponId + ' 공격속도 배율');
+    assert.ok(Math.abs(fast.st.rot - WEAPONS[weaponId].rot * fast.st.aspd) < 1e-9,
+      weaponId + '은 공격속도가 곧 회전속도여야 한다');
+    assert.ok(fast.st.rot > base.st.rot, weaponId + '은 공격속도가 오르면 더 빨리 회전해야 한다');
   }
-  // 원거리·지뢰는 여전히 공격속도에 비례해야 한다
+  // 원거리·지뢰: 회전하지 않고, 공격속도가 발사 빈도가 된다
   for (const weaponId of ['bow', 'pistol', 'staff', 'mine']) {
-    const count = fr => {
+    const f = makeBattle({ weaponId }).fighters[0];
+    computeStats(f);
+    assert.equal(f.st.rot, 0, weaponId + '은 평상시 회전하지 않아야 한다');
+    const count = aspd => {
       const b = makeBattle({ weaponId }, { isAI: true });
-      const f = b.fighters[0];
+      const g = b.fighters[0];
       let fired = 0;
       for (let i = 0; i < 60 * 6; i++) {
-        computeStats(f); f.st.fr = fr;
-        updateCooldowns(b, f, 1 / 60); updateWeapon(b, f, 1 / 60);
+        computeStats(g); g.st.fr = aspd;
+        updateCooldowns(b, g, 1 / 60); updateWeapon(b, g, 1 / 60);
         fired = Math.max(fired, b.projectiles.length + b.mines.length);
       }
       return fired;
@@ -851,15 +853,53 @@ test('검과 단검은 공격속도의 영향을 받지 않고, 원거리·지�
   }
 });
 
+test('원거리 무기는 회전 대신 상대의 현재 위치를 겨눈다', () => {
+  for (const weaponId of ['bow', 'pistol', 'staff']) {
+    const b = makeBattle({ weaponId }, { isAI: true });
+    const [f, e] = b.fighters;
+    computeStats(f); computeStats(e);
+    f.x = 0; f.y = 0; f.weaponAngle = Math.PI;      // 일부러 반대편을 보게 둔다
+    for (const [ex, ey] of [[120, 0], [0, 150], [-90, -90]]) {
+      e.x = ex; e.y = ey;
+      updateWeapon(b, f, 1 / 60);
+      const want = Math.atan2(ey - f.y, ex - f.x);
+      let diff = f.weaponAngle - want;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      assert.ok(Math.abs(diff) < 1e-9, weaponId + '이 (' + ex + ',' + ey + ')를 겨눠야 한다');
+    }
+  }
+});
+
+test('권총 회전 난사는 1.5초 동안만 무기를 돌린다', () => {
+  const b = makeBattle({ weaponId: 'pistol' }, { isAI: true });
+  const f = b.fighters[0];
+  computeStats(f);
+  assert.equal(f.st.rot, 0, '평상시 권총은 돌지 않는다');
+  assert.equal(useSkill(b, f, 'weapon'), true);
+  assert.ok(Math.abs(f.timers.gunBarrage - 1.5) < 1e-9, '지속시간은 1.5초여야 한다');
+  computeStats(f);
+  assert.ok(f.st.rot > 0, '난사 중에는 회전해야 한다');
+  updateTimers(b, f, 1.51);
+  computeStats(f);
+  assert.equal(f.st.rot, 0, '끝나면 다시 멈춰야 한다');
+});
+
+test('1대1은 좁은 경기장, 4인 난투는 기존 크기를 쓴다', () => {
+  const duel = new Battle('diamond', [makePlayer({ isAI: true }), makePlayer({ isAI: true })]);
+  assert.equal(duel.arena.L, 320);
+  const ffa = new Battle('diamond', [1, 2, 3, 4].map(() => makePlayer({ isAI: true })));
+  assert.equal(ffa.arena.L, 405);
+  // 좁아진 만큼 스폰도 안쪽으로 들어와야 한다
+  const limit = duel.arena.L - 22 * Math.SQRT2;
+  for (const f of duel.fighters) assert.ok(Math.abs(f.x) + Math.abs(f.y) <= limit);
+  assert.ok(Math.abs(duel.fighters[0].x) < 185, '1대1 스폰은 기존보다 안쪽이어야 한다');
+});
+
 test('쌍단검은 두 칼날이 각각 독립적으로 한 번씩 맞힌다', () => {
   const single = meleeTrial('dagger', 55, 6, { startAngle: 0 }).hits;
   const dual = meleeTrial('dagger', 55, 6, { startAngle: 0, augments: ['d_dual'] }).hits;
   assert.equal(dual, single * 2, '칼날이 둘이면 정확히 두 배로 맞아야 한다 (단일 ' + single + ' / 쌍 ' + dual + ')');
-});
-
-test('회전이 멈춘 멀미 치료 상태에서도 근접 무기는 상시 타격이 되지 않는다', () => {
-  const r = meleeTrial('sword', 55, 5, { augments: ['motionSickness'], startAngle: 0 });
-  assert.equal(r.hits, 1, '회전이 0이면 접촉이 계속 유지되므로 1회만 맞아야 한다 (실제 ' + r.hits + '회)');
 });
 
 test('다이아 경기장은 조준 예측선과 실제 반사가 정확히 일치한다', () => {
