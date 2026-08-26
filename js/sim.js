@@ -307,7 +307,7 @@ function buildFighter(player, battle) {
   f.skillUses.weapon += f.flags.weaponMastery ? 1 : 0;
   f.skillUses.common += f.flags.battery ? 1 : 0;
   if (player.weaponId === 'pistol') {
-    const mag = wp.burst + (f.flags.extMag ? 3 : 0);
+    const mag = wp.burst + (f.flags.extMag ? 4 : 0);
     f.gun = { mag, burst: mag, shotT: 0.4, reloadT: 0, focus: false };
   }
   const satN = (f.flags.satellite ? 1 : 0) + (f.flags.satellitePlus ? 1 : 0);

@@ -165,7 +165,7 @@ const AUGMENTS = [
   { id:'b_homing',cat:'weapon', weapon:'bow', name:'유도 화살', desc:'화살에 약한 유도 효과' },
   { id:'b_kb',    cat:'weapon', weapon:'bow', name:'넉백 화살', desc:'적중 시 상대를 살짝 밀어낸다 (진행 방향 유지)' },
   { id:'p_dual',  cat:'weapon', weapon:'pistol', name:'쌍권총', desc:'권총을 양손에 장착해 서로 반대 방향으로 발사한다' },
-  { id:'p_mag',   cat:'weapon', weapon:'pistol', name:'확장 탄창', desc:'한 번에 발사 가능한 탄환 수 증가 (+3)' },
+  { id:'p_mag',   cat:'weapon', weapon:'pistol', name:'확장 탄창', desc:'한 번에 발사 가능한 탄환 수 증가 (+4)' },
   { id:'p_bayonet',cat:'weapon',weapon:'pistol', name:'총검술', desc:'재장전 동안 피해 15의 단검을 들고 근접 공격한다' },
   { id:'s_triple',cat:'weapon', weapon:'staff', name:'삼중 마법', desc:'마법 투사체가 세 갈래로 발사된다' },
   { id:'s_steal', cat:'weapon', weapon:'staff', name:'무기 강탈', desc:'마법 적중 시 상대 무기를 1초간 사용 불가' },
