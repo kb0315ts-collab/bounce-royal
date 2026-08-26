@@ -603,7 +603,28 @@ function showEventVoteResult(result = {}, onContinue) {
       onContinue(winningEvent, winnerPlayer);
     }, EVENT_RESULT_HOLD_MS, revealSession);
   };
-  revealFinal();
+  // 표가 갈렸을 때만 추첨 연출을 돌린다. 모두 같은 이벤트를 골랐다면
+  // 누가 뽑히든 결과가 같으므로 긴장감이 없어 바로 공개한다.
+  const distinctChoices = new Set(votes.values()).size;
+  if (distinctChoices <= 1 || !portraitOrder.length) {
+    revealFinal();
+  } else {
+    if (status) status.textContent = '투표 마감 · 당첨자를 추첨합니다…';
+    const baseSteps = 16;
+    const correction = (winnerIndex - ((baseSteps - 1) % portraitOrder.length) + portraitOrder.length) % portraitOrder.length;
+    const totalSteps = baseSteps + correction;
+    let step = 0;
+    const tick = () => {
+      portraitOrder.forEach(element => element.classList.remove('spotlight'));
+      portraitOrder[step % portraitOrder.length]?.classList.add('spotlight');
+      if (typeof SFX !== 'undefined' && SFX && typeof SFX.tone === 'function') SFX.tone(680, .055, 'triangle', .075);
+      step++;
+      if (step >= totalSteps) { eventVoteTimer(revealFinal, 460, revealSession); return; }
+      const progress = step / Math.max(1, totalSteps - 1);
+      eventVoteTimer(tick, 75 + Math.round(Math.pow(progress, 2.35) * 330), revealSession);
+    };
+    eventVoteTimer(tick, 260, revealSession);
+  }
   return { event: winningEvent, winnerPlayer, votes, revealSession };
 }
 
