@@ -719,9 +719,9 @@ const Game = {
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this);
     specTag(this.spectating ? `관전 중 · ${fb.fighters.map(f => f.name).join(' vs ')}` : null);
     const h = fb.human();
-    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('드래그로 조준 → 손을 떼면 전투 시작');
+    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 버튼을 끌어 방향 조준 → 손을 떼면 전투 시작');
     else if (fb.phase === 'fight' && h && !h.dead && !h.mainDead && !h.player.copiedSkill && h.skillUses.common > 0)
-      setHint(`드래그 = 방향 전환 (남은 ${h.skillUses.common}회)`);
+      setHint(`🧭 버튼을 끌어 방향 전환 (남은 ${h.skillUses.common}회)`);
     else if (fb.phase === 'fight' && h && h.pendingAim) setHint('지금 드래그해서 방향 지정!');
     else setHint(null);
   },
@@ -1091,7 +1091,89 @@ function bindClick(ids, handler) {
 
 bindClick('sk-char', () => Game.pressSkill('char'));
 bindClick('sk-weapon', () => Game.pressSkill('weapon'));
-bindClick('sk-common', () => Game.pressSkill('common'));
+
+/* ============================================================
+ * 공용 스킬 버튼 = 진행 방향 조이스틱
+ * 라운드 시작 조준과 전투 중 방향 전환이 같은 조작을 쓴다.
+ * 버튼을 누른 채 끌면 끈 방향이 진행 방향이 되고, 떼면 확정된다.
+ * 방향성이 없는 카피 스킬일 때는 기존의 일반 버튼으로 동작한다.
+ * ============================================================ */
+const JOY_DEAD_ZONE = 10;    // 이보다 짧게 끌면 취소
+const JOY_KNOB_MAX = 22;     // 버튼이 손가락을 따라가는 최대 거리(px)
+const JOY_FULL_PULL = 70;    // 이만큼 끌면 손잡이가 최대로 밀린다
+
+function bindAimJoystick(id) {
+  const el = $(id);
+  if (!el) return;
+  let active = null;
+  let suppressClick = false;
+
+  // 조이스틱으로 다룰 상황인지 판정한다. null이면 일반 버튼으로 넘긴다.
+  const modeFor = () => {
+    if (Game.state !== 'battle' || !Game.focus) return null;
+    const b = Game.focus, h = b.human();
+    if (!h || h.dead || h.mainDead || h.timers.stun > 0) return null;
+    if (b.phase === 'aim' && !h.aimLocked) return 'aim';
+    if (b.phase === 'fight' && !h.player.copiedSkill && h.skillUses.common > 0) return 'common';
+    return null;
+  };
+
+  el.addEventListener('pointerdown', event => {
+    SFX.ensure();
+    const mode = modeFor();
+    if (!mode) return;
+    event.preventDefault();
+    suppressClick = true;
+    const rect = el.getBoundingClientRect();
+    active = {
+      id: event.pointerId, mode, ang: null, pulled: 0,
+      cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2,
+    };
+    el.classList.add('joy');
+    try { el.setPointerCapture(event.pointerId); } catch (err) { /* 일부 WebView 미지원 */ }
+  });
+
+  el.addEventListener('pointermove', event => {
+    if (!active || event.pointerId !== active.id) return;
+    const dx = event.clientX - active.cx, dy = event.clientY - active.cy;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    active.pulled = Math.max(active.pulled, len);
+    active.ang = Math.atan2(dy, dx);
+    const knob = Math.min(1, len / JOY_FULL_PULL) * JOY_KNOB_MAX;
+    el.style.transform = `translate(${dx / len * knob}px, ${dy / len * knob}px)`;
+    if (Game.focus) Game.focus.humanAim = { active: true, ang: active.ang };
+  });
+
+  const finish = event => {
+    if (!active || event.pointerId !== active.id) return;
+    const { mode, ang, pulled } = active;
+    active = null;
+    el.style.transform = '';
+    el.classList.remove('joy');
+    try {
+      if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
+    } catch (err) { /* 일부 WebView 미지원 */ }
+    const b = Game.focus, h = b ? b.human() : null;
+    if (b) b.humanAim = null;
+    if (!h || ang === null || pulled < JOY_DEAD_ZONE) return;   // 살짝 눌렀다 뗀 경우는 취소
+    if (mode === 'aim' && b.phase === 'aim' && !h.aimLocked) {
+      b.setDir(h, ang); h.aimLocked = true; SFX.bounce();
+    } else if (mode === 'common' && b.phase === 'fight') {
+      if (applyCommonAim(b, h, ang)) SFX.skill();
+    }
+  };
+  el.addEventListener('pointerup', finish);
+  el.addEventListener('pointercancel', finish);
+  el.addEventListener('lostpointercapture', finish);
+
+  // 조이스틱이 처리한 입력은 클릭으로 두 번 발동하지 않게 막는다.
+  el.addEventListener('click', () => {
+    if (suppressClick) { suppressClick = false; return; }
+    Game.pressSkill('common');
+  });
+}
+bindAimJoystick('sk-common');
 window.addEventListener('keydown', e => {
   if (e.key === '1') Game.pressSkill('char');
   if (e.key === '2') Game.pressSkill('weapon');

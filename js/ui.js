@@ -823,7 +823,10 @@ function skillSlotInfo(fighter, slot) {
 }
 function updateSkillbar(battle) {
   const fighter = battle?.human?.() || null;
-  const canAct = fighter && !fighter.dead && !fighter.mainDead && !(fighter.timers?.stun > 0) && battle.phase === 'fight';
+  const usable = fighter && !fighter.dead && !fighter.mainDead && !(fighter.timers?.stun > 0);
+  const canAct = usable && battle.phase === 'fight';
+  // 공용 스킬 버튼은 라운드 시작 조준에도 쓰이므로 조준 단계에서도 활성으로 보인다.
+  const canAim = usable && battle.phase === 'aim' && !fighter.aimLocked;
   [['char','sk-char'],['weapon','sk-weapon'],['common','sk-common']].forEach(([slot,id]) => {
     const el = $(id); if (!el) return;
     if (!fighter) { el.style.display = 'none'; return; }
@@ -831,7 +834,8 @@ function updateSkillbar(battle) {
     const info = skillSlotInfo(fighter, slot), charging = slot === 'weapon' && fighter.charging;
     el.querySelector('.lbl').textContent = info.name; el.querySelector('.ico').textContent = info.icon;
     el.querySelector('.uses').textContent = '●'.repeat(Math.max(0, info.uses)) + '○'.repeat(Math.max(0, info.max - info.uses));
-    el.classList.toggle('charging', !!charging); el.classList.toggle('used', info.uses <= 0); el.classList.toggle('ready', !!(canAct && info.uses > 0 && !charging));
+    const slotReady = slot === 'common' ? (canAim || (canAct && info.uses > 0)) : (canAct && info.uses > 0);
+    el.classList.toggle('charging', !!charging); el.classList.toggle('used', info.uses <= 0 && !canAim); el.classList.toggle('ready', !!(slotReady && !charging));
     if (charging) el.querySelector('.cdoverlay').textContent = fighter.charging.t >= 1 ? '발사 준비!' : '충전 중…';
   });
 }
