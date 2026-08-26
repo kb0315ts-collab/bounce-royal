@@ -722,7 +722,7 @@ const Game = {
     if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 버튼을 끌어 방향 조준 → 손을 떼면 전투 시작');
     else if (fb.phase === 'fight' && h && !h.dead && !h.mainDead && !h.player.copiedSkill && h.skillUses.common > 0)
       setHint(`🧭 버튼을 끌어 방향 전환 (남은 ${h.skillUses.common}회)`);
-    else if (fb.phase === 'fight' && h && h.pendingAim) setHint('지금 드래그해서 방향 지정!');
+    else if (fb.phase === 'fight' && h && h.pendingAim) setHint('🧭 버튼을 끌어 방향을 정하세요');
     else setHint(null);
   },
 
@@ -953,47 +953,15 @@ const Game = {
     if (champion === this.human) SFX.win(); else SFX.lose();
   },
 
-  /* ---------------- 입력 ---------------- */
-  onPointerDown(w) {
-    if (this.state !== 'battle' || !this.focus) return;
-    const b = this.focus, h = b.human();
-    if (!h || h.dead || h.mainDead) return;
-    const ang = Math.atan2(w.y - h.y, w.x - h.x);
-    if (b.phase === 'aim' && !h.aimLocked) {
-      this.drag = { mode: 'aim' };
-      b.humanAim = { active: true, ang };
-    } else if (b.phase === 'fight' && !h.player.copiedSkill && h.skillUses.common > 0) {
-      this.drag = { mode: 'common' };
-      b.humanAim = { active: true, ang };
-    }
-  },
-  onPointerMove(w) {
-    if (this.state !== 'battle' || !this.focus || !this.drag) return;
-    const b = this.focus, h = b.human();
-    if (!h || !b.humanAim) return;
-    b.humanAim.ang = Math.atan2(w.y - h.y, w.x - h.x);
-  },
-  onPointerUp() {
-    if (!this.drag) return;
-    const b = this.focus, h = b ? b.human() : null;
-    if (b && h && b.humanAim) {
-      const ang = b.humanAim.ang;
-      if (this.drag.mode === 'aim' && b.phase === 'aim' && !h.aimLocked) {
-        b.setDir(h, ang); h.aimLocked = true; SFX.bounce();
-      } else if (this.drag.mode === 'common' && b.phase === 'fight') {
-        if (applyCommonAim(b, h, ang)) SFX.skill();
-      }
-    }
-    if (b) b.humanAim = null;
-    this.drag = null;
-  },
-
+  /* ---------------- 입력 ----------------
+   * 조준과 방향 전환은 공용 스킬 버튼 조이스틱(bindAimJoystick)이 전담한다.
+   * 캔버스 드래그 조준은 제거했다. */
   pressSkill(slot) {
     if (this.state !== 'battle' || !this.focus) return;
     const b = this.focus, h = b.human();
     if (!h) return;
     const r = useSkill(b, h, slot);
-    if (r === 'aim') { setHint('지금 드래그해서 방향 지정!'); SFX.ui(); }
+    if (r === 'aim') { setHint('🧭 버튼을 끌어 방향을 정하세요'); SFX.ui(); }
   },
 };
 
@@ -1048,38 +1016,8 @@ function setupTitleRecording() {
 /* ============================================================
  * 입력 바인딩
  * ============================================================ */
-function toWorld(e) {
-  const r = canvas.getBoundingClientRect();
-  const px = e.clientX - r.left, py = e.clientY - r.top;
-  return { x: (px - VIEW.ox) / VIEW.s - 420, y: (py - VIEW.oy) / VIEW.s - 420 };
-}
-let activePointerId = null;
-canvas.addEventListener('pointerdown', e => {
-  if (activePointerId !== null) return;
-  activePointerId = e.pointerId;
-  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 일부 WebView 미지원 */ }
-  SFX.ensure();
-  Game.onPointerDown(toWorld(e));
-});
-canvas.addEventListener('pointermove', e => {
-  if (e.pointerId !== activePointerId) return;
-  Game.onPointerMove(toWorld(e));
-});
-function finishPointer(e) {
-  if (e.pointerId !== activePointerId) return;
-  activePointerId = null;
-  Game.onPointerUp();
-  try {
-    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
-  } catch (err) { /* 일부 WebView 미지원 */ }
-}
-canvas.addEventListener('pointerup', finishPointer);
-canvas.addEventListener('pointercancel', finishPointer);
-canvas.addEventListener('lostpointercapture', e => {
-  if (e.pointerId !== activePointerId) return;
-  activePointerId = null;
-  Game.onPointerUp();
-});
+// 캔버스는 더 이상 입력을 받지 않는다. 오디오 잠금 해제만 처리한다.
+canvas.addEventListener('pointerdown', () => SFX.ensure());
 
 function bindClick(ids, handler) {
   const list = Array.isArray(ids) ? ids : [ids];
@@ -1126,7 +1064,7 @@ function bindAimJoystick(id) {
     suppressClick = true;
     const rect = el.getBoundingClientRect();
     active = {
-      id: event.pointerId, mode, ang: null, pulled: 0,
+      id: event.pointerId, mode, ang: null, len: 0,
       cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2,
     };
     el.classList.add('joy');
@@ -1137,26 +1075,36 @@ function bindAimJoystick(id) {
     if (!active || event.pointerId !== active.id) return;
     const dx = event.clientX - active.cx, dy = event.clientY - active.cy;
     const len = Math.hypot(dx, dy);
-    if (len < 1) return;
-    active.pulled = Math.max(active.pulled, len);
-    active.ang = Math.atan2(dy, dx);
-    const knob = Math.min(1, len / JOY_FULL_PULL) * JOY_KNOB_MAX;
-    el.style.transform = `translate(${dx / len * knob}px, ${dy / len * knob}px)`;
-    if (Game.focus) Game.focus.humanAim = { active: true, ang: active.ang };
+    active.len = len;
+    if (len >= 1) {
+      active.ang = Math.atan2(dy, dx);
+      const knob = Math.min(1, len / JOY_FULL_PULL) * JOY_KNOB_MAX;
+      el.style.transform = `translate(${dx / len * knob}px, ${dy / len * knob}px)`;
+    } else {
+      el.style.transform = '';
+    }
+    // 손잡이를 제자리로 되돌리면 취소 상태다. 조준선을 감춰서 바로 알 수 있게 한다.
+    const cancelling = len < JOY_DEAD_ZONE;
+    el.classList.toggle('joy-cancel', cancelling);
+    if (Game.focus) {
+      Game.focus.humanAim = cancelling || active.ang === null
+        ? null : { active: true, ang: active.ang };
+    }
   });
 
   const finish = event => {
     if (!active || event.pointerId !== active.id) return;
-    const { mode, ang, pulled } = active;
+    const { mode, ang, len } = active;
     active = null;
     el.style.transform = '';
-    el.classList.remove('joy');
+    el.classList.remove('joy', 'joy-cancel');
     try {
       if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
     } catch (err) { /* 일부 WebView 미지원 */ }
     const b = Game.focus, h = b ? b.human() : null;
     if (b) b.humanAim = null;
-    if (!h || ang === null || pulled < JOY_DEAD_ZONE) return;   // 살짝 눌렀다 뗀 경우는 취소
+    // 뗄 때 손잡이가 중앙 근처면 취소한다 (끌어냈다가 제자리로 되돌리는 조작)
+    if (!h || ang === null || len < JOY_DEAD_ZONE) return;
     if (mode === 'aim' && b.phase === 'aim' && !h.aimLocked) {
       b.setDir(h, ang); h.aimLocked = true; SFX.bounce();
     } else if (mode === 'common' && b.phase === 'fight') {
