@@ -1,0 +1,12 @@
+{
+  "name": "bounce-royal-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "바운스 로얄 서버 권위형 멀티플레이 서버",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
+}
