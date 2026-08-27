@@ -48,15 +48,15 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   });
   assert.deepEqual(
     [WEAPONS.sword.dmg, WEAPONS.sword.reach, WEAPONS.sword.rot],
-    [30, 60, 3],
+    [20, 60, 3],
   );
   assert.deepEqual(
     [WEAPONS.dagger.dmg, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
-    [27, 30, 5],
+    [18, 30, 5],
   );
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval], [10, 1]);
-  assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [4.5, 6, 0.12, 3]);
-  assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [20, 2.5]);
+  assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [3, 6, 0.12, 3]);
+  assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [15, 2.5]);
   assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval, WEAPONS.mine.maxMines], [10, 3, 5]);
 });
 
@@ -247,7 +247,7 @@ test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용�
   assert.equal(giant.perm.atk, 1);
   assert.equal(giant.perm.move, WEAPONS.sword.moveMult);
   assert.equal(giant.perm.aspd, 1);
-  assert.equal(weaponDamage(giantBattle, giant, giantTarget, WEAPONS.sword.dmg), 30);
+  assert.equal(weaponDamage(giantBattle, giant, giantTarget, WEAPONS.sword.dmg), 20);
 
   const dashBattle = makeBattle({ weaponId: 'dagger' });
   const [dasher, dashTarget] = dashBattle.fighters;

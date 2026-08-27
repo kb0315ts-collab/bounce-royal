@@ -20,19 +20,19 @@ const CHARACTERS = {
 };
 
 const WEAPONS = {
-  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:30, reach:60, tip:13, rot:3.0, moveMult:0.90,
+  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:20, reach:60, tip:13, rot:3.0, moveMult:0.90,
     desc:'긴 사거리와 높은 피해. 대신 공격속도·이동속도가 느리다.', stat:{atk:.85,spd:.45,rng:.7,mob:.4},
     skillName:'믹서기', skillDesc:'별도 피해 없이 1.2초 동안 두 바퀴 연속 회전한다.' },
-  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:27, reach:30, tip:9, rot:5.0, moveMult:1.15,
+  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:18, reach:30, tip:9, rot:5.0, moveMult:1.15,
     desc:'짧고 피해는 낮지만 공격속도·이동속도가 매우 빠르다.', stat:{atk:.45,spd:.95,rng:.3,mob:.95},
     skillName:'관통 돌진', skillDesc:'1초간 정지 후 원래 진행 방향으로 돌진해 관통하며 40의 무기 피해.' },
   bow:    { name:'활', ico:'🏹', type:'ranged', dmg:10, interval:1.0, projSpeed:390, rot:2.6, moveMult:1.0,
     desc:'상대를 자동으로 겨눠 화살을 계속 발사하는 안정적인 원거리 무기.', stat:{atk:.55,spd:.65,rng:.95,mob:.7},
     skillName:'차지 샷', skillDesc:'1초 충전 후 다시 눌러 적과 장애물을 관통하는 피해 30의 화살 발사.' },
-  pistol: { name:'권총', ico:'🔫', type:'ranged', dmg:4.5, burst:6, shotGap:0.12, reload:3.0, projSpeed:500, rot:3.0, moveMult:1.0,
+  pistol: { name:'권총', ico:'🔫', type:'ranged', dmg:3, burst:6, shotGap:0.12, reload:3.0, projSpeed:500, rot:3.0, moveMult:1.0,
     desc:'상대를 자동으로 겨눠 6연사 후 3초 재장전. 화력과 공백이 명확하다.', stat:{atk:.6,spd:.9,rng:.85,mob:.7},
     skillName:'회전 난사', skillDesc:'1.5초간 빙글빙글 돌며 재장전 없이 사방으로 난사한다.' },
-  staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:20, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
+  staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:15, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
     desc:'상대를 자동으로 겨누는 느리고 강한 마법 투사체. 벽에 한 번 반사된다.', stat:{atk:1,spd:.15,rng:.8,mob:.7},
     skillName:'마력 폭주', skillDesc:'3초간 자신이 발사한 모든 마법 투사체의 크기가 2배가 된다.' },
   mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:10, interval:3.0, maxMines:5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
