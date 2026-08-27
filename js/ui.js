@@ -861,6 +861,33 @@ function updateSkillbar(battle) {
   });
 }
 
+/* ---------------- 단계 제한시간 ----------------
+ * 남은 시간을 막대와 숫자로 보여주고, 다 되면 콜백을 한 번 호출한다.
+ * 한 번에 한 단계만 진행되므로 타이머는 전역 하나로 충분하다. */
+let phaseTimerHandle = null;
+function stopPhaseTimer() {
+  if (phaseTimerHandle) clearInterval(phaseTimerHandle);
+  phaseTimerHandle = null;
+  for (const id of ['aug-timer', 'event-timer']) $(id)?.classList.add('hidden');
+}
+function startPhaseTimer(barId, seconds, onExpire) {
+  stopPhaseTimer();
+  const bar = $(barId);
+  const fill = bar?.querySelector('i'), label = bar?.querySelector('b');
+  bar?.classList.remove('hidden', 'urgent');
+  const startedAt = performance.now();
+  let fired = false;
+  const tick = () => {
+    const left = Math.max(0, seconds - (performance.now() - startedAt) / 1000);
+    if (fill) fill.style.width = (100 * left / seconds) + '%';
+    if (label) label.textContent = left.toFixed(1);
+    bar?.classList.toggle('urgent', left <= 3);
+    if (left <= 0 && !fired) { fired = true; stopPhaseTimer(); onExpire?.(); }
+  };
+  tick();
+  phaseTimerHandle = setInterval(tick, 100);
+}
+
 /* ---------------- 정적 UI 이벤트 ---------------- */
 $('btn-player-modal-close')?.addEventListener('click', closePlayerDetail);
 $('player-modal')?.addEventListener('click', event => { if (event.target === $('player-modal')) closePlayerDetail(); });
@@ -871,6 +898,7 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape') { cl
 Object.assign(window, {
   showScreen, hudVisible, banner, buildCharSelect, buildWeaponSelect, buildAugmentSelect,
   showResult, showGameOver, updatePlayersPanel, setHint, specTag, updateSkillbar,
+  startPhaseTimer, stopPhaseTimer,
   updatePlayerStatuses,
   setRankedSearchState, buildFriendlySlots, buildBag, buildCodex, showMatchIntro,
   showPlayerDetail, closePlayerDetail, bindLongPress, showHoldTooltip,

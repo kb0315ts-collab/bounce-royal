@@ -112,6 +112,10 @@ const ACTIVE_MAP_IDS = ['diamond'];
 const ROUND_RESOLVE_MS = 700;
 const ROUND_ADVANCE_MS = 1000;
 
+/* 실시간 진행을 위한 단계별 제한시간(초). 넘기면 자동으로 처리된다. */
+const AUGMENT_TIME = 12;
+const EVENT_VOTE_TIME = 12;
+
 function makeBattlesFor(state) {
   const alive = aliveOf(state);
   const mapId = pick(ACTIVE_MAP_IDS);
@@ -597,6 +601,7 @@ const Game = {
     this.cancelRankedSearch();
     cancelEventVoteTimers(this);
     this.cancelRoundAdvance();
+    if (typeof stopPhaseTimer === 'function') stopPhaseTimer();
     this.state = 'title';
     this.players = [];
     this.human = null;
@@ -711,9 +716,15 @@ const Game = {
         timerEl.textContent = Math.max(0, BATTLE_TIME - fb.simT).toFixed(1);
         timerEl.classList.remove('ot'); tag.classList.remove('on');
       }
+    } else if (fb.phase === 'aim') {
+      // 조준 제한시간을 그대로 보여준다
+      timerEl.textContent = Math.max(0, fb.aimTimeout).toFixed(1);
+      timerEl.classList.remove('ot');
+      timerEl.classList.toggle('urgent', fb.aimTimeout <= 1.5);
+      tag.classList.remove('on');
     } else {
       timerEl.textContent = BATTLE_TIME.toFixed(1);
-      timerEl.classList.remove('ot'); tag.classList.remove('on');
+      timerEl.classList.remove('ot', 'urgent'); tag.classList.remove('on');
     }
     updateSkillbar(fb);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this);
@@ -795,6 +806,7 @@ const Game = {
       if (voteClosed || !isCurrentVote()) return;
       if (!this.players.every(player => votes.has(player.id))) return;
       voteClosed = true;
+      if (typeof stopPhaseTimer === 'function') stopPhaseTimer();
       for (const timer of this.eventVoteTimers) clearTimeout(timer);
       this.eventVoteTimers = [];
       const result = stageEventVote(this, offers, votes);
@@ -816,6 +828,7 @@ const Game = {
       const eventId = typeof choice === 'string' ? choice : choice && choice.id;
       if (!offers.some(event => event.id === eventId)) return false;
       votes.set(player.id, eventId);
+      if (player === this.human && typeof stopPhaseTimer === 'function') stopPhaseTimer();
       publishVotes(player.id);
       closeVote();
       return true;
@@ -841,6 +854,10 @@ const Game = {
     this.eventVoteTimers = plan.map(entry => setTimeout(() => {
       recordVote(entry.player, entry.eventId);
     }, entry.delay));
+    // 제한시간을 넘기면 내 표를 무작위로 던진다.
+    if (typeof startPhaseTimer === 'function') {
+      startPhaseTimer('event-timer', EVENT_VOTE_TIME, () => recordVote(this.human, eventVoteOfferId(offers)));
+    }
   },
 
   augmentPhase() {
@@ -866,6 +883,7 @@ const Game = {
     const pickOffer = aug => {
       if (pickLocked || this.state !== 'augment') return;
       pickLocked = true;
+      if (typeof stopPhaseTimer === 'function') stopPhaseTimer();
       applyAugmentPick(this.human, aug);
       SFX.coin();
       remainingPicks--;
@@ -894,6 +912,10 @@ const Game = {
         onRefresh,
       });
       setRefreshButton(this.refreshes, onRefresh);
+      // 제한시간을 넘기면 AI와 같은 기준으로 하나를 자동 선택한다.
+      if (typeof startPhaseTimer === 'function') {
+        startPhaseTimer('aug-timer', AUGMENT_TIME, () => pickOffer(aiPickAugment(offers)));
+      }
     };
     renderOffers();
   },

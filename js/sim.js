@@ -9,6 +9,7 @@ const ROCKET_SPEED = 760;
 const DIAMOND_L = 405;      // 다이아 경기장 기본 크기 (4인 난투)
 const DUEL_ARENA_L = 320;   // 1대1은 조우율을 위해 좁힌다
 const PISTOL_BARRAGE_ROT = TAU * 2;  // 회전 난사 중 초당 2바퀴
+const AIM_TIME = 3;         // 라운드 시작 조준 제한시간
 let UID = 0;
 
 /* ---------------- utils ---------------- */
@@ -488,7 +489,7 @@ class Battle {
     this.phase = 'aim';           // aim → count → fight → ending
     this.countT = 0;
     this.simT = 0; this.overtime = false; this.otT = 0; this.timeScale = 1;
-    this.aimTimeout = 18;
+    this.aimTimeout = AIM_TIME;
     this.projectiles = []; this.mines = []; this.flames = []; this.stickies = [];
     this.fx = []; this.popups = []; this.particles = [];
     this.shake = 0; this.result = null; this.finished = false; this.endT = 0;
@@ -638,7 +639,8 @@ class Battle {
       for (const f of this.fighters) {
         if (f.aimLocked) continue;
         if (f.isAI) { f.aiT -= rdt; if (f.aiT <= 0) { const a = aiChooseStartDir(this, f); this.setDir(f, a); f.aimLocked = true; } }
-        else if (this.aimTimeout <= 0) { f.aimLocked = true; }
+        // 제한시간 안에 방향을 정하지 않으면 아무 방향으로나 출발한다.
+        else if (this.aimTimeout <= 0) { this.setDir(f, rand(0, TAU)); f.aimLocked = true; }
       }
       if (this.fighters.every(f => f.aimLocked)) { this.phase = 'count'; this.countT = 1.8; }
     } else if (this.phase === 'count') {
