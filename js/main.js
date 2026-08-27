@@ -115,6 +115,7 @@ const ROUND_ADVANCE_MS = 1000;
 /* 실시간 진행을 위한 단계별 제한시간(초). 넘기면 자동으로 처리된다. */
 const AUGMENT_TIME = 12;
 const EVENT_VOTE_TIME = 12;
+const RANKED_SEARCH_TIME = 10;   // 실제 플레이어를 기다리는 시간(초). 이후 남은 자리는 AI
 
 function makeBattlesFor(state) {
   const alive = aliveOf(state);
@@ -368,7 +369,9 @@ function makePlayer(spec, index, weaponId) {
   };
 }
 
-function rankedRoster() {
+/* joined: 매칭으로 합류한 실제 플레이어 목록(최대 3명).
+ * 빈 자리는 AI로 채운다. 어댑터가 없으면 지금처럼 전부 AI가 된다. */
+function rankedRoster(joined = []) {
   const names = shuffle(AI_NAMES).slice(0, 3);
   const roster = [{
     id: 0,
@@ -379,7 +382,17 @@ function rankedRoster() {
     color: PLAYER_COLORS[0],
   }];
   for (let i = 0; i < 3; i++) {
-    roster.push({
+    const mate = joined[i];
+    roster.push(mate ? {
+      id: i + 1,
+      name: cleanNickname(mate.name),
+      isAI: false,
+      remote: true,
+      charId: CHARACTERS[mate.charId] ? mate.charId : pick(Object.keys(CHARACTERS)),
+      weaponId: WEAPONS[mate.weaponId] ? mate.weaponId : pick(Object.keys(WEAPONS)),
+      rating: Math.max(0, Math.round(Number(mate.rating) || Profile.data.rating)),
+      color: PLAYER_COLORS[i + 1],
+    } : {
       id: i + 1,
       name: names[i],
       isAI: true,
@@ -391,6 +404,19 @@ function rankedRoster() {
   }
   return roster;
 }
+
+/* ============================================================
+ * 실제 플레이어 매칭이 붙을 자리
+ *
+ * 백엔드가 생기면 아래 형태로 window.BounceRoyalMatchQueue를 구현하면 된다.
+ *   join(rating, onPlayer)  대기열 참가. 사람을 찾을 때마다 onPlayer(spec)를 호출한다.
+ *                           spec: { name, charId, weaponId, rating }
+ *   leave()                 대기열에서 빠진다. 취소·시간초과·매칭완료 시 호출된다.
+ *
+ * 어댑터가 없는 현재 빌드에서는 아무도 합류하지 않으므로
+ * RANKED_SEARCH_TIME이 지난 뒤 세 자리 모두 AI로 채워진다.
+ * ============================================================ */
+window.BounceRoyalMatchQueue = window.BounceRoyalMatchQueue || null;
 
 function makeRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -583,19 +609,51 @@ const Game = {
 
   startRankedSearch() {
     if (this.rankedSearchTimer) return;
-    if (typeof setRankedSearchState === 'function') setRankedSearchState('비슷한 레이팅의 상대를 찾는 중…', true);
-    else if ($('ranked-search-status')) $('ranked-search-status').textContent = '비슷한 레이팅의 상대를 찾는 중…';
-    this.rankedSearchTimer = setTimeout(() => {
+    const joined = [];                       // 매칭으로 합류한 실제 플레이어
+    const queue = window.BounceRoyalMatchQueue;
+    const startedAt = performance.now();
+    const say = text => {
+      if (typeof setRankedSearchState === 'function') setRankedSearchState(text, true);
+      else if ($('ranked-search-status')) $('ranked-search-status').textContent = text;
+    };
+    const render = () => {
+      const left = Math.max(0, RANKED_SEARCH_TIME - (performance.now() - startedAt) / 1000);
+      say(`플레이어를 찾는 중… ${Math.ceil(left)}초 · ${1 + joined.length}/4명`);
+    };
+    const finish = () => {
+      if (!this.rankedSearchTimer) return;
+      clearInterval(this.rankedSearchTimer);
       this.rankedSearchTimer = null;
-      if (typeof setRankedSearchState === 'function') setRankedSearchState('매칭 완료!', false);
-      else if ($('ranked-search-status')) $('ranked-search-status').textContent = '매칭 완료!';
-      this.beginMatch('ranked', rankedRoster());
-    }, 700);
+      try { queue?.leave?.(); } catch (err) { /* 어댑터 오류는 매칭을 막지 않는다 */ }
+      const text = joined.length
+        ? `매칭 완료! 플레이어 ${1 + joined.length}명` + (joined.length < 3 ? ` · 남은 ${3 - joined.length}자리는 AI` : '')
+        : '매칭 완료! 상대를 찾지 못해 AI로 채웁니다.';
+      if (typeof setRankedSearchState === 'function') setRankedSearchState(text, false);
+      else if ($('ranked-search-status')) $('ranked-search-status').textContent = text;
+      this.beginMatch('ranked', rankedRoster(joined));
+    };
+
+    render();
+    this.rankedSearchTimer = setInterval(() => {
+      render();
+      if (performance.now() - startedAt >= RANKED_SEARCH_TIME * 1000) finish();
+    }, 200);
+
+    // 대기열에 참가한다. 어댑터가 없으면 아무 일도 일어나지 않는다.
+    try {
+      queue?.join?.(Profile.data.rating, spec => {
+        if (!this.rankedSearchTimer || joined.length >= 3 || !spec) return;
+        joined.push(spec);
+        render();
+        if (joined.length >= 3) finish();    // 네 자리가 다 찼으면 더 기다리지 않는다
+      });
+    } catch (err) { /* 어댑터 오류는 매칭을 막지 않는다 */ }
   },
 
   cancelRankedSearch() {
-    if (this.rankedSearchTimer) clearTimeout(this.rankedSearchTimer);
+    if (this.rankedSearchTimer) clearInterval(this.rankedSearchTimer);
     this.rankedSearchTimer = null;
+    try { window.BounceRoyalMatchQueue?.leave?.(); } catch (err) { /* 무시 */ }
     if (typeof setRankedSearchState === 'function') setRankedSearchState('', false);
     else if ($('ranked-search-status')) $('ranked-search-status').textContent = '';
   },
@@ -1196,8 +1254,9 @@ function updateRankedScreen() {
   const tier = $('ranked-tier');
   if (rating) rating.textContent = `${Profile.data.rating} RP`;
   if (tier) tier.textContent = ratingTier(Profile.data.rating);
-  if (typeof setRankedSearchState === 'function') setRankedSearchState('현재 빌드 · 로컬 AI 매칭', false);
-  else if ($('ranked-search-status')) $('ranked-search-status').textContent = '현재 빌드 · 로컬 AI 매칭';
+  const note = `${RANKED_SEARCH_TIME}초 동안 플레이어를 찾고, 남은 자리는 AI가 채웁니다.`;
+  if (typeof setRankedSearchState === 'function') setRankedSearchState(note, false);
+  else if ($('ranked-search-status')) $('ranked-search-status').textContent = note;
 }
 
 function updateTitleProfile() {
