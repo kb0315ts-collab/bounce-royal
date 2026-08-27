@@ -573,9 +573,12 @@ function drawProjectiles(g, glow, b) {
         break;
       }
       case 'beam': {
-        target.scaleCanvas(p.r / 6, p.r / 6);
+        // 좌우로 넓게 퍼지는 검기. 기준 크기는 r=12.
+        target.scaleCanvas(p.r / 12, p.r / 12);
         target.fillStyle(0xcfe4ff, 0.9);
-        target.fillTriangle(20, 0, -26, -5, -26, 5);
+        target.fillTriangle(26, 0, -30, -18, -30, 18);
+        target.fillStyle(0xffffff, 0.75);
+        target.fillTriangle(18, 0, -18, -9, -18, 9);
         break;
       }
     }

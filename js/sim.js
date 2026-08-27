@@ -1128,7 +1128,7 @@ function moveFighter(b, f, dt) {
       if (segDist(e.x, e.y, px, py, f.x, f.y) < e.radius + f.radius) {
         f.dashHit.add(e.uid);
         if (f.dash.kind === 'dash') {
-          weaponDamage(b, f, e, 30);
+          weaponDamage(b, f, e, 40);
         } else {
           dealDamage(b, f, e, 26 * f.st.dmg, { kind: 'auto' });
         }
@@ -1249,7 +1249,7 @@ function registerBodyCollision(b, a, c) {
 
 function tryDashHit(b, a, c) {
   if (a.timers.dashT <= 0 || !a.dashHit || a.dashHit.has(c.uid)) return;
-  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, 30); }
+  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, 40); }
   else dealDamage(b, a, c, 26 * a.st.dmg, { kind: 'auto' });
   a.dashHit.add(c.uid);
   b.shake = Math.min(16, b.shake + 10);
@@ -1313,7 +1313,7 @@ function updateWeapon(b, f, dt) {
       if (f.spinAcc >= TAU) {
         f.spinAcc -= TAU;
         const nd = normDir(f.vx, f.vy);
-        spawnProj(b, f, { kind: 'beam', x: f.x + nd.x * f.radius, y: f.y + nd.y * f.radius, ang: Math.atan2(nd.y, nd.x), spd: 430, dmg: 12, r: 6, life: 1.6, pierce: true, weapon: true });
+        spawnProj(b, f, { kind: 'beam', x: f.x + nd.x * f.radius, y: f.y + nd.y * f.radius, ang: Math.atan2(nd.y, nd.x), spd: 430, dmg: 15, r: 12, life: 1.6, pierce: true, weapon: true });
         addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 10, r1: 50, color: '#9fd0ff', dur: 0.25 });
       }
     }
@@ -1823,8 +1823,8 @@ function useSkill(b, f, slot) {
       popup(b, f.x, f.y - f.radius - 30, '팽창!', '#ff6b81', true);
       break;
     case 'sword':
-      f.spinRemaining += TAU;
-      popup(b, f.x, f.y - f.radius - 24, '일섬 회전!', '#9fd0ff', true);
+      f.spinRemaining += TAU * 2;
+      popup(b, f.x, f.y - f.radius - 24, '믹서기!', '#9fd0ff', true);
       break;
     case 'dagger':
       f.dashPrepDir = { x: f.vx, y: f.vy };

@@ -48,11 +48,11 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   });
   assert.deepEqual(
     [WEAPONS.sword.dmg, WEAPONS.sword.reach, WEAPONS.sword.rot],
-    [20, 60, 3],
+    [30, 60, 3],
   );
   assert.deepEqual(
     [WEAPONS.dagger.dmg, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
-    [15, 30, 5],
+    [27, 30, 5],
   );
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval], [12, 1]);
   assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [6, 8, 0.12, 3]);
@@ -200,21 +200,23 @@ test('출혈은 영구·무제한 중첩되며 프레임마다가 아니라 1초
     '영구 중첩은 전투가 끝날 때까지 매초 피해를 계속 줘야 한다');
 });
 
-test('검 일섬은 정확히 한 바퀴 돌며 검기 시너지를 한 번 발동한다', () => {
+test('믹서기는 정확히 두 바퀴 돌며 검기 시너지를 두 번 발동한다', () => {
   const b = makeBattle({ weaponId: 'sword', augments: ['w_beam'] });
   const f = b.fighters[0];
   const start = f.weaponAngle;
   assert.equal(useSkill(b, f, 'weapon'), true);
   let guard = 0;
-  while (f.spinRemaining > 0 && guard++ < 60) {
+  while (f.spinRemaining > 0 && guard++ < 120) {
     computeStats(f);
     updateWeapon(b, f, 1 / 60);
   }
-  assert.ok(guard >= 35 && guard <= 37);
-  assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9);
+  assert.ok(guard >= 71 && guard <= 73, '두 바퀴는 약 1.2초여야 한다 (실제 ' + guard + '틱)');
+  assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9,
+    '두 바퀴를 돌면 제자리로 돌아와야 한다');
   const beams = b.projectiles.filter(p => p.kind === 'beam');
-  assert.equal(beams.length, 1);
-  assert.equal(beams[0].dmg, 12);
+  assert.equal(beams.length, 2, '한 바퀴마다 한 번씩 나가야 한다');
+  assert.equal(beams[0].dmg, 15);
+  assert.equal(beams[0].r, 12, '검기 판정이 좌우로 넓어져야 한다');
   assert.equal(beams[0].pierce, true);
 });
 
@@ -245,7 +247,7 @@ test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용�
   assert.equal(giant.perm.atk, 1);
   assert.equal(giant.perm.move, WEAPONS.sword.moveMult);
   assert.equal(giant.perm.aspd, 1);
-  assert.equal(weaponDamage(giantBattle, giant, giantTarget, WEAPONS.sword.dmg), 20);
+  assert.equal(weaponDamage(giantBattle, giant, giantTarget, WEAPONS.sword.dmg), 30);
 
   const dashBattle = makeBattle({ weaponId: 'dagger' });
   const [dasher, dashTarget] = dashBattle.fighters;
@@ -253,7 +255,7 @@ test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용�
   dasher.dash = { kind: 'dash' }; dasher.timers.dashT = 1; dasher.dashHit = new Set();
   const beforeDash = dashTarget.hp;
   tryDashHit(dashBattle, dasher, dashTarget);
-  assert.equal(beforeDash - dashTarget.hp, 30);
+  assert.equal(beforeDash - dashTarget.hp, 40);
 
   const bayonetBattle = makeBattle({ weaponId: 'pistol', augments: ['p_bayonet'] });
   const [gunner, bayonetTarget] = bayonetBattle.fighters;

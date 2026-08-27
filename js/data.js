@@ -20,12 +20,12 @@ const CHARACTERS = {
 };
 
 const WEAPONS = {
-  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:20, reach:60, tip:13, rot:3.0, moveMult:0.90,
+  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:30, reach:60, tip:13, rot:3.0, moveMult:0.90,
     desc:'긴 사거리와 높은 피해. 대신 공격속도·이동속도가 느리다.', stat:{atk:.85,spd:.45,rng:.7,mob:.4},
-    skillName:'일섬 회전', skillDesc:'별도 피해 없이 0.6초 동안 정확히 한 바퀴 회전한다.' },
-  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:15, reach:30, tip:9, rot:5.0, moveMult:1.15,
+    skillName:'믹서기', skillDesc:'별도 피해 없이 1.2초 동안 두 바퀴 연속 회전한다.' },
+  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:27, reach:30, tip:9, rot:5.0, moveMult:1.15,
     desc:'짧고 피해는 낮지만 공격속도·이동속도가 매우 빠르다.', stat:{atk:.45,spd:.95,rng:.3,mob:.95},
-    skillName:'관통 돌진', skillDesc:'1초간 정지 후 원래 진행 방향으로 돌진해 관통하며 30의 무기 피해.' },
+    skillName:'관통 돌진', skillDesc:'1초간 정지 후 원래 진행 방향으로 돌진해 관통하며 40의 무기 피해.' },
   bow:    { name:'활', ico:'🏹', type:'ranged', dmg:12, interval:1.0, projSpeed:390, rot:2.6, moveMult:1.0,
     desc:'상대를 자동으로 겨눠 화살을 계속 발사하는 안정적인 원거리 무기.', stat:{atk:.55,spd:.65,rng:.95,mob:.7},
     skillName:'차지 샷', skillDesc:'1초 충전 후 다시 눌러 적과 장애물을 관통하는 피해 30의 화살 발사.' },
@@ -155,7 +155,7 @@ const AUGMENTS = [
   { id:'speedPower', cat:'link', name:'속도는 힘', desc:'추가 이동속도 +3%마다 모든 피해량 +1%' },
   // ---- 무기 전용 ----
   { id:'w_giant', cat:'weapon', weapon:'sword', name:'거대검', desc:'다른 수치 변화 없이 검의 크기만 1.5배' },
-  { id:'w_beam',  cat:'weapon', weapon:'sword', name:'검기', desc:'검이 한 바퀴 돌 때마다 피해 12의 관통 검기 발사' },
+  { id:'w_beam',  cat:'weapon', weapon:'sword', name:'검기', desc:'검이 한 바퀴 돌 때마다 좌우로 넓은 피해 15의 관통 검기 발사' },
   { id:'desperateSpin',cat:'weapon', weapon:'sword', name:'필사의 회전', desc:'HP 30% 이하에서 공격속도 +50%' },
   { id:'d_dual',  cat:'weapon', weapon:'dagger', name:'쌍단검', desc:'단검을 양손에 장착한다' },
   { id:'d_phase', cat:'weapon', weapon:'dagger', name:'유체화', desc:'공격 성공 후 1초간 공격받지 않는 상태가 된다' },
