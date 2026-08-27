@@ -21,6 +21,7 @@ const EVENT_VOTE_TIME = 12;
 const INTRO_TIME = 3;
 const ROUND_END_TIME = 3;
 const PLAYER_COLORS = ['#4da6ff', '#ff6b6b', '#6bd968', '#b97bff'];
+const RECONNECT_GRACE = 90;    // 끊긴 자리를 비워두는 시간(초). 이 안에 돌아오면 그대로 이어간다
 const ACTIVE_MAP = 'diamond';
 
 let roomSeq = 0;
@@ -46,6 +47,9 @@ class Room {
     this.players = seats.map((seat, index) => ({
       id: index,
       conn: seat.conn || null,
+      token: seat.conn ? seat.conn.token : null,   // 재접속 식별자
+      human: !!seat.conn,                          // 원래 사람 자리인가
+      droppedAt: 0,                                // 끊긴 시각 (0이면 접속 중)
       name: seat.name,
       isAI: !seat.conn,
       color: PLAYER_COLORS[index],
@@ -80,6 +84,7 @@ class Room {
       id: p.id, name: p.name, isAI: p.isAI, color: p.color,
       charId: p.charId, weaponId: p.weaponId, coins: p.coins,
       eliminated: p.eliminated, augments: p.augments.slice(),
+      human: p.human, disconnected: !!p.droppedAt,
     }));
   }
 
@@ -362,6 +367,8 @@ class Room {
   /* ---------------- 메인 루프 ---------------- */
   tick() {
     if (this.closed) return;
+    this.sweepDropped();
+    if (this.closed) return;
     const dt = 1 / TICK_HZ;
 
     if (this.phase === 'battle' && this.battles) {
@@ -393,14 +400,55 @@ class Room {
   }
 
   /* ---------------- 접속 종료 ---------------- */
+  /* 끊기면 그 자리를 AI가 대행한다. RECONNECT_GRACE 안에 같은 토큰으로
+   * 돌아오면 원래 자리에 그대로 다시 앉는다. */
   onDisconnect(player) {
-    player.isAI = true;              // 남은 판은 AI가 대신 진행한다
+    player.isAI = true;
     player.conn = null;
+    player.droppedAt = Date.now();
     const f = this.fighterOf(player);
     if (f) f.isAI = true;
     this.broadcast({ t: 'left', id: player.id, players: this.publicPlayers() });
-    if (this.humanCount() === 0) this.close();
+  }
+
+  reattach(conn) {
+    const player = this.players.find(p => p.token && p.token === conn.token && p.droppedAt);
+    if (!player) return null;
+    if (Date.now() - player.droppedAt > RECONNECT_GRACE * 1000) return null;
+    player.conn = conn;
+    player.isAI = false;
+    player.droppedAt = 0;
+    conn.room = this;
+    const f = this.fighterOf(player);
+    if (f) f.isAI = false;
+    this.send(player, {
+      t: 'resumed', id: player.id, phase: this.phase, round: this.round,
+      seconds: this.timeLeft(), players: this.publicPlayers(),
+    });
+    // 진행 중이던 선택 단계를 다시 안내한다
+    if (this.phase === 'weapon' && !player.weaponId) {
+      this.send(player, { t: 'weaponOffers', ids: this.offers.get(player.id), seconds: this.timeLeft(), players: this.publicPlayers() });
+    } else if (this.phase === 'augment' && this.augmentState) {
+      const st = this.augmentState.get(player.id);
+      if (st && st.left > 0) this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft() });
+    } else if (this.phase === 'event' && !this.eventVotes.has(player.id)) {
+      this.send(player, { t: 'eventOffers', offers: this.eventOffers, seconds: this.timeLeft(), players: this.publicPlayers() });
+    }
+    this.broadcast({ t: 'rejoined', id: player.id, players: this.publicPlayers() });
+    return player;
+  }
+
+  /* 유예가 끝난 자리는 완전히 AI로 확정하고, 기다릴 사람이 없으면 방을 닫는다 */
+  sweepDropped() {
+    const now = Date.now();
+    let waiting = false;
+    for (const p of this.players) {
+      if (!p.droppedAt) continue;
+      if (now - p.droppedAt > RECONNECT_GRACE * 1000) { p.droppedAt = 0; p.human = false; p.token = null; }
+      else waiting = true;
+    }
+    if (this.humanCount() === 0 && !waiting) this.close();
   }
 }
 
-module.exports = { Room, WEAPON_TIME, AUGMENT_TIME, EVENT_VOTE_TIME };
+module.exports = { Room, WEAPON_TIME, AUGMENT_TIME, EVENT_VOTE_TIME, RECONNECT_GRACE };
