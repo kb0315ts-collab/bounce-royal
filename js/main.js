@@ -560,22 +560,25 @@ const Game = {
       charId: index === 0 ? equippedChar : spec.charId,
       color: spec.color || PLAYER_COLORS[index],
     }));
-    this.state = 'intro';
     hudVisible(false);
-    showScreen(null);
-    const chooseWeapon = () => {
-      if (this.state !== 'intro') return;
-      this.state = 'weaponSelect';
-      showScreen('scr-weapon');
-      const offers = shuffle(Object.keys(WEAPONS)).slice(0, 3);
-      buildWeaponSelect(offers, weaponId => {
-        if (this.state !== 'weaponSelect') return;
+    // 무기를 먼저 고른다. 그래야 참가자 소개가 네 명 모두 장비를 갖춘 대진표가 된다.
+    this.state = 'weaponSelect';
+    showScreen('scr-weapon');
+    const offers = shuffle(Object.keys(WEAPONS)).slice(0, 3);
+    buildWeaponSelect(offers, weaponId => {
+      if (this.state !== 'weaponSelect') return;
+      participants[0] = { ...participants[0], weaponId };
+      this.state = 'intro';
+      const startMatch = () => {
+        if (this.state !== 'intro') return;
         this.newMatch(equippedChar, weaponId, { mode, roster: participants });
         this.startRound();
-      });
-    };
-    if (typeof showMatchIntro === 'function') showMatchIntro(participants, 3000, chooseWeapon);
-    else setTimeout(chooseWeapon, 3000);
+      };
+      if (typeof showMatchIntro === 'function') showMatchIntro(participants, 3000, startMatch);
+      else setTimeout(startMatch, 3000);
+    });
+    // buildWeaponSelect는 직전 매치의 참가자를 참조하므로 이번 대진으로 덮어쓴다.
+    if (typeof selectionPlayers === 'function') selectionPlayers(participants);
   },
 
   startRankedSearch() {
