@@ -54,9 +54,9 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
     [WEAPONS.dagger.dmg, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
     [27, 30, 5],
   );
-  assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval], [12, 1]);
-  assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [6, 8, 0.12, 3]);
-  assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [25, 2.5]);
+  assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval], [10, 1]);
+  assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [4.5, 6, 0.12, 3]);
+  assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [20, 2.5]);
   assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval, WEAPONS.mine.maxMines], [10, 3, 5]);
 });
 
