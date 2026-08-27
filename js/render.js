@@ -33,7 +33,18 @@ window.BounceRoyalDisplay = Object.freeze({
   pixelRatio: getRenderPixelRatio,
 });
 
-function toScreen(x, y) { return { x: VIEW.ox + (420 + x) * VIEW.s, y: VIEW.oy + (420 + y) * VIEW.s }; }
+/* 기준 경기장(L=405)이 꽉 차게 들어가는 월드 정사각형.
+ * 1대1처럼 경기장이 작아지면 이 박스도 같은 비율로 줄여서,
+ * 화면에서 경기장이 차지하는 크기는 항상 같게 만든다. */
+const WORLD_BOX = 840;
+const WORLD_REF_L = typeof DIAMOND_L === 'number' ? DIAMOND_L : 405;
+function arenaZoom(arena) {
+  return arena && arena.type === 'diamond' ? arena.L / WORLD_REF_L : 1;
+}
+function toScreen(x, y) {
+  const half = (VIEW.span || WORLD_BOX) / 2;   // 아직 뷰가 계산되기 전이면 기본 박스를 쓴다
+  return { x: VIEW.ox + (half + x) * VIEW.s, y: VIEW.oy + (half + y) * VIEW.s };
+}
 
 /* ---------------- 색 헬퍼 ---------------- */
 function lighten(hex, k) { return shade(hex, k); }
@@ -149,10 +160,11 @@ class BattleScene extends Phaser.Scene {
       this.gUnits, this.gProj, this.gProjGlow, this.gFx, this.gFxGlow, this.gUI]) g.clear();
     drawBackdrop(this.gBack, this.stars);
     if (b) {
+      applyView(b.arena);
       // 화면 흔들림
       const sh = b.shake || 0;
       const ox = sh ? rand(-sh, sh) : 0, oy = sh ? rand(-sh, sh) : 0;
-      this.world.setPosition(VIEW.ox + (420 + ox) * VIEW.s, VIEW.oy + (420 + oy) * VIEW.s);
+      this.world.setPosition(VIEW.w / 2 + ox * VIEW.s, VIEW.h / 2 + oy * VIEW.s);
       drawArena(this.gArena, this.gArenaGlow, b);
       drawGroundFx(this.gGround, this.gGroundGlow, b);
       drawUnits(this.gUnits, b);
@@ -178,16 +190,21 @@ const phaserGame = new Phaser.Game({
   banner: false,
 });
 
+function applyView(arena) {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  const span = WORLD_BOX * arenaZoom(arena);
+  const s = Math.min(w, h) / span;
+  VIEW = { s, w, h, span, ox: (w - span * s) / 2, oy: (h - span * s) / 2 };
+  // 월드 박스를 어떻게 잡든 경기장 중심은 캔버스 정중앙에 온다.
+  if (scene) { scene.world.setPosition(w / 2, h / 2); scene.world.setScale(s); }
+}
+
 function resizeCanvas() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   if (!w || !h) return;
-  const s = Math.min(w, h) / 840;
-  VIEW = { s, w, h, ox: (w - 840 * s) / 2, oy: (h - 840 * s) / 2 };
   if (phaserGame?.scale) phaserGame.scale.resize(w, h);
-  if (scene) {
-    scene.world.setPosition(VIEW.ox + 420 * VIEW.s, VIEW.oy + 420 * VIEW.s);
-    scene.world.setScale(VIEW.s);
-  }
+  applyView(pendingBattle ? pendingBattle.arena : null);
 }
 window.addEventListener('resize', resizeCanvas);
 
@@ -239,9 +256,10 @@ function drawArena(g, glow, b) {
   const A = b.arena;
   // 은은한 격자
   g.lineStyle(1, 0x5a6eb4, 0.07);
-  for (let i = -360; i <= 360; i += 80) {
-    g.beginPath(); g.moveTo(i, -360); g.lineTo(i, 360); g.strokePath();
-    g.beginPath(); g.moveTo(-360, i); g.lineTo(360, i); g.strokePath();
+  const gk = arenaZoom(A), gEnd = 360 * gk, gStep = 80 * gk;
+  for (let i = -gEnd; i <= gEnd + 1e-6; i += gStep) {
+    g.beginPath(); g.moveTo(i, -gEnd); g.lineTo(i, gEnd); g.strokePath();
+    g.beginPath(); g.moveTo(-gEnd, i); g.lineTo(gEnd, i); g.strokePath();
   }
   const kind = arenaPath(g, A);
   if (kind === 'path') {
