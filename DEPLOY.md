@@ -204,13 +204,15 @@ Blueprint를 쓰지 않고 수동으로 만들 때의 설정값:
 | 항목 | 값 |
 |---|---|
 | Runtime | Node |
-| Root Directory | `server` |
-| Build Command | `npm install` |
-| Start Command | `node index.js` |
+| Root Directory | **비워둘 것** |
+| Build Command | `npm install --prefix server` |
+| Start Command | `node server/index.js` |
 | Health Check Path | `/healthz` |
 
-> Root Directory가 `server`여도 게임 파일은 정상 서빙된다.
-> 경로를 `__dirname` 기준으로 잡기 때문이다.
+> **Root Directory를 `server`로 지정하면 안 된다.** Render는 Root Directory를
+> 빌드 필터로도 쓰기 때문에, `server/` 밖에 있는 클라이언트 파일
+> (`index.html`, `js/`)만 고친 커밋이 재배포되지 않는다. 서버가 그 파일들을
+> 서빙하므로 저장소 전체를 감시해야 한다.
 
 ### 8.3 환경변수
 
