@@ -204,4 +204,72 @@ test('순번이 없는 스냅샷은 그대로 받아들인다', () => {
   Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
 });
 
+
+/* ---- 벽 튕김·스킬 소리 ----
+ * sim.js가 직접 내는 소리라 서버에서 돌면 아무도 못 듣는다.
+ * 서버가 누적 횟수를 실어 보내고 클라이언트가 늘어난 만큼 재생한다. */
+function withSfx(fn) {
+  const before = globalThis.SFX;
+  const count = { bounce: 0, skill: 0, hit: 0, boom: 0 };
+  globalThis.SFX = {
+    bounce: () => count.bounce++, skill: () => count.skill++,
+    hit: () => count.hit++, boom: () => count.boom++,
+  };
+  try { fn(count); } finally { globalThis.SFX = before; }
+  return count;
+}
+const withCounts = (bc, sc) => { const s = snap([]); s.f[0].bc = bc; s.f[0].sc = sc; return s; };
+
+test('첫 스냅샷은 기준선만 잡고 소리를 내지 않는다', () => {
+  const c = withSfx(() => {
+    Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+    Net.pushSnapshot(withCounts(37, 5), 1);   // 이미 쌓여 있는 값
+  });
+  assert.equal(c.bounce, 0, '접속하자마자 그동안의 튕김을 몰아서 내면 안 된다');
+  assert.equal(c.skill, 0);
+});
+
+test('누적 횟수가 늘어난 만큼 소리를 낸다', () => {
+  const c = withSfx(() => {
+    Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+    Net.pushSnapshot(withCounts(0, 0), 1);
+    Net.pushSnapshot(withCounts(2, 1), 2);
+  });
+  assert.equal(c.bounce, 2, '벽에 두 번 튕겼으면 두 번 (실제 ' + c.bounce + ')');
+  assert.equal(c.skill, 1, '스킬 한 번이면 한 번 (실제 ' + c.skill + ')');
+});
+
+test('순서가 뒤바뀐 스냅샷이 같은 소리를 다시 내지 않는다', () => {
+  const c = withSfx(() => {
+    Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+    Net.pushSnapshot(withCounts(0, 0), 1);
+    Net.pushSnapshot(withCounts(2, 0), 2);
+    Net.pushSnapshot(withCounts(1, 0), 1);   // 뒤늦게 도착한 옛 스냅샷
+    Net.pushSnapshot(withCounts(3, 0), 3);
+  });
+  assert.equal(c.bounce, 3, '2번 + 1번이어야 한다 (실제 ' + c.bounce + ')');
+});
+
+test('스냅샷을 놓쳐 소리가 몰려도 몰아서 터뜨리지 않는다', () => {
+  const c = withSfx(() => {
+    Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+    Net.pushSnapshot(withCounts(0, 0), 1);
+    Net.pushSnapshot(withCounts(40, 0), 2);   // 오래 끊겼다 돌아온 경우
+  });
+  assert.ok(c.bounce <= 2, '한 번에 최대 2번까지만 (실제 ' + c.bounce + ')');
+});
+
+test('폭발음은 폭발 고리(m=1)에서만 난다', () => {
+  const c = withSfx(() => {
+    Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+    const s1 = snap([]);
+    s1.fx = [{ u: 201, k: 'r', x: 0, y: 0, a: 10, b: 70, c: '#ffd24d', d: 0.4, m: 0 }];
+    Net.pushSnapshot(s1, 1);              // 큐브 획득 같은 큰 고리
+    const s2 = snap([]);
+    s2.fx = [{ u: 202, k: 'r', x: 0, y: 0, a: 6, b: 30, c: '#ffb14d', d: 0.35, m: 1 }];
+    Net.pushSnapshot(s2, 2);              // 반경이 작은 폭발
+  });
+  assert.equal(c.boom, 1, '폭발 고리 하나에 폭발음 하나 (실제 ' + c.boom + ')');
+});
+
 console.log('\n' + passed + '개 스냅샷 보간 테스트 통과');

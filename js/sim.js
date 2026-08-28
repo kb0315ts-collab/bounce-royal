@@ -293,6 +293,8 @@ function buildFighter(player, battle) {
     berserkPhase: 0, bleed: { n: 0, stacks: [] }, frost: { n: 0, t: 0 },
     bounceRun: 0, charged: false, counterReady: false, pushReady: false,
     bounceTotal: 0, lightningNext: 3,
+    sfxSkill: 0,        // 스킬 효과음이 난 횟수. 멀티에서 클라이언트가 같은 소리를 재생하는 근거
+
     hist: [], histT: 0,
     skillUses: { char: 1, weapon: 1, common: 1 },
     summons: [], splitBalls: [], satellites: [],
@@ -446,7 +448,7 @@ function sparks(b, x, y, n, color, spd = 160) {
   if (b.particles.length > 300) b.particles.splice(0, b.particles.length - 300);
 }
 function explodeFx(b, x, y, r, color = '#ffb14d') {
-  addFx(b, { type: 'ring', x, y, r0: r * 0.2, r1: r, color, dur: 0.35 });
+  addFx(b, { type: 'ring', x, y, r0: r * 0.2, r1: r, color, dur: 0.35, boom: true });
   sparks(b, x, y, 14, color, 260);
   b.shake = Math.min(14, b.shake + r / 14);
   if (typeof SFX !== 'undefined') SFX.boom();
@@ -1750,7 +1752,13 @@ function finalDeath(b, f) {
   if (f.kind === 'split') {
     const root = f.owner;
     const i = root.splitBalls.indexOf(f);
-    if (i >= 0) root.splitBalls.splice(i, 1);
+    if (i >= 0) {
+      // 효과음 누적 횟수를 본체로 옮긴다. 배열에서 빠지면서 합계가 줄면
+      // 멀티에서 마지막 순간의 튕김·스킬 소리가 사라진다.
+      root.bounceTotal += f.bounceTotal;
+      root.sfxSkill += f.sfxSkill;
+      root.splitBalls.splice(i, 1);
+    }
     sparks(b, f.x, f.y, 10, root.color, 180);
     if (!root.splitBalls.length) {
       root.x = f.x; root.y = f.y;
@@ -1776,6 +1784,7 @@ function useSkill(b, f, slot) {
   if (slot === 'weapon' && f.weaponId === 'bow' && f.charging) {
     if (f.skillUses.weapon <= 0 || !releaseCharge(b, f)) return false;
     f.skillUses.weapon--;
+    f.sfxSkill++;
     if (typeof SFX !== 'undefined' && SFX.skill) SFX.skill();
     return true;
   }
@@ -1836,6 +1845,7 @@ function useSkill(b, f, slot) {
     case 'bow': {
       f.charging = { t: 0 };
       popup(b, f.x, f.y - f.radius - 24, '차지 중…', '#ffe08a');
+      f.sfxSkill++;
       if (typeof SFX !== 'undefined' && SFX.skill) SFX.skill();
       return true;
     }
@@ -1857,6 +1867,7 @@ function useSkill(b, f, slot) {
       break;
   }
   f.skillUses[slot]--;
+  f.sfxSkill++;
   if (typeof SFX !== 'undefined' && SFX.skill) SFX.skill();
   return true;
 }

@@ -205,4 +205,49 @@ test('다이아 외 경기장 4종도 그대로 전달된다', () => {
   }
 });
 
+
+/* 서버는 소리를 낼 수 없다. 대신 sim.js가 소리를 낸 횟수를 스냅샷에 실어
+ * 클라이언트가 같은 횟수만큼 재생하게 한다. 그 근거값이 실제로 늘어나는지 본다. */
+test('벽 튕김과 스킬 발동 횟수가 스냅샷에 실린다', () => {
+  const players = [
+    mkPlayer({ charId: 'cat', weaponId: 'sword' }),
+    mkPlayer({ charId: 'wak', weaponId: 'sword', isAI: true, color: '#ff6b6b' }),
+  ];
+  const b = new core.Battle('diamond', players);
+  b.phase = 'fight'; b.simT = 0;
+  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+  const first = snapshot(b);
+  assert.equal(first.f[0].bc, 0, '시작 시 튕김 횟수는 0');
+  assert.equal(first.f[0].sc, 0, '시작 시 스킬 횟수는 0');
+
+  for (let i = 0; i < 60 * 8; i++) {
+    if (i === 120) { b.fighters[0].skillUses.char = 9; core.useSkill(b, b.fighters[0], 'char'); }
+    b.update(1 / 60);
+  }
+  const later = snapshot(b);
+  assert.ok(later.f[0].bc > 0, '벽에 튕겼으면 bc가 늘어야 한다 (실제 ' + later.f[0].bc + ')');
+  assert.equal(later.f[0].sc, 1, '스킬 한 번이면 sc는 1 (실제 ' + later.f[0].sc + ')');
+});
+
+test('폭발 고리에는 폭발음 표시가 붙는다', () => {
+  const players = [
+    mkPlayer({ charId: 'bomb', weaponId: 'sword' }),
+    mkPlayer({ charId: 'wak', weaponId: 'sword', isAI: true, color: '#ff6b6b' }),
+  ];
+  const b = new core.Battle('diamond', players);
+  b.phase = 'fight'; b.simT = 0;
+  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+  let sawBoom = false, sawPlain = false;
+  for (let i = 0; i < 60 * 12; i++) {
+    if (i % 150 === 40) { b.fighters[0].skillUses.char = 9; core.useSkill(b, b.fighters[0], 'char'); }
+    b.update(1 / 60);
+    for (const e of snapshot(b).fx) {
+      if (e.k !== 'r') continue;
+      if (e.m) sawBoom = true; else sawPlain = true;
+    }
+  }
+  assert.ok(sawBoom, '폭탄이 터졌으면 m=1인 고리가 있어야 한다');
+  assert.ok(sawPlain, '폭발이 아닌 고리는 m=0이어야 한다');
+});
+
 console.log('\n' + passed + '개 동등성 테스트 통과');

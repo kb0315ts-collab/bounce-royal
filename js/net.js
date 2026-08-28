@@ -34,6 +34,7 @@ const Net = {
   buffer: [],              // { at, snap } 스냅샷 버퍼
   localFx: [], localPopups: [], localParticles: [],   // 서버 이벤트로 만든 화면 효과
   seenFx: new Set(), seenPopups: new Set(),
+  soundState: new Map(),   // 전투원 uid → 마지막으로 소리를 낸 누적 횟수
   lastSnapAt: 0,
   lastSeq: 0,               // 마지막으로 받아들인 스냅샷 순번
   handlers: {},
@@ -109,6 +110,7 @@ const Net = {
   clearFx() {
     this.localFx.length = 0; this.localPopups.length = 0; this.localParticles.length = 0;
     this.seenFx.clear(); this.seenPopups.clear();
+    this.soundState.clear();
   },
 
   send(msg) {
@@ -204,13 +206,38 @@ const Net = {
       this.seenFx.add(e.u);
       if (e.k === 'r') {
         this.localFx.push({ type: 'ring', x: e.x, y: e.y, r0: e.a, r1: e.b, color: e.c, dur: e.d, t: 0 });
-        if (e.b - e.a > 45) { this.burst(e.x, e.y, 10, e.c, 240); if (typeof SFX !== 'undefined' && SFX.boom) SFX.boom(); }
+        // m=1은 explodeFx가 만든 폭발 고리다. 폭발음은 여기서만 낸다.
+        // 예전처럼 반경 차이로 짐작하면 큐브 획득 같은 큰 고리에도 폭발음이 났고,
+        // 반대로 작은 폭발(반경 56 이하)은 소리가 나지 않았다.
+        if (e.m) { this.burst(e.x, e.y, 10, e.c, 240); if (typeof SFX !== 'undefined' && SFX.boom) SFX.boom(); }
+        else if (e.b - e.a > 45) this.burst(e.x, e.y, 10, e.c, 240);
       } else {
         this.localFx.push({ type: 'bolt', segs: e.g.map(s => ({ x: s[0], y: s[1] })), color: e.c, dur: e.d, t: 0 });
       }
     }
+    this.replaySounds(snap);
     if (this.seenPopups.size > 4000) this.seenPopups.clear();
     if (this.seenFx.size > 4000) this.seenFx.clear();
+  },
+
+  /* 벽 튕김과 스킬 발동 소리.
+   * 이 둘은 sim.js가 직접 내는 소리인데, 멀티에서는 sim이 서버에서 도는 탓에
+   * 아무 소리도 나지 않았다. 서버가 누적 횟수를 실어 보내면 클라이언트가
+   * 늘어난 만큼 재생한다. 스냅샷을 놓쳐 여러 번이 몰릴 수 있으므로 2회로 자른다. */
+  replaySounds(snap) {
+    const has = typeof SFX !== 'undefined';
+    for (const f of snap.f || NET_EMPTY) {
+      const prev = this.soundState.get(f.u);
+      const bc = f.bc || 0, sc = f.sc || 0;
+      if (prev) {
+        const nb = Math.min(2, bc - prev.bc);
+        for (let i = 0; i < nb; i++) if (has && SFX.bounce) SFX.bounce();
+        const ns = Math.min(3, sc - prev.sc);   // 한 전투원이 세 슬롯을 연달아 쓸 수 있다
+        for (let i = 0; i < ns; i++) if (has && SFX.skill) SFX.skill();
+      }
+      // 순서가 뒤바뀐 스냅샷이 기준을 되돌려 같은 소리를 두 번 내지 않게 한다
+      this.soundState.set(f.u, { bc: Math.max(prev ? prev.bc : 0, bc), sc: Math.max(prev ? prev.sc : 0, sc) });
+    }
   },
 
   burst(x, y, n, color, spd) {
