@@ -127,14 +127,15 @@ cp node_modules/phaser/dist/phaser.min.js vendor/phaser.min.js
 
 ---
 
-## 6. 현재 배포되지 않는 것 (알아둘 것)
+## 6. 싱글과 멀티의 관계
 
-- **멀티플레이는 없다.** 링크를 받은 사람은 각자 AI 3명과 싸운다.
-  코드에 네트워크 호출이 하나도 없고(`fetch`/`WebSocket` 0건), 친선전의
-  `BR-XXXX` 방 코드는 로컬에서 생성만 될 뿐 뒤에 서버가 없다.
-  `window.BounceRoyalRoom`은 나중에 네트워크를 붙이기 위한 빈 어댑터다.
+- **정적 호스팅(Pages)만으로는 싱글플레이만 된다.** 로컬 sim으로 AI 3명과 싸운다.
+- **멀티플레이는 WebSocket 서버가 필요하다.** 8절 참고.
+- 두 모드는 코드가 갈려 있다. `Game.mode`가 `'multi'`면 `Game.update`가
+  로컬 sim을 **아예 돌리지 않고** 서버 스냅샷만 그린다. 싱글 경로는 그대로다.
+  멀티에서 전투 판정·라운드 진행·승패는 전부 서버가 결정한다.
+- 클라이언트가 서버로 보내는 것은 입력뿐이다 — 무기·조준·스킬·방향 전환·증강·투표.
 - `tests/`, `tools/`, `package.json`도 같이 배포되지만 사이트 동작에는 무관하다.
-  제외하고 싶다면 GitHub Actions 워크플로로 바꿔 특정 폴더만 올리면 된다.
 
 ---
 
@@ -149,3 +150,95 @@ cp node_modules/phaser/dist/phaser.min.js vendor/phaser.min.js
 그때는 `.github/workflows/` 에 워크플로를 만들고 Settings → Pages의 Source를
 `GitHub Actions`로 바꾼다. **지금은 필요 없다** — 빌드가 없어서 브랜치 방식이
 가장 단순하고 고장날 여지가 적다.
+
+---
+
+## 8. 멀티플레이 서버 배포
+
+정적 사이트(GitHub Pages)만으로는 멀티플레이가 불가능하다. WebSocket 서버를
+돌릴 호스팅이 따로 필요하다.
+
+### 8.1 구성 선택
+
+**구성 A — 서버 하나에 전부 (권장, 설정 없음)**
+
+`server/index.js`가 게임 파일까지 함께 서빙한다. 서버 하나만 올리면 끝이고
+클라이언트와 WebSocket이 같은 출처라 설정할 것이 없다.
+
+```
+https://<서비스>.onrender.com        ← 게임 + 멀티플레이 둘 다
+```
+
+- 장점: `js/config.js`를 비워두면 자동으로 붙는다. CORS·mixed content 문제 없음
+- 단점: 무료 플랜은 15분 미사용 시 잠들어 첫 접속이 30~50초 걸린다
+
+**구성 B — Pages + 서버 분리**
+
+클라이언트는 GitHub Pages(항상 켜짐, 빠름), WebSocket만 서버로 보낸다.
+
+```
+https://<아이디>.github.io/bounce-royal/   ← 게임 (싱글은 즉시 플레이 가능)
+wss://<서비스>.onrender.com                ← 멀티플레이만
+```
+
+이때 `js/config.js`에 서버 주소를 반드시 적어야 한다.
+
+```js
+window.BOUNCE_SERVER = 'wss://bounce-royal.onrender.com';
+```
+
+> **https 페이지에서는 반드시 `wss://`** 여야 한다. `ws://`는 브라우저가
+> mixed content로 차단한다.
+
+### 8.2 Render 배포 절차
+
+저장소에 `render.yaml`이 있어 대부분 자동으로 잡힌다.
+
+1. https://render.com 가입 후 **New → Blueprint**
+2. 이 저장소를 선택하면 `render.yaml`을 읽어 설정을 채운다
+3. 배포되면 `https://<이름>.onrender.com` 주소가 나온다
+4. `/healthz`로 확인한다 — `{"ok":true,"rooms":0,"queued":0}`가 나오면 정상
+
+Blueprint를 쓰지 않고 수동으로 만들 때의 설정값:
+
+| 항목 | 값 |
+|---|---|
+| Runtime | Node |
+| Root Directory | `server` |
+| Build Command | `npm install` |
+| Start Command | `node index.js` |
+| Health Check Path | `/healthz` |
+
+> Root Directory가 `server`여도 게임 파일은 정상 서빙된다.
+> 경로를 `__dirname` 기준으로 잡기 때문이다.
+
+### 8.3 환경변수
+
+| 이름 | 기본 | 설명 |
+|---|---|---|
+| `PORT` | 8080 | 호스팅이 자동으로 주입한다. 건드리지 말 것 |
+| `SEARCH_SECONDS` | 10 | 대기열에서 사람을 기다리는 시간 |
+| `FILL_WITH_AI` | 1 | 0이면 사람 4명이 모일 때까지 시작하지 않는다 |
+| `FORCE_EVENT` | 없음 | **테스트 전용.** 특정 이벤트를 강제한다(예: `nextFfa`). 운영에서는 절대 설정하지 말 것 |
+
+### 8.4 무료 플랜에서 알아둘 것
+
+- **잠듦**: 15분간 접속이 없으면 인스턴스가 내려간다. 다음 접속자가 30~50초 기다린다.
+  친구들과 약속하고 테스트할 때는 먼저 한 명이 열어 깨워두면 된다
+- **잠들면 방이 사라진다**: 진행 중이던 매치는 유지되지 않는다
+- **재접속 유예 90초**: 이보다 오래 끊기면 자리가 AI로 확정된다
+
+### 8.5 배포 후 확인
+
+```bash
+curl https://<서비스>.onrender.com/healthz
+```
+
+그다음 브라우저 두 창에서 접속해 **🌐 온라인 대전**을 눌러 서로 매칭되는지 본다.
+`SEARCH_SECONDS` 안에 4명이 모이지 않으면 남은 자리는 AI로 채워진다.
+
+### 8.6 서버 코드 수정 시
+
+`main` 브랜치에 push하면 Render가 자동으로 다시 배포한다(GitHub Pages와 동일).
+서버가 재시작되므로 **진행 중이던 방은 전부 종료된다.** 사람이 붙어 있을 때는
+피하는 게 좋다.

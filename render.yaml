@@ -1,0 +1,16 @@
+# Render 배포 설정 — 저장소를 연결하면 이 파일을 읽어 자동 구성한다.
+# 서버가 게임 파일까지 함께 서빙하므로 이 서비스 하나면 멀티플레이가 동작한다.
+services:
+  - type: web
+    name: bounce-royal
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: SEARCH_SECONDS
+        value: "20"
+      - key: FILL_WITH_AI
+        value: "1"

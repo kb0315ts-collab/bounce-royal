@@ -5,7 +5,8 @@
 
 ## 배포
 
-GitHub Pages로 자동 배포된다. `main` 브랜치에 push하면 1~2분 뒤 반영된다.
+정적 클라이언트는 GitHub Pages로, 멀티플레이 서버는 Render로 배포한다.
+`main` 브랜치에 push하면 양쪽 모두 자동 반영된다.
 설정·주의사항·문제 해결은 [DEPLOY.md](DEPLOY.md) 참고.
 
 ## 실행 방법
