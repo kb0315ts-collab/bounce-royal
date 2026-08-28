@@ -244,6 +244,9 @@ class Room {
   startEventVote() {
     this.setPhase('event', EVENT_VOTE_TIME);
     this.eventOffers = core.rollGameEventOffers();
+    // 테스트용: FORCE_EVENT로 특정 이벤트를 후보 맨 앞에 강제로 넣는다
+    const forced = process.env.FORCE_EVENT && core.GAME_EVENT_BY_ID[process.env.FORCE_EVENT];
+    if (forced) this.eventOffers = [forced, ...this.eventOffers.filter(e => e.id !== forced.id)].slice(0, 3);
     this.eventVotes = new Map();
     for (const p of this.players) {
       if (p.isAI) this.eventVotes.set(p.id, core.pick(this.eventOffers).id);
@@ -258,7 +261,10 @@ class Room {
     if (this.players.every(p => this.eventVotes.has(p.id))) this.finishEventVote();
   }
   finishEventVote() {
-    for (const p of this.players) if (!this.eventVotes.has(p.id)) this.eventVotes.set(p.id, core.pick(this.eventOffers).id);
+    // 테스트용 강제 이벤트가 있으면 전원 그것에 투표시킨다
+    const forcedId = process.env.FORCE_EVENT && core.GAME_EVENT_BY_ID[process.env.FORCE_EVENT] ? process.env.FORCE_EVENT : null;
+    for (const p of this.players) if (!this.eventVotes.has(p.id)) this.eventVotes.set(p.id, forcedId || core.pick(this.eventOffers).id);
+    if (forcedId) for (const p of this.players) this.eventVotes.set(p.id, forcedId);
     const result = core.resolveGameEventVote(this.players, this.eventOffers, this.eventVotes);
     this.eventVoteDone = true;
     core.applyGameEvent(this, result.event);

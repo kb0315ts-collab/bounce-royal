@@ -19,6 +19,18 @@ function fighterView(f) {
     ti: { im: r1(t.immune), un: r1(t.untouchable), fz: r1(t.freeze), ad: r1(t.actingDead), st: r1(t.stun), ba: r1(t.balloon), ra: r1(t.rampage), gb: r1(t.gunBarrage) },
     ch: f.charging ? 1 : 0,
     gf: r1(f.gunFlash || 0),
+    // 무기 모양에 영향을 주는 증강만 비트로 싣는다
+    fg: (f.flags.giantBlade ? 1 : 0) | (f.flags.dualDagger ? 2 : 0)
+      | (f.flags.dualPistol ? 4 : 0) | (f.flags.bayonet ? 8 : 0),
+    // 권총 재장전 상태(총검술 표시용)
+    rl: f.gun && f.gun.reloadT > 0 ? 1 : 0,
+    // 시작 조준 방향 (aim 단계 화살표)
+    vx: Math.round(f.vx * 100) / 100, vy: Math.round(f.vy * 100) / 100,
+    lk: f.aimLocked ? 1 : 0,
+    // 스킬 잔여/최대 사용 횟수 (스킬바 표시용)
+    su: [f.skillUses.char, f.skillUses.weapon, f.skillUses.common],
+    sx: [1 + (f.flags.talent ? 1 : 0), 1 + (f.flags.weaponMastery ? 1 : 0), 1 + (f.flags.battery ? 1 : 0)],
+    cp: f.player.copiedSkill || null,
     sm: f.summons.map(s => ({ x: r1(s.x), y: r1(s.y), r: r1(s.r) })),
     sp: f.splitBalls.filter(s => !s.dead).map(s => ({ x: r1(s.x), y: r1(s.y), r: r1(s.r || 12) })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),

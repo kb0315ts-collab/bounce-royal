@@ -530,6 +530,7 @@ const TitleDemo = {
  * 게임 상태 머신
  * ============================================================ */
 const Game = {
+  mode: 'single',            // 'single' = 로컬 sim · 'multi' = 서버 권위형
   state: 'title', players: [], human: null,
   round: 0, battles: null, focus: null, ownBattle: null, spectating: false,
   resolving: false, elimCounter: 1, demo: null,
@@ -659,6 +660,8 @@ const Game = {
   },
 
   returnToTitle() {
+    if (this.mode === 'multi' && typeof BounceRoyalMulti !== 'undefined') BounceRoyalMulti.stop();
+    this.mode = 'single';
     this.cancelRankedSearch();
     cancelEventVoteTimers(this);
     this.cancelRoundAdvance();
@@ -718,6 +721,8 @@ const Game = {
   },
 
   update(dt) {
+    // 멀티 모드에서는 로컬 sim을 절대 돌리지 않는다. 서버 스냅샷만 그린다.
+    if (this.mode === 'multi') { if (typeof BounceRoyalMulti !== 'undefined') BounceRoyalMulti.update(dt); return; }
     if (this.state === 'battle' && this.battles) {
       for (const b of this.battles) b.update(dt);
       const fb = this.focus;
@@ -1040,6 +1045,7 @@ const Game = {
    * 조준과 방향 전환은 공용 스킬 버튼 조이스틱(bindAimJoystick)이 전담한다.
    * 캔버스 드래그 조준은 제거했다. */
   pressSkill(slot) {
+    if (this.mode === 'multi') { BounceRoyalMulti.sendSkill(slot); SFX.ui(); return; }
     if (this.state !== 'battle' || !this.focus) return;
     const b = this.focus, h = b.human();
     if (!h) return;
@@ -1131,6 +1137,7 @@ function bindAimJoystick(id) {
 
   // 조이스틱으로 다룰 상황인지 판정한다. null이면 일반 버튼으로 넘긴다.
   const modeFor = () => {
+    if (Game.mode === 'multi') return BounceRoyalMulti.canAim();
     if (Game.state !== 'battle' || !Game.focus) return null;
     const b = Game.focus, h = b.human();
     if (!h || h.dead || h.mainDead || h.timers.stun > 0) return null;
@@ -1169,10 +1176,9 @@ function bindAimJoystick(id) {
     // 손잡이를 제자리로 되돌리면 취소 상태다. 조준선을 감춰서 바로 알 수 있게 한다.
     const cancelling = len < JOY_DEAD_ZONE;
     el.classList.toggle('joy-cancel', cancelling);
-    if (Game.focus) {
-      Game.focus.humanAim = cancelling || active.ang === null
-        ? null : { active: true, ang: active.ang };
-    }
+    const aimView = cancelling || active.ang === null ? null : { active: true, ang: active.ang };
+    if (Game.mode === 'multi') BounceRoyalMulti.humanAim = aimView;
+    else if (Game.focus) Game.focus.humanAim = aimView;
   });
 
   const finish = event => {
@@ -1184,6 +1190,12 @@ function bindAimJoystick(id) {
     try {
       if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
     } catch (err) { /* 일부 WebView 미지원 */ }
+    if (Game.mode === 'multi') {
+      BounceRoyalMulti.humanAim = null;
+      // 멀티에서는 방향을 서버로만 보낸다. 적용 여부는 서버가 판단한다.
+      if (ang !== null && len >= JOY_DEAD_ZONE) { BounceRoyalMulti.sendAim(ang); SFX.skill(); }
+      return;
+    }
     const b = Game.focus, h = b ? b.human() : null;
     if (b) b.humanAim = null;
     // 뗄 때 손잡이가 중앙 근처면 취소한다 (끌어냈다가 제자리로 되돌리는 조작)
@@ -1438,6 +1450,13 @@ bindClick('btn-codex', () => openCodex('characters'));
 bindClick('btn-settings', openSettings);
 bindClick('btn-title-settings', openSettings);
 bindClick(['btn-ranked-match', 'btn-matchmaking-start'], () => { SFX.ensure(); SFX.ui(); Game.startRankedSearch(); });
+bindClick('btn-online-match', () => { SFX.ensure(); SFX.ui(); BounceRoyalMulti.start('queue'); });
+bindClick('btn-online-create', () => { SFX.ensure(); SFX.ui(); BounceRoyalMulti.start('create'); });
+bindClick('btn-online-join', () => {
+  SFX.ensure(); SFX.ui();
+  const code = prompt('방 코드를 입력하세요 (예: BR-AB12)');
+  if (code) BounceRoyalMulti.start('join', code.trim().toUpperCase());
+});
 bindClick(['btn-back-matchmaking', 'btn-ranked-back'], () => Game.returnToTitle());
 bindClick('btn-room-ai', addFriendlyAI);
 bindClick('btn-room-start', startFriendly);
