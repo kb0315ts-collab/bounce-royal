@@ -33,7 +33,8 @@ function fighterView(f) {
     cp: f.player.copiedSkill || null,
     // 소환수·분열체도 uid를 실어야 죽어서 배열이 밀려도 엉뚱한 대상과 보간되지 않는다
     sm: f.summons.map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r) })),
-    sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12) })),
+    // fl(피격 플래시)도 실어야 한다. 분열체는 본체와 따로 맞고 따로 번쩍인다.
+    sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0) })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
   };
 }

@@ -304,7 +304,8 @@ function lerpSnapshot(a, b, k, spanMs) {
     if (Math.hypot(f.x - p.x, f.y - p.y) > jump) return f;   // 순간이동은 그대로 스냅
     return Object.assign({}, f, {
       x: lerp(p.x, f.x, k), y: lerp(p.y, f.y, k),
-      r: lerp(p.r, f.r, k),
+      // 반지름은 섞지 않는다. 전투 중 크기는 풍선 스킬(1.6배)처럼 계단식으로만
+      // 바뀌므로, 섞으면 즉발이어야 할 스킬 발동이 50ms 램프로 뭉개진다.
       a: lerpAngle(p.a, f.a, k),
       h: lerp(p.h, f.h, k),
       // 소환수·분열체는 uid로 짝짓는다 (죽으면 배열이 밀리기 때문).
@@ -382,7 +383,7 @@ function netFighter(view, meta, seat) {
       dualPistol: !!(fg & 4), bayonet: !!(fg & 8),
     },
     summons: view.sm || NET_EMPTY,
-    splitBalls: (view.sp || NET_EMPTY).map(s => Object.assign({ dead: false }, s)),
+    splitBalls: (view.sp || NET_EMPTY).map(s => ({ dead: false, x: s.x, y: s.y, r: s.r, flash: s.fl || 0 })),
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
     satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),

@@ -67,6 +67,8 @@ function diffFighter(f, v, tag) {
   D('splitBalls.length', alive.length === v.splitBalls.length);
   for (let i = 0; i < Math.min(alive.length, v.splitBalls.length); i++) {
     D('splitBalls[' + i + ']', near(alive[i].x, v.splitBalls[i].x, POS) && near(alive[i].y, v.splitBalls[i].y, POS));
+    // 분열체는 본체와 따로 맞고 따로 번쩍인다
+    D('splitBalls[' + i + '].flash', near(alive[i].flash || 0, v.splitBalls[i].flash || 0, POS));
   }
   // 위성은 ang이라는 이름으로 와야 한다. a로 오면 렌더러가 NaN 위치에 그려 사라진다.
   D('satellites.length', f.satellites.length === v.satellites.length);
@@ -128,6 +130,7 @@ function runParity(opt) {
     weaponId: p.weaponId, isAI: p.isAI, coins: p.coins, eliminated: false, augments: p.augments,
   }));
   for (let i = 0; i < (opt.ticks || 60 * 12); i++) {
+    if (opt.hurtAt && i === opt.hurtAt) b.fighters[0].hp = 1;
     if (opt.skills && i % 150 === 40) {
       for (const slot of opt.skills) {
         const f = b.fighters[0];
@@ -177,14 +180,16 @@ test('증강 전체가 스냅샷 왕복에서 보존된다', () => {
         { weaponId: aug.weapon || 'sword', augments: [aug.id] },
         { charId: 'soft', weaponId: 'staff', isAI: true, color: '#63c26f' },
       ],
+      // 본체를 일찍 죽여 분열체 상태까지 비교 범위에 넣는다
+      hurtAt: aug.id === 'split' ? 120 : 0,
       skills: ['char', 'weapon', 'common'],
       ticks: 60 * 6,
     });
   }
 });
 
-test('장애물 경기장과 파워업 큐브 경기장도 그대로 전달된다', () => {
-  for (const arena of ['pillars', 'cube']) {
+test('다이아 외 경기장 4종도 그대로 전달된다', () => {
+  for (const arena of ['obstacle', 'power', 'circle', 'square']) {
     runParity({
       label: '경기장 ' + arena,
       arena: arena,
