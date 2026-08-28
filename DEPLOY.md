@@ -68,6 +68,7 @@ node tests/sim.test.js
 node tests/matchmaking.test.js
 node tests/events.test.js
 node tests/round-flow.test.js
+node tests/net.test.js
 ```
 
 전부 통과해야 한다. 테스트는 렌더러(`js/render.js`)를 로드하지 않으므로,

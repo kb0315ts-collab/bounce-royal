@@ -241,8 +241,9 @@ const Multi = {
   sendSkill(slot) { BounceRoyalNet.skill(slot); },
 
   /* ---------------- 매 프레임 ---------------- */
-  update() {
+  update(dt) {
     if (!this.active) return;
+    BounceRoyalNet.advanceFx(dt || 1 / 60);
     const snap = BounceRoyalNet.viewState();
     if (!snap) { renderBattle(null); return; }
     this.view = netBattleView(snap, BounceRoyalNet.players, BounceRoyalNet.seat, this.humanAim);

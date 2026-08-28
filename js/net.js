@@ -32,6 +32,8 @@ const Net = {
   phase: null,
   round: 0,
   buffer: [],              // { at, snap } 스냅샷 버퍼
+  localFx: [], localPopups: [], localParticles: [],   // 서버 이벤트로 만든 화면 효과
+  seenFx: new Set(), seenPopups: new Set(),
   lastSnapAt: 0,
   handlers: {},
   queueInfo: null,
@@ -100,6 +102,12 @@ const Net = {
     this.phase = null;
     this.round = 0;
     this.buffer.length = 0;
+    this.clearFx();
+  },
+
+  clearFx() {
+    this.localFx.length = 0; this.localPopups.length = 0; this.localParticles.length = 0;
+    this.seenFx.clear(); this.seenPopups.clear();
   },
 
   send(msg) {
@@ -136,6 +144,7 @@ const Net = {
         this.round = msg.n;
         if (msg.players) this.players = msg.players;
         this.buffer.length = 0;
+        this.clearFx();
         break;
       case 'resumed':
         this.seat = msg.id;
@@ -164,7 +173,53 @@ const Net = {
     this.buffer.push({ at, snap });
     while (this.buffer.length > SNAP_BUFFER) this.buffer.shift();
     this.lastSnapAt = at;
+    this.spawnFx(snap);
     this.emit('snapshot', snap);
+  },
+
+  /* 서버가 보낸 타격 효과 중 처음 보는 것만 클라이언트에서 한 번 재생한다.
+   * 재생 자체는 로컬 타이밍으로 돌아가므로 20Hz 스냅샷과 무관하게 부드럽다. */
+  spawnFx(snap) {
+    for (const p of snap.px || []) {
+      if (this.seenPopups.has(p.u)) continue;
+      this.seenPopups.add(p.u);
+      this.localPopups.push({ x: p.x, y: p.y, txt: p.s, color: p.c, big: !!p.b, t: 0.9 });
+      if (/^[0-9]+$/.test(p.s)) {          // 피해 숫자면 불꽃과 타격음
+        this.burst(p.x, p.y, 4, '#ffb0b0', 130);
+        if (typeof SFX !== 'undefined' && SFX.hit) SFX.hit();
+      }
+    }
+    for (const e of snap.fx || []) {
+      if (this.seenFx.has(e.u)) continue;
+      this.seenFx.add(e.u);
+      if (e.k === 'r') {
+        this.localFx.push({ type: 'ring', x: e.x, y: e.y, r0: e.a, r1: e.b, color: e.c, dur: e.d, t: 0 });
+        if (e.b - e.a > 45) { this.burst(e.x, e.y, 10, e.c, 240); if (typeof SFX !== 'undefined' && SFX.boom) SFX.boom(); }
+      } else {
+        this.localFx.push({ type: 'bolt', segs: e.g.map(s => ({ x: s[0], y: s[1] })), color: e.c, dur: e.d, t: 0 });
+      }
+    }
+    if (this.seenPopups.size > 4000) this.seenPopups.clear();
+    if (this.seenFx.size > 4000) this.seenFx.clear();
+  },
+
+  burst(x, y, n, color, spd) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = spd * (0.4 + Math.random() * 0.6);
+      this.localParticles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0,
+        life: 0.25 + Math.random() * 0.3, color, size: 1.5 + Math.random() * 2 });
+    }
+    if (this.localParticles.length > 300) this.localParticles.splice(0, this.localParticles.length - 300);
+  },
+
+  /* 로컬 효과의 시간을 매 프레임 진행시킨다 (Battle.updateFx와 같은 규칙) */
+  advanceFx(dt) {
+    for (const p of this.localPopups) { p.t -= dt; p.y -= 34 * dt; }
+    this.localPopups = this.localPopups.filter(p => p.t > 0);
+    for (const e of this.localFx) e.t += dt;
+    this.localFx = this.localFx.filter(e => e.t < (e.dur || 0.5));
+    for (const p of this.localParticles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94; }
+    this.localParticles = this.localParticles.filter(p => p.t < p.life);
   },
 
   /* 지금 그려야 할 상태를 보간해서 돌려준다.
@@ -230,10 +285,13 @@ function lerpSnapshot(a, b, k) {
       sa: f.sa.map((s, i) => (p.sa[i] ? { a: lerpAngle(p.sa[i].a, s.a, k) } : s)),
     });
   });
-  // 투사체: 개수가 자주 바뀌므로 같은 인덱스·종류일 때만 섞는다
-  out.pr = b.pr.map((p, i) => {
-    const q = a.pr[i];
-    if (!q || q.k !== p.k) return p;
+  // 투사체는 반드시 uid로 맞춘다. 인덱스로 맞추면 하나가 사라질 때 배열이
+  // 밀려서 서로 다른 투사체 사이를 보간하게 되고, 화살이 꺾이거나
+  // 순간이동하는 것처럼 보인다.
+  const prevProj = new Map(a.pr.map(p => [p.u, p]));
+  out.pr = b.pr.map(p => {
+    const q = prevProj.get(p.u);
+    if (!q) return p;
     return Object.assign({}, p, { x: lerp(q.x, p.x, k), y: lerp(q.y, p.y, k), a: lerpAngle(q.a, p.a, k) });
   });
   return out;
@@ -323,10 +381,12 @@ function netBattleView(snap, players, seat, humanAim) {
     mines: (snap.mn || NET_EMPTY).map(m => ({ x: m.x, y: m.y, r: m.r, arm: m.a ? 0 : 1, owner: owner(m.o) })),
     flames: (snap.fm || NET_EMPTY).map(f => ({ x: f.x, y: f.y, r: f.r, life: f.l })),
     stickies: (snap.sk || NET_EMPTY).map(s => ({ x: s.x, y: s.y, r: s.r, life: s.l })),
-    fx: NET_EMPTY, particles: NET_EMPTY, popups: NET_EMPTY,
+    fx: Net.localFx, particles: Net.localParticles, popups: Net.localPopups,
     humanAim: humanAim || null,
     human() { return fighters.find(f => f.isMe) || null; },
   };
 }
 
 if (typeof window !== 'undefined') window.netBattleView = netBattleView;
+// Node 테스트에서 순수 함수만 꺼내 쓸 수 있게 한다 (브라우저에는 영향 없음)
+if (typeof module === 'object' && module.exports) module.exports = { Net, lerpSnapshot, netBattleView };

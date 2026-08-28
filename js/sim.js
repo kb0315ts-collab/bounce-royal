@@ -434,10 +434,10 @@ function winRound(p) {
  * 이펙트 헬퍼
  * ============================================================ */
 function popup(b, x, y, txt, color, big) {
-  b.popups.push({ x, y, txt, color, t: 0.9, big: !!big });
+  b.popups.push({ uid: ++UID, x, y, txt, color, t: 0.9, big: !!big });
   if (b.popups.length > 40) b.popups.shift();
 }
-function addFx(b, o) { o.t = 0; b.fx.push(o); if (b.fx.length > 80) b.fx.shift(); }
+function addFx(b, o) { o.t = 0; o.uid = ++UID; b.fx.push(o); if (b.fx.length > 80) b.fx.shift(); }
 function sparks(b, x, y, n, color, spd = 160) {
   for (let i = 0; i < n; i++) {
     const a = rand(0, TAU), s = rand(spd * 0.4, spd);

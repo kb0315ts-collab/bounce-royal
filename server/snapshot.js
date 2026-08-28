@@ -48,12 +48,19 @@ function snapshot(battle) {
     cube: battle.arena.cube && battle.arena.cube.active
       ? { x: battle.arena.cube.x, y: battle.arena.cube.y, s: r1(battle.arena.cube.spin) } : null,
     f: battle.fighters.map(fighterView),
+    // uid를 함께 보낸다. 인덱스로 맞추면 투사체가 사라질 때 서로 다른 투사체를
+    // 보간하게 되어 화살이 꺾이거나 순간이동하는 것처럼 보인다.
     pr: battle.projectiles.map(p => ({
-      k: p.kind, x: r1(p.x), y: r1(p.y), a: Math.round(p.ang * 100) / 100, r: r1(p.r), o: p.owner ? p.owner.pid : null,
+      u: p.uid, k: p.kind, x: r1(p.x), y: r1(p.y), a: Math.round(p.ang * 100) / 100, r: r1(p.r), o: p.owner ? p.owner.pid : null,
     })),
-    mn: battle.mines.map(m => ({ x: r1(m.x), y: r1(m.y), r: r1(m.r || 11), a: m.arm <= 0 ? 1 : 0, o: m.owner ? m.owner.pid : null })),
+    mn: battle.mines.map(m => ({ u: m.uid, x: r1(m.x), y: r1(m.y), r: r1(m.r || 11), a: m.arm <= 0 ? 1 : 0, o: m.owner ? m.owner.pid : null })),
     fm: battle.flames.map(f => ({ x: r1(f.x), y: r1(f.y), r: r1(f.r), l: r1(f.life) })),
     sk: battle.stickies.map(s => ({ x: r1(s.x), y: r1(s.y), r: r1(s.r), l: r1(s.life) })),
+    // 타격 피드백. 클라이언트는 처음 본 uid만 자기 쪽에서 한 번 재생한다.
+    px: battle.popups.map(p => ({ u: p.uid, x: r1(p.x), y: r1(p.y), s: String(p.txt), c: p.color, b: p.big ? 1 : 0 })),
+    fx: battle.fx.map(e => (e.type === 'ring'
+      ? { u: e.uid, k: 'r', x: r1(e.x), y: r1(e.y), a: r1(e.r0), b: r1(e.r1), c: e.color, d: e.dur }
+      : { u: e.uid, k: 'b', c: e.color, d: e.dur, g: e.segs.map(s => [r1(s.x), r1(s.y)]) })),
     res: battle.result ? { w: battle.result.winner ? battle.result.winner.pid : null, why: battle.result.reason, draw: !!battle.result.draw } : null,
   };
 }
