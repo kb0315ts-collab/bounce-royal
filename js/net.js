@@ -35,6 +35,7 @@ const Net = {
   localFx: [], localPopups: [], localParticles: [],   // 서버 이벤트로 만든 화면 효과
   seenFx: new Set(), seenPopups: new Set(),
   lastSnapAt: 0,
+  lastSeq: 0,               // 마지막으로 받아들인 스냅샷 순번
   handlers: {},
   queueInfo: null,
   wantQueue: false,
@@ -144,6 +145,7 @@ const Net = {
         this.round = msg.n;
         if (msg.players) this.players = msg.players;
         this.buffer.length = 0;
+        this.lastSeq = 0;
         this.clearFx();
         break;
       case 'resumed':
@@ -152,9 +154,10 @@ const Net = {
         this.round = msg.round;
         if (msg.players) this.players = msg.players;
         this.buffer.length = 0;
+        this.lastSeq = 0;
         break;
       case 's':
-        this.pushSnapshot(msg.b);
+        this.pushSnapshot(msg.b, msg.q);
         return;                       // 스냅샷은 별도 이벤트로 흘리지 않는다
       case 'gameOver':
         if (msg.players) this.players = msg.players;
@@ -168,13 +171,20 @@ const Net = {
   },
 
   /* ---------------- 스냅샷 버퍼 ---------------- */
-  pushSnapshot(snap) {
-    const at = performance.now();
-    this.buffer.push({ at, snap });
-    while (this.buffer.length > SNAP_BUFFER) this.buffer.shift();
-    this.lastSnapAt = at;
+  pushSnapshot(snap, seq) {
+    // 지터가 크면 나중에 보낸 스냅샷이 먼저 도착하기도 한다. 그대로 버퍼에 넣으면
+    // 시간이 되감겨 화살이 뒤로 튄다. 순번이 밀린 것은 보간에 쓰지 않는다.
+    // 다만 타격 연출은 그 스냅샷에만 실려 있을 수 있으므로 재생은 시킨다.
+    const stale = seq != null && seq <= this.lastSeq;
+    if (seq != null && !stale) this.lastSeq = seq;
+    if (!stale) {
+      const at = performance.now();
+      this.buffer.push({ at, snap });
+      while (this.buffer.length > SNAP_BUFFER) this.buffer.shift();
+      this.lastSnapAt = at;
+    }
     this.spawnFx(snap);
-    this.emit('snapshot', snap);
+    if (!stale) this.emit('snapshot', snap);
   },
 
   /* 서버가 보낸 타격 효과 중 처음 보는 것만 클라이언트에서 한 번 재생한다.

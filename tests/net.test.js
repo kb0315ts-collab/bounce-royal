@@ -168,4 +168,40 @@ test('반지름은 섞지 않고 최신값을 쓴다 (풍선 크기 변화)', ()
   assert.equal(mid.f[0].r, 35.2, '크기 변화는 즉시 반영되어야 한다 (실제 ' + mid.f[0].r + ')');
 });
 
+
+/* ---- 순서가 뒤바뀌어 도착한 스냅샷 ----
+ * 지터가 크면 나중에 보낸 것이 먼저 도착한다. 그대로 버퍼에 넣으면
+ * 시간이 되감겨 화살이 뒤로 튄다. 대신 그 스냅샷에만 실린 연출은 살려야 한다. */
+test('순번이 밀린 스냅샷은 보간에 쓰지 않는다', () => {
+  Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+  const a = snap([]); a.f[0].x = 0;
+  const b = snap([]); b.f[0].x = 100;
+  const late = snap([]); late.f[0].x = 50;
+  Net.pushSnapshot(a, 1);
+  Net.pushSnapshot(b, 2);
+  Net.pushSnapshot(late, 1);           // 뒤늦게 도착한 옛 스냅샷
+  assert.equal(Net.buffer.length, 2, '옛 스냅샷이 버퍼에 들어가면 안 된다');
+  assert.equal(Net.buffer[Net.buffer.length - 1].snap.f[0].x, 100, '가장 최신 상태가 남아야 한다');
+  Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+});
+
+test('순번이 밀린 스냅샷이라도 거기 실린 연출은 재생한다', () => {
+  Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+  Net.pushSnapshot(snap([]), 1);
+  Net.pushSnapshot(snap([]), 2);
+  const late = snap([]);
+  late.px = [{ u: 91, x: 0, y: 0, s: '9', c: '#ffffff', b: 0 }];
+  Net.pushSnapshot(late, 1);
+  assert.equal(Net.localPopups.length, 1, '늦게 온 스냅샷의 타격 연출까지 버리면 안 된다');
+  Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+});
+
+test('순번이 없는 스냅샷은 그대로 받아들인다', () => {
+  Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+  Net.pushSnapshot(snap([]));
+  Net.pushSnapshot(snap([]));
+  assert.equal(Net.buffer.length, 2);
+  Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
+});
+
 console.log('\n' + passed + '개 스냅샷 보간 테스트 통과');

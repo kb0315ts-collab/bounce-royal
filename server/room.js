@@ -67,6 +67,7 @@ class Room {
 
     this.tickTimer = setInterval(() => this.tick(), 1000 / TICK_HZ);
     this.snapAcc = 0;
+    this.snapSeq = 0;    // 스냅샷 순번. 지터로 순서가 뒤바뀌어 도착한 것을 클라이언트가 버릴 수 있게 한다
     this.startWeaponPhase();
   }
 
@@ -382,9 +383,10 @@ class Room {
       this.snapAcc += dt;
       if (this.snapAcc >= 1 / SNAP_HZ) {
         this.snapAcc = 0;
+        const seq = ++this.snapSeq;   // 한 번의 전송 배치는 모두 같은 순번
         for (const p of this.players) {
           const b = this.battleOf(p) || this.battles[0];
-          if (b) this.send(p, { t: 's', b: snapshot(b) });
+          if (b) this.send(p, { t: 's', q: seq, b: snapshot(b) });
         }
       }
       if (this.battles.every(b => b.result)) this.resolveRound();
