@@ -635,7 +635,7 @@ function setRankedSearchState(text = '', searching = false) {
     status.textContent = text || '매칭을 시작할 준비가 되었습니다.';
     status.classList.toggle('searching', !!searching);
   }
-  if (button) { button.disabled = !!searching; button.textContent = searching ? '상대 찾는 중…' : '랜덤 매칭'; }
+  if (button) { button.disabled = !!searching; button.textContent = searching ? '상대 찾는 중…' : '대전 시작'; }
 }
 
 function buildFriendlySlots(room, callbacks = {}) {

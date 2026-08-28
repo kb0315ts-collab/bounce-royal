@@ -28,9 +28,12 @@ const Multi = {
       setRankedSearchState('서버에 연결 중…', true);
       await BounceRoyalNet.connect();
     } catch (err) {
-      setRankedSearchState('서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요.', false);
+      setRankedSearchState('서버에 연결하지 못했습니다. 서버가 깨어나는 중이거나 점검 중일 수 있습니다.', false);
+      // 이때만 완전 로컬 AI전을 대안으로 제시한다
+      $('btn-offline-practice')?.classList.remove('hidden');
       return false;
     }
+    $('btn-offline-practice')?.classList.add('hidden');
     this.bind();
     this.active = true;
     Game.mode = 'multi';

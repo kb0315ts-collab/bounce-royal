@@ -1266,7 +1266,8 @@ function updateRankedScreen() {
   const tier = $('ranked-tier');
   if (rating) rating.textContent = `${Profile.data.rating} RP`;
   if (tier) tier.textContent = ratingTier(Profile.data.rating);
-  const note = `${RANKED_SEARCH_TIME}초 동안 플레이어를 찾고, 남은 자리는 AI가 채웁니다.`;
+  $('btn-offline-practice')?.classList.add('hidden');
+  const note = '온라인으로 상대를 찾습니다. 사람이 모자라면 AI가 자리를 채웁니다.';
   if (typeof setRankedSearchState === 'function') setRankedSearchState(note, false);
   else if ($('ranked-search-status')) $('ranked-search-status').textContent = note;
 }
@@ -1449,8 +1450,10 @@ bindClick('btn-bag', openBag);
 bindClick('btn-codex', () => openCodex('characters'));
 bindClick('btn-settings', openSettings);
 bindClick('btn-title-settings', openSettings);
-bindClick(['btn-ranked-match', 'btn-matchmaking-start'], () => { SFX.ensure(); SFX.ui(); Game.startRankedSearch(); });
-bindClick('btn-online-match', () => { SFX.ensure(); SFX.ui(); BounceRoyalMulti.start('queue'); });
+// 대전 시작은 온라인 매칭이다. 사람이 안 모이면 서버가 남은 자리를 AI로 채운다.
+bindClick(['btn-ranked-match', 'btn-matchmaking-start'], () => { SFX.ensure(); SFX.ui(); BounceRoyalMulti.start('queue'); });
+// 서버에 연결하지 못했을 때만 나타나는 폴백 — 완전 로컬 AI전
+bindClick('btn-offline-practice', () => { SFX.ensure(); SFX.ui(); Game.startRankedSearch(); });
 bindClick('btn-online-create', () => { SFX.ensure(); SFX.ui(); BounceRoyalMulti.start('create'); });
 bindClick('btn-online-join', () => {
   SFX.ensure(); SFX.ui();
