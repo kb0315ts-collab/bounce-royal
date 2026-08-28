@@ -198,17 +198,20 @@ const Multi = {
     const code = $('room-code');
     if (code) code.textContent = m.code;
     const note = document.querySelector('.room-code-wrap small');
-    if (note) note.textContent = '이 코드를 친구에게 알려주세요 · 온라인 방';
+    if (note) note.textContent = '🌐 온라인 방 · 이 코드를 친구에게 알려주세요';
     if (typeof buildFriendlySlots === 'function') {
       buildFriendlySlots(
         { code: m.code, maxPlayers: 4, slots: [0, 1, 2, 3].map(i => (m.players[i] ? { ...m.players[i], ready: true, local: i === 0 } : null)) },
         { onAddAI: null, onRemoveSlot: null, onToggleReady: null },
       );
     }
+    $('room-local-actions')?.classList.add('hidden');   // 서버가 빈 자리를 AI로 채운다
     const start = $('btn-room-start');
     if (start) {
       start.disabled = false;
-      start.textContent = m.players.length >= 2 ? `${m.players.length}명으로 시작` : '혼자서 시작 (AI 충원)';
+      start.textContent = m.players.length >= 4
+        ? '4명으로 시작'
+        : `${m.players.length}명으로 시작 (남은 ${4 - m.players.length}자리 AI)`;
     }
   },
 

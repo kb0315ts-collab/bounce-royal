@@ -1362,10 +1362,19 @@ function toggleFriendlyReady(index) {
   syncFriendlyRoom();
 }
 
-function openFriendly() {
+async function openFriendly() {
   SFX.ensure(); SFX.ui();
-  Game.room = createFriendlyRoom();
   showScreen('scr-friendly');
+  $('room-local-actions')?.classList.add('hidden');
+  const code = $('room-code');
+  if (code) code.textContent = '연결 중…';
+  // 친선전에 들어오면 곧바로 온라인 방을 만든다. 코드가 나오면 친구에게 전달하면 된다.
+  const ok = await BounceRoyalMulti.start('create');
+  if (ok) return;
+  // 서버에 못 붙으면 예전처럼 완전 로컬 방으로 논다
+  banner('오프라인 방', '서버에 연결하지 못해 AI와 진행합니다', 1800);
+  Game.room = createFriendlyRoom();
+  $('room-local-actions')?.classList.remove('hidden');
   syncFriendlyRoom();
 }
 
@@ -1382,6 +1391,15 @@ function startFriendly() {
 }
 
 async function copyFriendlyCode() {
+  if (Game.mode === 'multi' && BounceRoyalNet.roomCode) {
+    const code = BounceRoyalNet.roomCode;
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(code);
+      banner('방 코드 복사 완료', code, 900);
+    } catch (e) { banner('방 코드', code, 1400); }
+    return;
+  }
   if (!Game.room) return;
   try {
     if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('clipboard unavailable');
@@ -1454,7 +1472,6 @@ bindClick('btn-title-settings', openSettings);
 bindClick(['btn-ranked-match', 'btn-matchmaking-start'], () => { SFX.ensure(); SFX.ui(); BounceRoyalMulti.start('queue'); });
 // 서버에 연결하지 못했을 때만 나타나는 폴백 — 완전 로컬 AI전
 bindClick('btn-offline-practice', () => { SFX.ensure(); SFX.ui(); Game.startRankedSearch(); });
-bindClick('btn-online-create', () => { SFX.ensure(); SFX.ui(); BounceRoyalMulti.start('create'); });
 bindClick('btn-online-join', () => {
   SFX.ensure(); SFX.ui();
   const code = prompt('방 코드를 입력하세요 (예: BR-AB12)');
@@ -1462,7 +1479,11 @@ bindClick('btn-online-join', () => {
 });
 bindClick(['btn-back-matchmaking', 'btn-ranked-back'], () => Game.returnToTitle());
 bindClick('btn-room-ai', addFriendlyAI);
-bindClick('btn-room-start', startFriendly);
+bindClick('btn-room-start', () => {
+  // 온라인 방이면 서버가 시작을 처리하고 빈 자리를 AI로 채운다
+  if (Game.mode === 'multi') { SFX.ui(); BounceRoyalNet.startRoom(); return; }
+  startFriendly();
+});
 bindClick('btn-copy-room', copyFriendlyCode);
 bindClick(['btn-back-friendly', 'btn-friendly-back'], () => Game.returnToTitle());
 bindClick(['btn-back-bag', 'btn-bag-back'], () => Game.returnToTitle());
