@@ -69,10 +69,15 @@ node tests/matchmaking.test.js
 node tests/events.test.js
 node tests/round-flow.test.js
 node tests/net.test.js
+node tests/parity.test.js
 ```
 
 전부 통과해야 한다. 테스트는 렌더러(`js/render.js`)를 로드하지 않으므로,
 **렌더링·UI 변경은 테스트로 잡히지 않는다.** 그런 변경은 브라우저에서 직접 확인한다.
+
+> `parity.test.js`는 예외다. 렌더러를 실행하지는 않지만 렌더러가 읽는 필드 목록을
+> 알고 있어서, 서버 스냅샷 왕복에서 값이 빠지거나 이름이 어긋나면 잡아낸다.
+> **`server/snapshot.js`나 `js/net.js`의 `netFighter`를 고쳤다면 반드시 돌릴 것.**
 
 ### 3.3 브라우저 확인 방법
 

@@ -31,8 +31,9 @@ function fighterView(f) {
     su: [f.skillUses.char, f.skillUses.weapon, f.skillUses.common],
     sx: [1 + (f.flags.talent ? 1 : 0), 1 + (f.flags.weaponMastery ? 1 : 0), 1 + (f.flags.battery ? 1 : 0)],
     cp: f.player.copiedSkill || null,
-    sm: f.summons.map(s => ({ x: r1(s.x), y: r1(s.y), r: r1(s.r) })),
-    sp: f.splitBalls.filter(s => !s.dead).map(s => ({ x: r1(s.x), y: r1(s.y), r: r1(s.r || 12) })),
+    // 소환수·분열체도 uid를 실어야 죽어서 배열이 밀려도 엉뚱한 대상과 보간되지 않는다
+    sm: f.summons.map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r) })),
+    sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12) })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
   };
 }

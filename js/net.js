@@ -234,7 +234,7 @@ const Net = {
     const b = this.buffer[i], a = this.buffer[i - 1] || b;
     const span = b.at - a.at;
     const k = span > 0 ? Math.max(0, Math.min(1, (target - a.at) / span)) : 1;
-    return lerpSnapshot(a.snap, b.snap, k);
+    return lerpSnapshot(a.snap, b.snap, k, span);
   },
 
   /* ---------------- 입력 ---------------- */
@@ -265,23 +265,52 @@ function lerpAngle(a, b, k) {
 }
 function lerp(a, b, k) { return a + (b - a) * k; }
 
-function lerpSnapshot(a, b, k) {
+/* uid로 짝지어 위치만 섞는다. 짝이 없으면(새로 생긴 것) 최신 값을 그대로 쓴다. */
+function lerpById(prevList, nextList, k, jump) {
+  if (!prevList || !prevList.length) return nextList;
+  const prev = new Map(prevList.map(s => [s.u, s]));
+  return nextList.map(s => {
+    const q = prev.get(s.u);
+    if (!q) return s;
+    if (jump && Math.hypot(s.x - q.x, s.y - q.y) > jump) return s;
+    return Object.assign({}, s, { x: lerp(q.x, s.x, k), y: lerp(q.y, s.y, k) });
+  });
+}
+
+/* 두 스냅샷 사이에 물리적으로 가능한 최대 이동거리(px).
+ * 이보다 멀리 움직였다면 순간이동(고양이 되돌아가기 등)이므로 섞지 않고
+ * 목적지를 그대로 그린다. 안 그러면 경기장을 가로질러 미끄러지는 것처럼 보인다.
+ *
+ * spanMs는 두 스냅샷이 실제로 도착한 시간 간격이다. 스냅샷의 simT는 소수
+ * 1자리로 반올림되어 20Hz(0.05초 간격)에서는 차이가 0이 되기도 하므로
+ * 시간 근거로 쓸 수 없다. 호출자가 실제 간격을 넘겨준다.
+ * 1600 = 로켓 스타트(760px/s) × 연장전 2배속에 여유를 더한 값. */
+const SNAP_INTERVAL_MS = 50;   // 서버 기본 전송 간격
+function maxTravel(spanMs) {
+  return 1600 * Math.max(0, spanMs) / 1000 + 24;
+}
+
+function lerpSnapshot(a, b, k, spanMs) {
   if (!a || !b) return b || a;
   const out = Object.assign({}, b);
   out.t = lerp(a.t, b.t, k);
   out.sh = lerp(a.sh, b.sh, k);
+  const jump = maxTravel(spanMs > 0 ? spanMs : SNAP_INTERVAL_MS);
   // 전투원: 같은 uid끼리만 섞는다
   const prev = new Map(a.f.map(f => [f.u, f]));
   out.f = b.f.map(f => {
     const p = prev.get(f.u);
     if (!p) return f;
+    if (Math.hypot(f.x - p.x, f.y - p.y) > jump) return f;   // 순간이동은 그대로 스냅
     return Object.assign({}, f, {
       x: lerp(p.x, f.x, k), y: lerp(p.y, f.y, k),
       r: lerp(p.r, f.r, k),
       a: lerpAngle(p.a, f.a, k),
       h: lerp(p.h, f.h, k),
-      sm: f.sm.map((s, i) => (p.sm[i] ? { x: lerp(p.sm[i].x, s.x, k), y: lerp(p.sm[i].y, s.y, k), r: s.r } : s)),
-      sp: f.sp.map((s, i) => (p.sp[i] ? { x: lerp(p.sp[i].x, s.x, k), y: lerp(p.sp[i].y, s.y, k), r: s.r } : s)),
+      // 소환수·분열체는 uid로 짝짓는다 (죽으면 배열이 밀리기 때문).
+      // 위성체는 전투 중 개수가 변하지 않아 인덱스가 곧 고유 식별자다.
+      sm: lerpById(p.sm, f.sm, k, jump),
+      sp: lerpById(p.sp, f.sp, k, jump),
       sa: f.sa.map((s, i) => (p.sa[i] ? { a: lerpAngle(p.sa[i].a, s.a, k) } : s)),
     });
   });
@@ -292,6 +321,7 @@ function lerpSnapshot(a, b, k) {
   out.pr = b.pr.map(p => {
     const q = prevProj.get(p.u);
     if (!q) return p;
+    if (Math.hypot(p.x - q.x, p.y - q.y) > jump) return p;
     return Object.assign({}, p, { x: lerp(q.x, p.x, k), y: lerp(q.y, p.y, k), a: lerpAngle(q.a, p.a, k) });
   });
   return out;
@@ -353,7 +383,9 @@ function netFighter(view, meta, seat) {
     },
     summons: view.sm || NET_EMPTY,
     splitBalls: (view.sp || NET_EMPTY).map(s => Object.assign({ dead: false }, s)),
-    satellites: view.sa || NET_EMPTY,
+    // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
+    // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
+    satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),
     skillUses: { char: (view.su||[0,0,0])[0], weapon: (view.su||[0,0,0])[1], common: (view.su||[0,0,0])[2] },
     skillMax: { char: (view.sx||[1,1,1])[0], weapon: (view.sx||[1,1,1])[1], common: (view.sx||[1,1,1])[2] },
     isMe: view.p === seat,
