@@ -424,6 +424,9 @@ function netFighter(view, meta, seat) {
     gunFlash: view.gf,
     charging: view.ch ? { t: view.ch } : null,
     gun: { reloadT: view.rl ? 1 : 0, focus: false },
+    // 스탯판이 읽는 값. 서버가 계산한 것을 그대로 받는다.
+    st: { atk: (view.st || [1, 1, 1, 0])[0], dmg: (view.st || [1, 1, 1, 0])[1],
+      aspd: (view.st || [1, 1, 1, 0])[2], rot: (view.st || [1, 1, 1, 0])[3] },
     timers: {
       immune: ti.im || 0, untouchable: ti.un || 0, freeze: ti.fz || 0,
       actingDead: ti.ad || 0, stun: ti.st || 0, balloon: ti.ba || 0,

@@ -148,7 +148,9 @@ class BattleScene extends Phaser.Scene {
       this.texts[this.textIndex] = t;
     }
     this.textIndex++;
-    t.setVisible(true).setPosition(x, y).setText(str).setStyle(style);
+    t.setVisible(true).setPosition(x, y).setText(str).setStyle(style)
+      .setOrigin(style && style.originX != null ? style.originX : 0.5,
+        style && style.originY != null ? style.originY : 0.5);
     return t;
   }
 
@@ -172,6 +174,7 @@ class BattleScene extends Phaser.Scene {
       drawFx(this.gFx, this.gFxGlow, b, this);
       drawUnitUI(this.gUI, b, this);
       drawAimUI(this.gUI, b);
+      drawStatPanel(this.gUI, b, this);
     }
     // 남는 텍스트는 숨긴다
     for (let i = this.textIndex; i < this.texts.length; i++) this.texts[i].setVisible(false);
@@ -695,6 +698,45 @@ function drawUnitUI(g, b, sc) {
       }).setAlpha(1);
     }
   }
+}
+
+/* ============================================================
+ * 좌하단 스탯판
+ * 다이아 경기장 바깥의 빈 삼각형에 내 현재 수치를 적는다.
+ * ============================================================ */
+function drawStatPanel(g, b, sc) {
+  const me = b.human && b.human();
+  if (!me || !me.st) return;                    // 관전 중이면 보여줄 내 수치가 없다
+  const L = (b.arena && b.arena.L) || 405;
+  // 마름모(|x|+|y| <= L) 밖이면서 화면 박스(반폭 1.037L) 안에 들어가야 한다.
+  // 네 모서리 중 오른쪽 위가 가장 빠듯하다: (-0.42L, 0.62L) -> 합 1.04L
+  const padX = L * 0.024, padY = L * 0.022;
+  const x = -L + padX, y = L * 0.62 + padY;
+  const rowH = L * 0.062, w = L * 0.532;
+  const rows = [
+    ['공격력', '×' + me.st.atk.toFixed(2)],
+    ['체력', Math.max(0, Math.round(me.hp)) + ' / ' + Math.round(me.maxHp)],
+    ['공격속도', '×' + me.st.aspd.toFixed(2)],
+    ['회전력', me.st.rot > 0 ? me.st.rot.toFixed(2) + ' rad/s' : '—'],
+    ['피해 증폭', '×' + me.st.dmg.toFixed(2)],
+  ];
+  g.fillStyle(0x070c18, 0.62);
+  g.fillRect(x - padX, y - padY, w + padX * 2, rowH * rows.length + padY * 2);
+  g.lineStyle(Math.max(1, L * 0.004), toInt(me.color || '#4da6ff'), 0.5);
+  g.strokeRect(x - padX, y - padY, w + padX * 2, rowH * rows.length + padY * 2);
+
+  const size = Math.max(9, Math.round(L * 0.045));
+  rows.forEach(([label, value], i) => {
+    const ty = y + rowH * (i + 0.5);
+    sc.useText(x, ty, label, {
+      fontFamily: 'Jua, sans-serif', fontSize: size + 'px', color: '#9fb0cf',
+      originX: 0, originY: 0.5,
+    });
+    sc.useText(x + w, ty, value, {
+      fontFamily: 'Jua, sans-serif', fontSize: size + 'px', color: '#eef3ff',
+      originX: 1, originY: 0.5,
+    });
+  });
 }
 
 function drawArrowG(g, x, y, ang, len, color, width, alpha = 1) {

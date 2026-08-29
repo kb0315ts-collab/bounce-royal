@@ -300,8 +300,8 @@ const Multi = {
     updateSkillbar(v);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this.panelState());
     const me = v.human();
+    // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
     if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 방향을 설정하세요 · 버튼을 끌어 조준');
-    else if (v.phase === 'fight' && me && me.skillUses.common > 0 && !me.player.copiedSkill) setHint(`🧭 버튼을 끌어 방향 전환 (남은 ${me.skillUses.common}회)`);
     else setHint(null);
     // 다른 전투 관전 전환
     this.offerSpectate();

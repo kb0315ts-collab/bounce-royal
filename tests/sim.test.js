@@ -1050,6 +1050,26 @@ test('공격속도 증강은 근접 무기의 회전속도를 올리고, 회전 
     '회전이 150% 빨라지면 타격 수도 그만큼 늘어야 한다 (' + plain.hits + ' -> ' + fast.hits + ')');
 });
 
+
+test('좌하단 스탯판 자리가 경기장 밖 빈 공간에 들어간다', () => {
+  // render.js의 drawStatPanel과 같은 비율. 마름모 안으로 들어가면 경기를 가린다.
+  const WORLD_BOX = 840, REF = 405;
+  for (const L of [405, 320]) {
+    const padX = L * 0.024, padY = L * 0.022;
+    const x = -L + padX, y = L * 0.62 + padY, rowH = L * 0.062, w = L * 0.532;
+    const left = x - padX, right = x + w + padX;
+    const top = y - padY, bottom = y + rowH * 5 + padY;
+    const half = WORLD_BOX * (L / REF) / 2;
+    const corners = [[left, top], [right, top], [left, bottom], [right, bottom]];
+    for (const [px, py] of corners) {
+      assert.ok(Math.abs(px) + Math.abs(py) > L,
+        'L=' + L + ': 스탯판 모서리 (' + Math.round(px) + ',' + Math.round(py) + ')가 경기장 안으로 들어간다');
+      assert.ok(Math.abs(px) <= half && Math.abs(py) <= half,
+        'L=' + L + ': 스탯판 모서리가 화면 밖으로 나간다');
+    }
+  }
+});
+
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
 `,
 ].join('\n');

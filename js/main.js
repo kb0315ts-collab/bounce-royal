@@ -797,10 +797,8 @@ const Game = {
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this);
     specTag(this.spectating ? `관전 중 · ${fb.fighters.map(f => f.name).join(' vs ')}` : null);
     const h = fb.human();
+    // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
     if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 방향을 설정하세요 · 버튼을 끌었다 떼면 전투 시작');
-    else if (fb.phase === 'fight' && h && !h.dead && !h.mainDead && !h.player.copiedSkill && h.skillUses.common > 0)
-      setHint(`🧭 버튼을 끌어 방향 전환 (남은 ${h.skillUses.common}회)`);
-    else if (fb.phase === 'fight' && h && h.pendingAim) setHint('🧭 버튼을 끌어 방향을 정하세요');
     else setHint(null);
   },
 

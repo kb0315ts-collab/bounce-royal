@@ -59,6 +59,8 @@ function diffFighter(f, v, tag) {
     D('flags.' + k, !!f.flags[k] === !!v.flags[k]);
   }
   for (const k of ['char', 'weapon', 'common']) D('skillUses.' + k, f.skillUses[k] === v.skillUses[k]);
+  // 좌하단 스탯판이 읽는 값 (소수 2자리로 실어 보낸다)
+  for (const k of ['atk', 'dmg', 'aspd', 'rot']) D('st.' + k, near(f.st[k], v.st[k], 0.006));
 
   D('summons.length', f.summons.length === v.summons.length);
   for (let i = 0; i < Math.min(f.summons.length, v.summons.length); i++) {

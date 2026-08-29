@@ -5,6 +5,7 @@
  * 쓰이는 것은 보내지 않고 클라이언트가 자체 생성한다.
  * ============================================================ */
 const r1 = n => Math.round(n * 10) / 10;
+const r2 = n => Math.round(n * 100) / 100;
 const sfxCount = (f, key) => (f[key] || 0) + f.splitBalls.reduce((s, x) => s + (x[key] || 0), 0);
 
 function fighterView(f) {
@@ -34,6 +35,8 @@ function fighterView(f) {
     su: [f.skillUses.char, f.skillUses.weapon, f.skillUses.common],
     sx: [1 + (f.flags.talent ? 1 : 0), 1 + (f.flags.weaponMastery ? 1 : 0), 1 + (f.flags.battery ? 1 : 0)],
     cp: f.player.copiedSkill || null,
+    // 화면 좌하단 스탯판에 쓰는 값 (공격력·모든피해·공격속도·회전력)
+    st: [r2(f.st.atk), r2(f.st.dmg), r2(f.st.aspd), r2(f.st.rot)],
     // 벽 튕김·스킬 효과음 횟수. 서버에는 소리가 없으므로 클라이언트가 증가분만큼 재생한다.
     // 본체가 죽으면 분열체가 몸을 대신하므로 둘을 합쳐 센다 (분열체는 0에서 시작한다).
     bc: sfxCount(f, 'bounceTotal'), sc: sfxCount(f, 'sfxSkill'),
