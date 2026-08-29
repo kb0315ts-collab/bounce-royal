@@ -26,6 +26,7 @@ function makeEl(tag) {
       contains(x) { return el._classes.has(x); },
     },
     appendChild(c) { el.children.push(c); c.parentNode = el; return c; },
+    remove() { const p = el.parentNode; if (!p) return; const i = p.children.indexOf(el); if (i >= 0) p.children.splice(i, 1); el.parentNode = null; },
     replaceChildren() { el.children.length = 0; },
     insertAdjacentElement(_, c) { el.children.push(c); return c; },
     addEventListener() {}, removeEventListener() {},
@@ -62,14 +63,14 @@ function ensure(id) {
 }
 // ui.js가 찾는 요소들을 미리 만들어 둔다
 for (const id of ['aug-cards', 'aug-sub', 'aug-round-label', 'aug-myinfo', 'aug-owned',
-  'aug-timer', 'event-timer', 'btn-refresh', 'refresh-count', 'event-cards', 'event-status',
-  'scr-weapon', 'scr-augment', 'scr-event']) ensure(id);
+  'aug-timer', 'event-timer', 'weapon-timer', 'weapon-cards', 'btn-refresh', 'refresh-count',
+  'event-cards', 'event-status', 'scr-weapon', 'scr-augment', 'scr-event']) ensure(id);
 for (const id of ['scr-weapon', 'scr-augment', 'scr-event']) {
   const head = makeEl('div'); head._classes.add('screen-head');
   ensure(id).appendChild(head);
 }
 // 타이머 막대에는 i(채움)와 b(숫자)가 있다
-for (const id of ['aug-timer', 'event-timer']) {
+for (const id of ['aug-timer', 'event-timer', 'weapon-timer']) {
   const fill = makeEl('i'); fill._classes.add('i');
   const label = makeEl('b'); label._classes.add('b');
   ensure(id).appendChild(fill); ensure(id).appendChild(label);
@@ -105,10 +106,10 @@ const context = vm.createContext(sandbox);
 vm.runInContext([
   read('js/data.js'),
   read('js/ui.js'),
-  'globalThis.__uiApi = { buildAugmentSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers };',
+  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers };',
 ].join('\n'), context, { filename: 'bounce-royal-ui.test.bundle.js' });
 
-const { buildAugmentSelect, startPhaseTimer, stopPhaseTimer } = context.__uiApi;
+const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer } = context.__uiApi;
 const $ = id => byId.get(id);
 
 let passed = 0;
@@ -183,6 +184,40 @@ test('전체 길이를 안 주면 예전처럼 남은 시간 기준이다', () =
   const fill = $('aug-timer').children[0];
   assert.ok(parseFloat(fill.style.width) > 99, '싱글 경로는 그대로여야 한다');
   stopPhaseTimer();
+});
+
+
+const wCards = () => $('weapon-cards').children;
+
+test('무기를 고르면 그 카드에 표시가 남는다', () => {
+  let picked = null;
+  buildWeaponSelect(['sword', 'bow', 'mine'], id => { picked = id; });
+  assert.equal(wCards().length, 3);
+  assert.ok(!wCards().some(c => c.classList.contains('picked')), '처음엔 아무것도 눌리지 않은 상태');
+  wCards()[1].onclick();
+  assert.equal(picked, 'bow', '고른 무기가 서버로 가야 한다');
+  assert.ok(wCards()[1].classList.contains('picked'), '누른 카드에 표시가 남아야 한다');
+  assert.ok(wCards().every(c => c.disabled), '고른 뒤에는 더 못 누른다');
+});
+
+test('무기를 한 번 고른 뒤 다른 카드를 눌러도 바뀌지 않는다', () => {
+  let count = 0;
+  buildWeaponSelect(['sword', 'bow', 'mine'], () => { count++; });
+  wCards()[0].onclick();
+  wCards()[2].onclick();
+  assert.equal(count, 1);
+  assert.ok(wCards()[0].classList.contains('picked'));
+  assert.ok(!wCards()[2].classList.contains('picked'));
+});
+
+test('무기 선택 화면에도 제한시간 막대가 뜬다', () => {
+  startPhaseTimer('weapon-timer', 15, null, 15);
+  const bar = $('weapon-timer');
+  assert.ok(!bar.classList.contains('hidden'), '막대가 보여야 한다');
+  assert.ok(parseFloat(bar.children[0].style.width) > 99, '15초 전체에서 시작해야 한다');
+  assert.ok(parseFloat(bar.children[1].textContent) > 14, '남은 시간을 숫자로 보여야 한다');
+  stopPhaseTimer();
+  assert.ok(bar.classList.contains('hidden'), '단계가 끝나면 감춰야 한다');
 });
 
 console.log('\n' + passed + '개 선택 화면 테스트 통과');

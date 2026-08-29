@@ -114,6 +114,7 @@ const ROUND_ADVANCE_MS = 1000;
 
 /* 실시간 진행을 위한 단계별 제한시간(초). 넘기면 자동으로 처리된다. */
 const AUGMENT_TIME = 15;
+const WEAPON_TIME = 15;
 const EVENT_VOTE_TIME = 12;
 const RANKED_SEARCH_TIME = 10;   // 실제 플레이어를 기다리는 시간(초). 이후 남은 자리는 AI
 
@@ -592,8 +593,9 @@ const Game = {
     this.state = 'weaponSelect';
     showScreen('scr-weapon');
     const offers = shuffle(Object.keys(WEAPONS)).slice(0, 3);
-    buildWeaponSelect(offers, weaponId => {
+    const pickWeapon = weaponId => {
       if (this.state !== 'weaponSelect') return;
+      stopPhaseTimer();
       participants[0] = { ...participants[0], weaponId };
       this.state = 'intro';
       const startMatch = () => {
@@ -603,7 +605,10 @@ const Game = {
       };
       if (typeof showMatchIntro === 'function') showMatchIntro(participants, 3000, startMatch);
       else setTimeout(startMatch, 3000);
-    });
+    };
+    buildWeaponSelect(offers, pickWeapon);
+    // 시간 안에 안 고르면 후보 중 하나로 자동 선택한다 (증강 선택과 같은 규칙)
+    startPhaseTimer('weapon-timer', WEAPON_TIME, () => pickWeapon(pick(offers)), WEAPON_TIME);
     // buildWeaponSelect는 직전 매치의 참가자를 참조하므로 이번 대진으로 덮어쓴다.
     if (typeof selectionPlayers === 'function') selectionPlayers(participants);
   },

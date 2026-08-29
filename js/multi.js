@@ -85,7 +85,7 @@ const Multi = {
         net.pickWeapon(id);
         setHint('다른 플레이어를 기다리는 중…');
       });
-      startPhaseTimer('aug-timer', m.seconds, null);
+      startPhaseTimer('weapon-timer', m.seconds, null, m.fullSeconds || m.seconds);
     });
 
     net.on('intro', m => {

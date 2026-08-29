@@ -15,7 +15,7 @@ const { snapshot } = require('./snapshot.js');
 
 const TICK_HZ = 60;
 const SNAP_HZ = 20;
-const WEAPON_TIME = 12;
+const WEAPON_TIME = 15;
 const AUGMENT_TIME = 15;
 const EVENT_VOTE_TIME = 12;
 const INTRO_TIME = 3;
@@ -110,7 +110,7 @@ class Room {
       if (p.isAI) {
         p.weaponId = core.pick(ids);
       } else {
-        this.send(p, { t: 'weaponOffers', ids, seconds: WEAPON_TIME, players: this.publicPlayers() });
+        this.send(p, { t: 'weaponOffers', ids, seconds: WEAPON_TIME, fullSeconds: WEAPON_TIME, players: this.publicPlayers() });
       }
     }
   }

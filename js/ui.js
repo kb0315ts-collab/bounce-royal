@@ -212,10 +212,18 @@ function buildWeaponSelect(offers, onPick) {
     const el = document.createElement('button');
     el.type = 'button'; el.className = 'card weapon-card';
     el.innerHTML = `<div class="art">${esc(wp.ico)}</div><div class="head"><span class="nm">${esc(wp.name)}</span></div><span class="tag">${wp.type === 'melee' ? '근접' : wp.type === 'mine' ? '설치' : '원거리'}</span><div class="stats">${bar('공격', wp.stat?.atk)}${bar('속도', wp.stat?.spd)}${bar('사거리', wp.stat?.rng)}${bar('기동', wp.stat?.mob)}</div><div class="desc">${esc(wp.desc)}</div><div class="foot"><b style="color:#ffd24d">${esc(wp.skillName)}</b><br>${esc(wp.skillDesc)}</div>`;
-    el.onclick = () => { playUI(); onPick?.(id); };
+    el.onclick = () => {
+      if (box.dataset.picked) return;            // 한 번 고르면 잠근다
+      box.dataset.picked = '1';
+      box.querySelectorAll('.weapon-card').forEach(card => { card.classList.remove('picked'); card.disabled = true; });
+      el.classList.add('picked');
+      playUI();
+      onPick?.(id);
+    };
     bindLongPress(el, { ...wp, kind:'무기' });
     box.appendChild(el);
   });
+  delete box.dataset.picked;
 }
 
 function buildAugmentSelect(offers, player, onPick, subtitle, refreshOptions = null) {
@@ -889,7 +897,7 @@ let phaseTimerHandle = null;
 function stopPhaseTimer() {
   if (phaseTimerHandle) clearInterval(phaseTimerHandle);
   phaseTimerHandle = null;
-  for (const id of ['aug-timer', 'event-timer']) $(id)?.classList.add('hidden');
+  for (const id of ['aug-timer', 'event-timer', 'weapon-timer']) $(id)?.classList.add('hidden');
 }
 /* fullSeconds는 눈금의 전체 길이다. 증강 새로고침처럼 단계 도중에 다시
  * 부를 때 남은 시간만 주면 눈금이 다시 가득 차서 훨씬 빨리 줄어드는 것처럼 보인다. */
