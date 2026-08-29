@@ -11,6 +11,8 @@
 const assert = require('node:assert/strict');
 const core = require('../server/game-core.js');
 const { snapshot } = require('../server/snapshot.js');
+// 브라우저에서는 sim.js가 Arena를 전역에 노출한다. net.js가 그것을 쓰므로 같게 맞춘다.
+globalThis.Arena = core.Arena;
 const { netBattleView } = require('../js/net.js');
 
 let passed = 0;
@@ -248,6 +250,36 @@ test('폭발 고리에는 폭발음 표시가 붙는다', () => {
   }
   assert.ok(sawBoom, '폭탄이 터졌으면 m=1인 고리가 있어야 한다');
   assert.ok(sawPlain, '폭발이 아닌 고리는 m=0이어야 한다');
+});
+
+
+/* 조준 예측선은 arena.castRay로 그린다. 복원한 경기장이 로컬과 같은 기하를
+ * 갖지 않으면 예측선이 실제 반사와 어긋나거나, 메서드가 없어 화면이 멈춘다. */
+test('조준 예측선이 로컬 경기장과 같은 결과를 낸다', () => {
+  for (const opt of [{}, { twoPillars: true }, { powerSupply: true }]) {
+    const players = [
+      mkPlayer({ weaponId: 'sword' }),
+      mkPlayer({ charId: 'wak', weaponId: 'bow', isAI: true, color: '#ff6b6b' }),
+    ];
+    const b = new core.Battle('diamond', players, opt);
+    b.phase = 'fight'; b.simT = 0;
+    b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+    for (let i = 0; i < 90; i++) b.update(1 / 60);
+    const meta = players.map(p => ({ id: p.id, name: p.name, color: p.color, charId: p.charId, weaponId: p.weaponId, isAI: p.isAI }));
+    const view = netBattleView(JSON.parse(JSON.stringify(snapshot(b))), meta, players[0].id);
+    assert.equal(typeof view.arena.castRay, 'function');
+    assert.equal(view.arena.pillars.length, b.arena.pillars.length, '기둥 수가 같아야 한다');
+    const f = b.fighters[0];
+    for (let k = 0; k < 24; k++) {
+      const a = k / 24 * Math.PI * 2, dx = Math.cos(a), dy = Math.sin(a);
+      const L = b.arena.castRay(f.x, f.y, dx, dy, f.radius);
+      const V = view.arena.castRay(f.x, f.y, dx, dy, f.radius);
+      assert.equal(!!L, !!V, '맞는지 여부가 같아야 한다');
+      if (!L) continue;
+      assert.ok(near(L.x, V.x, 1e-9) && near(L.y, V.y, 1e-9), '충돌 지점이 같아야 한다');
+      assert.ok(near(L.nx, V.nx, 1e-9) && near(L.ny, V.ny, 1e-9), '반사 법선이 같아야 한다');
+    }
+  }
 });
 
 console.log('\n' + passed + '개 동등성 테스트 통과');

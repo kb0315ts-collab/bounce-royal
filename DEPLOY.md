@@ -70,6 +70,7 @@ node tests/events.test.js
 node tests/round-flow.test.js
 node tests/net.test.js
 node tests/parity.test.js
+node tests/room.test.js
 ```
 
 전부 통과해야 한다. 테스트는 렌더러(`js/render.js`)를 로드하지 않으므로,

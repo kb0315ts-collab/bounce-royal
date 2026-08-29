@@ -437,7 +437,11 @@ function renderEventVoteCards() {
         status.classList.add('locked');
       }
       playUI();
-      const humanIndex = Math.max(0, eventVoteView.players.findIndex(raw => playerSource(raw).isAI === false || playerSource(raw).local));
+      // local 표시가 먼저다. 사람이 둘 이상이면 "첫 번째 비AI"는 늘 남을 가리킨다.
+      const localIndex = eventVoteView.players.findIndex(raw => playerSource(raw).local);
+      const humanIndex = localIndex >= 0
+        ? localIndex
+        : Math.max(0, eventVoteView.players.findIndex(raw => playerSource(raw).isAI === false));
       const human = eventVoteView.players[humanIndex];
       if (human) updateEventVote({ player:human, eventId:key }, { voterId:eventPlayerKey(human, humanIndex) });
       eventVoteView.onVote?.(choice, index);
@@ -710,10 +714,13 @@ function showMatchIntro(players, duration = 3000, onDone) {
   const screen = $('scr-intro'), box = $('intro-players'), count = $('intro-countdown');
   if (!screen || !box) { setTimeout(() => onDone?.(), duration); return; }
   showScreen('scr-intro'); box.replaceChildren();
+  // local 표시가 하나라도 있으면 그것만 믿는다. 없으면 싱글이므로 첫 번째가 나다.
+  const introHasLocal = lastIntroPlayers.some(raw => playerSource(raw).local);
   lastIntroPlayers.forEach((raw, index) => {
     const p = playerSource(raw), ch = CHARACTERS[p.charId], wp = WEAPONS[p.weaponId];
-    const el = document.createElement('div'); el.className = `intro-player${index === 0 || p.local ? ' me' : ''}`; el.style.animationDelay = `${index * 80}ms`;
-    el.innerHTML = `<canvas aria-hidden="true"></canvas><div class="intro-info"><strong style="color:${esc(p.color || '#eef3ff')}">${esc(p.name || `플레이어 ${index + 1}`)}${index === 0 ? ' · 나' : ''}</strong><small>${esc(ch?.name || '캐릭터 미정')}${wp ? ` · ${esc(wp.name)}` : ''}</small></div><span>${p.isAI ? 'AI' : 'PLAYER'}</span>`;
+    const isMe = introHasLocal ? !!p.local : index === 0;
+    const el = document.createElement('div'); el.className = `intro-player${isMe ? ' me' : ''}`; el.style.animationDelay = `${index * 80}ms`;
+    el.innerHTML = `<canvas aria-hidden="true"></canvas><div class="intro-info"><strong style="color:${esc(p.color || '#eef3ff')}">${esc(p.name || `플레이어 ${index + 1}`)}${isMe ? ' · 나' : ''}</strong><small>${esc(ch?.name || '캐릭터 미정')}${wp ? ` · ${esc(wp.name)}` : ''}</small></div><span>${p.isAI ? 'AI' : 'PLAYER'}</span>`;
     box.appendChild(el); paintPortrait(el.querySelector('canvas'), p.charId, p.weaponId, p.color);
   });
   const seconds = Math.max(1, Math.ceil(duration / 1000)); let remaining = seconds;

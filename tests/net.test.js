@@ -272,4 +272,34 @@ test('폭발음은 폭발 고리(m=1)에서만 난다', () => {
   assert.equal(c.boom, 1, '폭발 고리 하나에 폭발음 하나 (실제 ' + c.boom + ')');
 });
 
+
+/* ---- 조준 예측선 ----
+ * 렌더러는 조준 드래그 중 arena.castRay()를 부른다. 복원한 경기장에 이 메서드가
+ * 없으면 드래그를 시작하는 순간 그리기 루프가 통째로 죽는다(빨간 오류 상자). */
+test('복원한 경기장에도 조준 예측선용 castRay가 있다', () => {
+  const meta = [{ id: 0, name: 'P', color: '#4da6ff', charId: 'cat', weaponId: 'sword' }];
+  const view = netBattleView(snap([]), meta, 0);
+  assert.equal(typeof view.arena.castRay, 'function', 'castRay가 없으면 조준 드래그에서 게임이 멈춘다');
+  assert.doesNotThrow(() => view.arena.castRay(0, 0, 1, 0, 22));
+});
+
+test('sim.js의 Arena가 있으면 그것을 그대로 쓴다', () => {
+  const before = globalThis.Arena;
+  let built = null;
+  globalThis.Arena = function FakeArena(type) { built = this; this.type = type; this.castRay = () => ({ x: 1, y: 2 }); };
+  try {
+    const meta = [{ id: 0, name: 'P', color: '#4da6ff', charId: 'cat', weaponId: 'sword' }];
+    const s2 = snap([]);
+    s2.L = 405;
+    s2.pil = [{ x: 10, y: 20, r: 42 }];
+    const view = netBattleView(s2, meta, 0);
+    assert.ok(built, '전역 Arena를 써야 한다');
+    assert.equal(view.arena.L, 405, '경기장 크기를 스냅샷 값으로 덮어써야 한다');
+    assert.equal(view.arena.pillars.length, 1, '기둥도 옮겨야 한다');
+    assert.deepEqual(view.arena.castRay(0, 0, 1, 0, 22), { x: 1, y: 2 });
+  } finally {
+    if (before === undefined) delete globalThis.Arena; else globalThis.Arena = before;
+  }
+});
+
 console.log('\n' + passed + '개 스냅샷 보간 테스트 통과');

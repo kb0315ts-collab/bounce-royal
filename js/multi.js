@@ -80,7 +80,7 @@ const Multi = {
       Game.state = 'weaponSelect';
       hudVisible(false);
       showScreen('scr-weapon');
-      if (typeof selectionPlayers === 'function') selectionPlayers(m.players);
+      if (typeof selectionPlayers === 'function') selectionPlayers(this.withLocal(m.players));
       buildWeaponSelect(m.ids, id => {
         net.pickWeapon(id);
         setHint('다른 플레이어를 기다리는 중…');
@@ -91,7 +91,7 @@ const Multi = {
     net.on('intro', m => {
       stopPhaseTimer();
       Game.state = 'intro';
-      showMatchIntro(m.players, m.seconds * 1000, null);
+      showMatchIntro(this.withLocal(m.players), m.seconds * 1000, null);
     });
 
     net.on('round', m => {
@@ -120,7 +120,7 @@ const Multi = {
     net.on('eventOffers', m => {
       Game.state = 'eventVote';
       hudVisible(false);
-      showEventVote(m.offers, m.players, choice => net.vote(choice && choice.id ? choice.id : choice));
+      showEventVote(m.offers, this.withLocal(m.players), choice => net.vote(choice && choice.id ? choice.id : choice));
       startPhaseTimer('event-timer', m.seconds, null);
     });
 
@@ -138,7 +138,7 @@ const Multi = {
       Game.state = 'eventVoteResult';
       const votes = new Map(m.votes);
       showEventVoteResult(
-        { votes, players: m.players, offers: [m.event], winnerPlayerId: m.winnerId, event: m.event },
+        { votes, players: this.withLocal(m.players), offers: [m.event], winnerPlayerId: m.winnerId, event: m.event },
         null,
       );
     });
@@ -160,7 +160,7 @@ const Multi = {
       Game.state = 'over';
       hudVisible(false);
       const me = m.players.find(p => p.id === net.seat);
-      showGameOver(m.players.map(p => ({ ...p, rank: p.rank })), me, () => {
+      showGameOver(this.withLocal(m.players).map(p => ({ ...p, rank: p.rank })), me, () => {
         this.stop();
         Game.returnToTitle();
       });
@@ -201,7 +201,7 @@ const Multi = {
     if (note) note.textContent = '🌐 온라인 방 · 이 코드를 친구에게 알려주세요';
     if (typeof buildFriendlySlots === 'function') {
       buildFriendlySlots(
-        { code: m.code, maxPlayers: 4, slots: [0, 1, 2, 3].map(i => (m.players[i] ? { ...m.players[i], ready: true, local: i === 0 } : null)) },
+        { code: m.code, maxPlayers: 4, slots: [0, 1, 2, 3].map(i => (m.players[i] ? { ...m.players[i], ready: true, local: i === m.you } : null)) },
         { onAddAI: null, onRemoveSlot: null, onToggleReady: null },
       );
     }
@@ -215,6 +215,14 @@ const Multi = {
     }
   },
 
+  /* 서버 목록에 "나"를 표시해서 넘긴다.
+   * UI는 local 표시가 없으면 첫 번째를 나로 친다(싱글에서는 늘 맞는 가정).
+   * 멀티에서는 자리가 1~3번이면 남의 이름·색을 자기 것으로 보게 된다. */
+  withLocal(list) {
+    const seat = BounceRoyalNet.seat;
+    return (list || []).map(p => (p && p.id === seat ? Object.assign({}, p, { local: true }) : p));
+  },
+
   /* 서버가 준 참가자 목록을 UI가 아는 모양으로 바꾼다 */
   panelState() {
     return {
@@ -223,6 +231,7 @@ const Multi = {
         charId: p.charId, weaponId: p.weaponId,
         eliminated: p.eliminated, augments: p.augments || [],
         isAI: p.isAI, disconnected: p.disconnected,
+        local: p.id === BounceRoyalNet.seat,
       })),
       human: BounceRoyalNet.players.find(p => p.id === BounceRoyalNet.seat) || null,
       round: BounceRoyalNet.round,

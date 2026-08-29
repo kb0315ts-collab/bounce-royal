@@ -380,11 +380,24 @@ if (typeof window !== 'undefined') {
 const NET_EMPTY = [];
 
 function netArena(snap) {
+  const pillars = snap.pil || NET_EMPTY;
+  const cube = snap.cube ? { x: snap.cube.x, y: snap.cube.y, active: true, spin: snap.cube.s } : null;
+  // 렌더러의 조준 예측선은 arena.castRay()를 부른다. 메서드 없는 평범한 객체를
+  // 넘기면 조준 드래그를 시작하는 순간 그리기 루프가 통째로 죽는다.
+  // sim.js의 Arena를 그대로 써야 예측선 기하도 로컬과 같아진다.
+  if (typeof Arena === 'function') {
+    const a = new Arena('diamond');
+    a.L = snap.L;
+    a.pillars = pillars;
+    a.cube = cube;
+    return a;
+  }
+  // sim.js가 없는 환경(Node 테스트)용 최소 형태
   return {
     type: 'diamond',
     L: snap.L, R: 378, H: 350,
-    pillars: snap.pil || NET_EMPTY,
-    cube: snap.cube ? { x: snap.cube.x, y: snap.cube.y, active: true, spin: snap.cube.s } : null,
+    pillars, cube,
+    castRay() { return null; },
     get name() { return (typeof MAPS !== 'undefined' && MAPS.diamond) ? MAPS.diamond.name : '다이아 경기장'; },
   };
 }

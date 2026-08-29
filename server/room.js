@@ -68,8 +68,11 @@ class Room {
     this.tickTimer = setInterval(() => this.tick(), 1000 / TICK_HZ);
     this.snapAcc = 0;
     this.snapSeq = 0;    // 스냅샷 순번. 지터로 순서가 뒤바뀌어 도착한 것을 클라이언트가 버릴 수 있게 한다
-    this.startWeaponPhase();
   }
+
+  /* 첫 단계 시작. 생성자에서 바로 하지 않는 이유는, 클라이언트가 자기 자리(you)를
+   * 알기 전에 weaponOffers가 도착하면 "누가 나인지" 모른 채 화면을 그리기 때문이다. */
+  start() { this.startWeaponPhase(); }
 
   /* ---------------- 통신 ---------------- */
   send(player, msg) {
