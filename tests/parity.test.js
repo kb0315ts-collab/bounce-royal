@@ -284,4 +284,32 @@ test('조준 예측선이 로컬 경기장과 같은 결과를 낸다', () => {
   }
 });
 
+
+/* 스냅샷에 null이나 NaN이 섞이면 클라이언트가 그걸 그리다 죽는다.
+ * 특히 조준 단계는 computeStats가 아직 안 돈 시점이라 취약하다. */
+test('조준 단계부터 스냅샷에 숫자 아닌 값이 섞이지 않는다', () => {
+  const players = [
+    mkPlayer({ weaponId: 'sword' }),
+    mkPlayer({ charId: 'wak', weaponId: 'bow', isAI: true, color: '#ff6b6b' }),
+  ];
+  const b = new core.Battle('diamond', players);
+  assert.equal(b.phase, 'aim');
+  // 비어 있는 것이 정상인 자리 (복사한 스킬, 결과, 연장 시간, 큐브)
+  const NULLABLE = new Set(['cp', 'res', 'ot', 'cube']);
+  const bad = [];
+  const scan = (node, path, key) => {
+    if (NULLABLE.has(key)) return;
+    if (node === null || node === undefined) { bad.push(path + ' = ' + node); return; }
+    if (typeof node === 'number') { if (!isFinite(node)) bad.push(path + ' = ' + node); return; }
+    if (Array.isArray(node)) { node.forEach((v, i) => scan(v, path + '[' + i + ']', null)); return; }
+    if (typeof node === 'object') { for (const k of Object.keys(node)) scan(node[k], path + '.' + k, k); }
+  };
+  for (let i = 0; i < 60 * 8; i++) {
+    scan(snapshot(b), 't' + i, null);
+    if (bad.length) break;
+    b.update(1 / 60);
+  }
+  assert.deepEqual(bad, [], '스냅샷에 숫자가 아닌 값이 있다');
+});
+
 console.log('\n' + passed + '개 동등성 테스트 통과');

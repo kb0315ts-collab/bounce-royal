@@ -1070,6 +1070,28 @@ test('좌하단 스탯판 자리가 경기장 밖 빈 공간에 들어간다', (
   }
 });
 
+
+test('전투원의 st는 만들어진 순간부터 모양이 완전하다', () => {
+  // 조준 단계에는 computeStats가 아직 안 돈다. 그 사이에도 화면이 st를 읽으므로
+  // 키 하나라도 비어 있으면 게임 시작하자마자 그리기가 죽는다.
+  const b = makeBattle({ weaponId: 'sword' }, { weaponId: 'bow' });
+  const fresh = b.fighters[0];
+  assert.equal(b.phase, 'fight', '이 헬퍼는 fight로 맞춰 준다');
+  const raw = new Battle('diamond', [makePlayer({}), makePlayer({ isAI: true })]);
+  assert.equal(raw.phase, 'aim', '전투는 조준 단계에서 시작한다');
+  for (const f of raw.fighters) {
+    for (const key of ['atk', 'dmg', 'move', 'rot', 'fr', 'aspd', 'size']) {
+      assert.equal(typeof f.st[key], 'number', 'st.' + key + '이 없으면 조준 단계에서 화면이 죽는다');
+      assert.ok(isFinite(f.st[key]), 'st.' + key + '이 숫자가 아니다');
+    }
+  }
+  // computeStats가 돈 뒤에도 키 구성이 같아야 한다
+  computeStats(fresh);
+  const before = Object.keys(raw.fighters[0].st).sort();
+  const after = Object.keys(fresh.st).sort();
+  assert.deepEqual(before, after, '초기 st와 계산된 st의 키가 달라지면 안 된다');
+});
+
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
 `,
 ].join('\n');

@@ -290,7 +290,9 @@ function buildFighter(player, battle) {
       dashPrep: 0, dashT: 0, actingDead: 0, atkBuff: 0, spdBuff: 0, berserk: 0,
       elastic: 0, pawDrop: 0,
     },
-    st: { atk: 1, dmg: 1, move: ch.move * wp.moveMult, rot: wp.rot, fr: 1, size: 1 },
+    // computeStats가 돌기 전(조준 단계)에도 읽히므로 모양을 완전히 맞춰 둔다.
+    // aspd가 빠져 있어 스탯판이 첫 프레임에 터졌었다.
+    st: { atk: 1, dmg: 1, move: ch.move * wp.moveMult, rot: wp.rot, fr: 1, aspd: 1, size: 1 },
     pinStacks: 0, warmStacks: 0, rotStacks: 0, hitChargeStacks: 0, collisionStacks: 0,
     cd: {}, meleeContact: new Set(), markHits: new Map(),
     gun: null, charging: null, tracking: null, dash: null, dashHit: null, dashPrepDir: null,

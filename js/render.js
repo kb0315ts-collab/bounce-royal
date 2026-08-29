@@ -713,12 +713,14 @@ function drawStatPanel(g, b, sc) {
   const padX = L * 0.024, padY = L * 0.022;
   const x = -L + padX, y = L * 0.62 + padY;
   const rowH = L * 0.062, w = L * 0.532;
+  // 값이 아직 없을 수 있다. 화면 장식 하나 때문에 그리기 루프가 죽으면 안 된다.
+  const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
   const rows = [
-    ['공격력', '×' + me.st.atk.toFixed(2)],
-    ['체력', Math.max(0, Math.round(me.hp)) + ' / ' + Math.round(me.maxHp)],
-    ['공격속도', '×' + me.st.aspd.toFixed(2)],
-    ['회전력', me.st.rot > 0 ? me.st.rot.toFixed(2) + ' rad/s' : '—'],
-    ['피해 증폭', '×' + me.st.dmg.toFixed(2)],
+    ['공격력', '×' + num(me.st.atk, 1).toFixed(2)],
+    ['체력', Math.max(0, Math.round(num(me.hp, 0))) + ' / ' + Math.round(num(me.maxHp, 0))],
+    ['공격속도', '×' + num(me.st.aspd, 1).toFixed(2)],
+    ['회전력', num(me.st.rot, 0) > 0 ? num(me.st.rot, 0).toFixed(2) + ' rad/s' : '—'],
+    ['피해 증폭', '×' + num(me.st.dmg, 1).toFixed(2)],
   ];
   g.fillStyle(0x070c18, 0.62);
   g.fillRect(x - padX, y - padY, w + padX * 2, rowH * rows.length + padY * 2);
