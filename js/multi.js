@@ -139,7 +139,8 @@ const Multi = {
       votes.set(m.id, m.eventId);
       this.votes = Array.from(votes.entries());
       if (typeof updateEventVote === 'function') {
-        updateEventVote(votes, { offers: BounceRoyalNet.eventOffers, players: net.players, voterId: m.id });
+        // Net에는 eventOffers가 없다. 투표 화면을 만들 때 받아 둔 세 장을 쓴다.
+        updateEventVote(votes, { offers: this.eventOffers, players: this.withLocal(net.players), voterId: m.id });
       }
     });
 

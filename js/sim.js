@@ -13,6 +13,7 @@ const BOW_CHARGE_TURNS = 2;          // 차지 샷: 두 바퀴 돌 동안 조준
 const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 난이도를 여기서 조절한다
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
 const AIM_TIME = 5;         // 라운드 시작 조준 제한시간
+const MELEE_ASPD_GAIN = 2;  // 근접이 공격속도 증가분을 받는 배율
 let UID = 0;
 
 /* ---------------- utils ---------------- */
@@ -1008,7 +1009,12 @@ function computeStats(f) {
   // 무기를 실제로 돌리는 경우에만 회전속도가 생긴다.
   // 근접은 항상, 권총은 '회전 난사' 스킬 중에만 돈다. 나머지 원거리는 상대를 조준한다.
   let rot = 0;
-  if (wp.type === 'melee') rot = wp.rot * aspd;
+  if (wp.type === 'melee') {
+    // 근접은 조우가 짧아 회전이 조금 빨라져도 결국 한 번 스치고 끝난다.
+    // 그래서 공격속도가 오른 만큼은 두 배로 준다 (속사 하나 = 회전 +30%).
+    // 반대로 느려지는 쪽(빙결·야만)은 그대로 둔다. 배로 깎으면 회전이 멈추거나 뒤집힌다.
+    rot = wp.rot * (aspd > 1 ? 1 + (aspd - 1) * MELEE_ASPD_GAIN : aspd);
+  }
   else if (f.weaponId === 'pistol' && T.gunBarrage > 0) rot = PISTOL_BARRAGE_ROT * aspd;
   if (Fl.speedPower) {
     const baseMove = ch.move * wp.moveMult;

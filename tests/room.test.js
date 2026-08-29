@@ -8,6 +8,7 @@
  * ============================================================ */
 const assert = require('node:assert/strict');
 const { Room } = require('../server/room.js');
+const core = require('../server/game-core.js');
 
 let passed = 0;
 function test(name, fn) {
@@ -16,7 +17,9 @@ function test(name, fn) {
 }
 
 function fakeConn(label) {
-  return { alive: true, token: 'tok-' + label, name: label, send(msg) { this.log.push(msg.t); }, log: [] };
+  // 보낸 메시지를 통째로 남긴다. 종류뿐 아니라 내용도 검사해야 한다.
+  return { alive: true, token: 'tok-' + label, name: label, send(msg) { this.log.push(msg); }, log: [],
+    types() { return this.log.map(m => m.t); } };
 }
 function makeRoom() {
   const a = fakeConn('A'), b = fakeConn('B');
@@ -33,8 +36,8 @@ function makeRoom() {
 test('방을 만드는 것만으로는 무기 선택을 보내지 않는다', () => {
   const { room, a, b } = makeRoom();
   try {
-    assert.ok(!a.log.includes('weaponOffers'), 'you보다 먼저 도착하면 자리를 모른 채 화면을 그린다');
-    assert.ok(!b.log.includes('weaponOffers'));
+    assert.ok(!a.types().includes('weaponOffers'), 'you보다 먼저 도착하면 자리를 모른 채 화면을 그린다');
+    assert.ok(!b.types().includes('weaponOffers'));
   } finally { clearInterval(room.tickTimer); }
 });
 
@@ -42,8 +45,8 @@ test('start()를 불러야 무기 선택이 나간다', () => {
   const { room, a, b } = makeRoom();
   try {
     room.start();
-    assert.ok(a.log.includes('weaponOffers'), 'start 후에는 무기 후보가 가야 한다');
-    assert.ok(b.log.includes('weaponOffers'));
+    assert.ok(a.types().includes('weaponOffers'), 'start 후에는 무기 후보가 가야 한다');
+    assert.ok(b.types().includes('weaponOffers'));
   } finally { clearInterval(room.tickTimer); }
 });
 
@@ -98,7 +101,7 @@ test('내 전투가 끝나면 다른 전투를 관전할 수 있다', () => {
     p.conn.log.length = 0;
     room.onSpectate(p, other);
     assert.equal(p.spectate, other, '관전 대상이 서버에 기록되어야 한다');
-    assert.ok(p.conn.log.includes('spectating'), '관전이 시작됐음을 알려야 한다');
+    assert.ok(p.conn.types().includes('spectating'), '관전이 시작됐음을 알려야 한다');
   } finally { clearInterval(room.tickTimer); }
 });
 
@@ -131,6 +134,97 @@ test('라운드가 새로 시작하면 관전이 풀린다', () => {
     room.startRound();
     assert.equal(p.spectate, null, '새 라운드에서는 자기 전투를 봐야 한다');
   } finally { clearInterval(room.tickTimer); }
+});
+
+
+/* ---- 이벤트 당첨 효과 ----
+ * 투표에서 당첨된 이벤트가 실제로 다음 라운드에 반영되는지 본다.
+ * 여기서는 상태를 손으로 넣지 않고 onVote부터 태워 실제 경로를 지난다. */
+function roomAtEventVote(eventId) {
+  const { room } = makeRoom();
+  room.start();
+  for (const p of room.players) p.weaponId = 'sword';
+  room.round = 3;
+  room.startEventVote();
+  const ev = core.GAME_EVENT_BY_ID[eventId];
+  assert.ok(ev, '없는 이벤트: ' + eventId);
+  room.eventOffers = [ev, ...room.eventOffers.filter(e => e.id !== eventId)].slice(0, 3);
+  // AI 표까지 같은 것으로 모아 당첨을 확정한다
+  for (const p of room.players) if (p.isAI) room.eventVotes.set(p.id, eventId);
+  for (const p of room.players) if (!p.isAI) room.onVote(p, eventId);
+  return room;
+}
+
+test('전원 집결이 당첨되면 다음 라운드가 4인 난투가 된다', () => {
+  const room = roomAtEventVote('nextFfa');
+  try {
+    assert.equal(room.activeEventId, 'nextFfa', '서버가 당첨 이벤트를 적용해야 한다');
+    assert.equal(room.eventForceFfaRound, room.round + 1);
+    room.startRound();
+    assert.equal(room.battles.length, 1, '난투는 전투가 하나여야 한다 (실제 ' + room.battles.length + '개)');
+    assert.equal(room.battles[0].fighters.length, 4, '남은 전원이 한 판에 들어가야 한다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('클라이언트가 받는 당첨 이벤트가 서버가 적용한 것과 같다', () => {
+  for (const id of ['nextFfa', 'twoPillars', 'globalDamage30', 'doubleAugments']) {
+    const room = roomAtEventVote(id);
+    try {
+      const msg = room.players[0].conn.log.filter(m => m.t === 'eventResult').pop();
+      assert.ok(msg, id + ': 결과를 보내야 한다');
+      assert.equal(msg.event.id, room.activeEventId, id + ': 화면에 뜬 이벤트와 실제 적용이 달라지면 안 된다');
+      assert.equal(msg.event.id, id);
+    } finally { clearInterval(room.tickTimer); }
+  }
+});
+
+test('경기장을 바꾸는 이벤트가 실제 전투에 반영된다', () => {
+  const pillars = roomAtEventVote('twoPillars');
+  try {
+    pillars.startRound();
+    assert.equal(pillars.battles[0].arena.pillars.length, 2, '기둥 2개가 생겨야 한다');
+  } finally { clearInterval(pillars.tickTimer); }
+
+  const power = roomAtEventVote('powerSupply');
+  try {
+    power.startRound();
+    assert.ok(power.battles[0].arena.cube, '중앙 보급 큐브가 생겨야 한다');
+  } finally { clearInterval(power.tickTimer); }
+});
+
+test('증강 수를 바꾸는 이벤트가 실제 선택 횟수에 반영된다', () => {
+  const dbl = roomAtEventVote('doubleAugments');
+  try {
+    dbl.startAugmentPhase();
+    const st = dbl.augmentState.get(dbl.players[0].id);
+    assert.equal(st.total, 2, '두 배의 선택이면 증강을 2개 골라야 한다');
+  } finally { clearInterval(dbl.tickTimer); }
+
+  const loss = roomAtEventVote('lossAugment');
+  try {
+    loss.players[0].eventLostLastRound = true;
+    assert.equal(core.eventAugmentPickCount(loss, loss.players[0]), 2, '패배자는 하나 더 골라야 한다');
+    assert.equal(core.eventAugmentPickCount(loss, loss.players[1]), 1, '이긴 쪽은 그대로여야 한다');
+  } finally { clearInterval(loss.tickTimer); }
+});
+
+test('피해·코인 이벤트가 실제 수치에 반영된다', () => {
+  const dmg = roomAtEventVote('globalDamage30');
+  try {
+    dmg.startRound();
+    assert.ok(dmg.players.every(p => p.eventDamageMult === 1.3), '전원 피해 배율이 올라야 한다');
+    assert.ok(Math.abs(dmg.battles[0].fighters[0].perm.dmg - 1.3) < 1e-9, '전투원에게도 실려야 한다');
+  } finally { clearInterval(dmg.tickTimer); }
+
+  const relief = roomAtEventVote('refreshTen');
+  try {
+    assert.ok(relief.refreshes >= 10, '새로고침이 10개 늘어야 한다');
+  } finally { clearInterval(relief.tickTimer); }
+
+  const rev = roomAtEventVote('reverseCoins');
+  try {
+    assert.equal(rev.eventCoinReversalRound, rev.round + 1, '다음 라운드에 예약되어야 한다');
+  } finally { clearInterval(rev.tickTimer); }
 });
 
 console.log('\n' + passed + '개 방 진행 테스트 통과');
