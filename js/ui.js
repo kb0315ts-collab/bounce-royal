@@ -288,8 +288,12 @@ function setAugmentRefresh(count, onRefresh) {
 let eventVoteView = { offers: [], players: [], keys: [], votes: new Map(), locked: false, selectedKey: null, onVote: null };
 let eventVoteRevealSession = 0;
 const eventVoteRevealTimers = new Set();
-// 당첨자를 공개한 뒤 증강 선택으로 자동 전환하기까지의 대기 시간
-const EVENT_RESULT_HOLD_MS = 1000;
+/* 당첨자를 공개한 뒤 증강 선택으로 넘어가기까지의 대기 시간.
+ * 무엇이 당첨됐는지 읽을 시간이다. 줄이면 결과를 못 보고 넘어간다. */
+const EVENT_RESULT_HOLD_MS = 2000;
+/* 추첨 룰렛이 도는 데 걸리는 최대 시간. 서버가 단계 길이를 정할 때 쓴다.
+ * (시작 260ms + 최대 19스텝 + 마무리 460ms) */
+const EVENT_REVEAL_MAX_MS = 4100;
 
 function cancelEventVoteReveal() {
   eventVoteRevealSession++;

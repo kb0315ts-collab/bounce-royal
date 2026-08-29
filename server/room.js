@@ -20,6 +20,14 @@ const AUGMENT_TIME = 15;
 const EVENT_VOTE_TIME = 12;
 const INTRO_TIME = 3;
 const ROUND_END_TIME = 3;
+/* 이벤트 결과 화면을 붙잡아 두는 시간.
+ * 클라이언트는 표가 갈렸으면 최대 4.1초짜리 추첨 룰렛을 돌린 뒤 당첨자를
+ * 공개하고, 2초 동안 결과를 읽을 시간을 준다. 서버가 그보다 먼저 다음
+ * 단계로 넘기면 당첨자가 보이기도 전에 화면이 바뀐다.
+ * 모두 같은 이벤트를 골랐으면 룰렛을 건너뛰므로 그만큼 짧다. */
+const EVENT_REVEAL_MAX = 4.1;
+const EVENT_RESULT_HOLD = 2;
+const EVENT_RESULT_MARGIN = 0.7;
 const PLAYER_COLORS = ['#4da6ff', '#ff6b6b', '#6bd968', '#b97bff'];
 const RECONNECT_GRACE = 90;    // 끊긴 자리를 비워두는 시간(초). 이 안에 돌아오면 그대로 이어간다
 const ACTIVE_MAP = 'diamond';
@@ -285,14 +293,17 @@ class Room {
     const result = core.resolveGameEventVote(this.players, this.eventOffers, this.eventVotes);
     this.eventVoteDone = true;
     core.applyGameEvent(this, result.event);
-    this.setPhase('eventResult', ROUND_END_TIME);
+    // 표가 하나로 모였으면 클라이언트가 룰렛을 건너뛰고 곧바로 공개한다
+    const unanimous = new Set(this.eventVotes.values()).size <= 1;
+    const hold = (unanimous ? 0 : EVENT_REVEAL_MAX) + EVENT_RESULT_HOLD + EVENT_RESULT_MARGIN;
+    this.setPhase('eventResult', hold);
     this.broadcast({
       t: 'eventResult',
       votes: Array.from(this.eventVotes.entries()),
       winnerId: result.winnerPlayer.id,
       event: result.event,
       players: this.publicPlayers(),
-      seconds: ROUND_END_TIME,
+      seconds: hold,
     });
   }
 

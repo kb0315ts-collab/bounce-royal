@@ -227,4 +227,43 @@ test('피해·코인 이벤트가 실제 수치에 반영된다', () => {
   } finally { clearInterval(rev.tickTimer); }
 });
 
+
+/* ---- 이벤트 결과를 읽을 시간 ----
+ * 클라이언트는 표가 갈렸으면 최대 4.1초짜리 추첨 룰렛을 돌린 뒤 당첨자를
+ * 공개한다. 서버가 그보다 먼저 다음 단계로 넘기면 당첨자가 보이기도 전에
+ * 화면이 바뀐다. 예전에 3초로 고정돼 있어 실제로 그랬다. */
+function roomAfterVote(sameVote) {
+  const { room } = makeRoom();
+  room.start();
+  for (const p of room.players) p.weaponId = 'sword';
+  room.round = 3;
+  room.startEventVote();
+  const ids = room.eventOffers.map(e => e.id);
+  room.eventVotes = new Map();
+  room.players.forEach((p, i) => room.eventVotes.set(p.id, sameVote ? ids[0] : ids[i % ids.length]));
+  room.finishEventVote();
+  return room;
+}
+
+test('표가 갈리면 룰렛이 끝나고도 결과를 읽을 시간이 남는다', () => {
+  const room = roomAfterVote(false);
+  try {
+    const msg = room.players[0].conn.log.filter(m => m.t === 'eventResult').pop();
+    assert.ok(msg, '결과를 보내야 한다');
+    assert.ok(msg.seconds >= 4.1 + 2,
+      '룰렛(4.1초)이 끝난 뒤 2초는 남아야 한다 (실제 ' + msg.seconds + '초)');
+    const left = (room.deadline - Date.now()) / 1000;
+    assert.ok(left > 4.1, '단계 마감도 같이 늘어야 한다 (실제 ' + left.toFixed(1) + '초)');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('표가 하나로 모이면 룰렛을 건너뛰므로 더 짧다', () => {
+  const room = roomAfterVote(true);
+  try {
+    const msg = room.players[0].conn.log.filter(m => m.t === 'eventResult').pop();
+    assert.ok(msg.seconds >= 2, '그래도 읽을 2초는 줘야 한다 (실제 ' + msg.seconds + '초)');
+    assert.ok(msg.seconds < 4, '룰렛을 안 도는데 기다릴 이유가 없다 (실제 ' + msg.seconds + '초)');
+  } finally { clearInterval(room.tickTimer); }
+});
+
 console.log('\n' + passed + '개 방 진행 테스트 통과');
