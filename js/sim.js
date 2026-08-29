@@ -1038,18 +1038,16 @@ function updateTimers(b, f, dt) {
   }
   // 출혈
   if (f.bleed.stacks.length > 0) {
-    const dueBySource = new Map();
-    for (const stack of f.bleed.stacks) {
-      stack.tick -= dt;
-      while (stack.tick <= 1e-9) {
-        dueBySource.set(stack.source, (dueBySource.get(stack.source) || 0) + 1);
-        stack.tick += 1;
+    // 가해자마다 초침이 하나다. 매초 한 번, 그 가해자가 쌓은 중첩 수만큼 들어간다.
+    // 중첩마다 따로 초침을 돌리면 쌓을수록 1 피해가 여기저기서 어긋나게 터진다.
+    for (const st of f.bleed.stacks) {
+      st.t -= dt;
+      while (st.t <= 1e-9) {
+        dealDamage(b, st.src, f, st.n, { kind: 'auto', autoType: 'bleed' });
+        st.t += 1;
       }
     }
-    for (const [source, due] of dueBySource) {
-      dealDamage(b, source, f, due, { kind: 'auto', autoType: 'bleed' });
-    }
-    f.bleed.n = f.bleed.stacks.length;
+    f.bleed.n = f.bleed.stacks.reduce((sum, st) => sum + st.n, 0);
   }
   if (f.frost.n > 0) { f.frost.t -= dt; if (f.frost.t <= 0) f.frost.n = 0; }
   // 주기 회복/대가 및 조건부 회복
@@ -1502,8 +1500,10 @@ function onWeaponHitEffects(b, f, body) {
   if (isFighterBody(body)) {
     if (f.flags.bleed) {
       const bleed = body.bleed;
-      bleed.stacks.push({ tick: 1, source: f });
-      bleed.n = bleed.stacks.length;
+      const st = bleed.stacks.find(x => x.src === f);
+      if (st) st.n++;                                  // 이미 물린 상대면 중첩만 올린다 (초침은 그대로)
+      else bleed.stacks.push({ src: f, n: 1, t: 1 });
+      bleed.n = bleed.stacks.reduce((sum, x) => sum + x.n, 0);
     }
     if (f.flags.frost) body.frost = { n: Math.min(3, body.frost.n + 1), t: 3 };
   }
@@ -1526,7 +1526,7 @@ function autoSystems(b, f, dt) {
       const n = 2 + (Fl.missilePlus ? 1 : 0);
       for (let i = 0; i < n; i++) {
         const a = f.weaponAngle + rand(-0.6, 0.6) + i * 0.5;
-        spawnProj(b, f, { kind: 'missile', x: f.x + Math.cos(a) * f.radius, y: f.y + Math.sin(a) * f.radius, ang: a, spd: 230, dmg: 3 * (Fl.missileUp ? 1.3 : 1), r: 6, life: 4.5, homing: 3.2 });
+        spawnProj(b, f, { kind: 'missile', x: f.x + Math.cos(a) * f.radius, y: f.y + Math.sin(a) * f.radius, ang: a, spd: 230, dmg: 2 * (Fl.missileUp ? 1.3 : 1), r: 6, life: 4.5, homing: 3.2 });
       }
     }
   }

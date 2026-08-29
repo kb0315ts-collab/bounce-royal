@@ -159,7 +159,7 @@ const AUGMENTS = [
   { id:'desperateSpin',cat:'weapon', weapon:'sword', name:'필사의 회전', desc:'HP 30% 이하에서 공격속도 +50%' },
   { id:'d_dual',  cat:'weapon', weapon:'dagger', name:'쌍단검', desc:'단검을 양손에 장착한다' },
   { id:'d_phase', cat:'weapon', weapon:'dagger', name:'유체화', desc:'공격 성공 후 1초간 공격받지 않는 상태가 된다' },
-  { id:'d_bleed', cat:'weapon', weapon:'dagger', name:'출혈', desc:'적중할 때마다 영구 중첩. 중첩당 매초 고정 피해 1' },
+  { id:'d_bleed', cat:'weapon', weapon:'dagger', name:'출혈', desc:'적중할 때마다 영구 중첩. 1초마다 중첩 수만큼 고정 피해' },
   { id:'b_triple',cat:'weapon', weapon:'bow', name:'트리플 샷', desc:'한 번의 공격에 화살 세 갈래' },
   { id:'b_homing',cat:'weapon', weapon:'bow', name:'유도 화살', desc:'화살에 약한 유도 효과' },
   { id:'b_kb',    cat:'weapon', weapon:'bow', name:'넉백 화살', desc:'적중 시 상대를 살짝 밀어낸다 (진행 방향 유지)' },

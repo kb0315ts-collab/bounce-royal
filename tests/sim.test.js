@@ -161,7 +161,7 @@ test('권총 회전 난사는 1.5초간 돌면서 재장전 없이 난사한다'
   assert.ok(bullets >= 10 && bullets <= 16, '재장전 없이 연속 발사해야 한다 (실제 ' + bullets + '발)');
 });
 
-test('출혈은 영구·무제한 중첩되며 프레임마다가 아니라 1초마다 중첩당 고정 피해 1을 준다', () => {
+test('출혈은 1초에 한 번, 그 시점의 중첩 수만큼 고정 피해를 준다', () => {
   const b = makeBattle({ weaponId: 'dagger', augments: ['d_bleed', 'atk15', 'dmg10'] });
   const [f, e] = b.fighters;
   computeStats(f); computeStats(e);
@@ -174,16 +174,20 @@ test('출혈은 영구·무제한 중첩되며 프레임마다가 아니라 1초
   updateTimers(b, e, 0.02);
   assert.ok(Math.abs(e.hp - (hp - 1)) < 1e-9, '공격력 A와 모든 피해 D를 제외하고 중첩당 고정 피해 1만 적용해야 한다');
 
+  // 중첩을 쌓아도 초침은 그대로다. 다음 초에 늘어난 만큼 한 번에 들어간다.
+  // 중첩마다 초침을 따로 돌리면 1 피해가 서로 어긋난 시점에 계속 흩뿌려진다.
   onWeaponHitEffects(b, f, e);
   const stackedHp = e.hp;
-  updateTimers(b, e, 0.97);
-  assert.equal(e.hp, stackedHp);
-  updateTimers(b, e, 0.02);
-  assert.ok(Math.abs(e.hp - (stackedHp - 1)) < 1e-9,
-    '새 중첩이 기존 중첩의 다음 피해 시점에 묶여 즉시 피해를 주면 안 된다');
-  updateTimers(b, e, 0.02);
+  updateTimers(b, e, 0.5);
+  assert.equal(e.hp, stackedHp, '중첩을 쌓는 순간 즉시 피해가 들어가면 안 된다');
+  updateTimers(b, e, 0.52);
   assert.ok(Math.abs(e.hp - (stackedHp - 2)) < 1e-9,
-    '각 중첩은 자신이 붙은 시점부터 1초 뒤에 고정 피해 1을 줘야 한다');
+    '2중첩이면 다음 초에 2가 한 번에 들어가야 한다 (1이 두 번 어긋나게 들어오면 안 된다)');
+  const twoHp = e.hp;
+  onWeaponHitEffects(b, f, e);
+  onWeaponHitEffects(b, f, e);
+  updateTimers(b, e, 1.0);
+  assert.ok(Math.abs(e.hp - (twoHp - 4)) < 1e-9, '4중첩이면 매초 4');
 
   const permanent = makeBattle({ weaponId: 'dagger', augments: ['d_bleed', 'dmg10'] });
   const [pf, pe] = permanent.fighters;
@@ -407,7 +411,7 @@ test('자동 공격·소환수·유체화·반사 충전의 변경 수치가 적
   computeStats(auto); auto.cd.missile = 0; auto.cd.flame = 0;
   autoSystems(autoBattle, auto, 1 / 60);
   assert.equal(autoBattle.projectiles.filter(p => p.kind === 'missile').length, 2);
-  assert.ok(autoBattle.projectiles.filter(p => p.kind === 'missile').every(p => p.dmg === 3));
+  assert.ok(autoBattle.projectiles.filter(p => p.kind === 'missile').every(p => p.dmg === 2));
   assert.equal(autoBattle.flames[0].life, 2);
 
   const legionBattle = makeBattle({ augments: ['miniBall', 'legion'] });
@@ -961,6 +965,72 @@ test('4인 난투 스폰 위치가 다이아 경기장 안에 들어간다', () 
     assert.ok(Math.abs(f.x) + Math.abs(f.y) <= limit,
       '스폰 (' + f.x + ',' + f.y + ')이 경기장 밖이면 안 된다');
   }
+});
+
+
+test('유도 미사일 발당 피해는 2다', () => {
+  const b = makeBattle({ weaponId: 'sword', augments: ['missile'] });
+  const f = b.fighters[0];
+  let shot = null;
+  for (let i = 0; i < 60 * 20 && !shot; i++) {
+    b.update(1 / 60);
+    shot = b.projectiles.find(p => p.kind === 'missile') || null;
+  }
+  assert.ok(shot, '미사일 증강이면 미사일이 나가야 한다');
+  assert.equal(shot.dmg, 2, '발당 피해가 기획값과 달라졌다 (실제 ' + shot.dmg + ')');
+
+  const up = makeBattle({ weaponId: 'sword', augments: ['missile', 'missileUp'] });
+  let strong = null;
+  for (let i = 0; i < 60 * 20 && !strong; i++) {
+    up.update(1 / 60);
+    strong = up.projectiles.find(p => p.kind === 'missile') || null;
+  }
+  assert.ok(strong && Math.abs(strong.dmg - 2 * 1.3) < 1e-9, '미사일 강화는 30% 증가여야 한다');
+});
+
+test('공격속도 증강은 근접 무기의 회전속도를 올리고, 회전 한 바퀴에 한 번 맞춘다', () => {
+  const rotOf = (weaponId, augments) => {
+    const b = makeBattle({ weaponId: weaponId, augments: augments });
+    computeStats(b.fighters[0]);
+    return b.fighters[0].st.rot;
+  };
+  for (const weaponId of ['sword', 'dagger']) {
+    const base = rotOf(weaponId, []);
+    assert.ok(Math.abs(rotOf(weaponId, ['rot15']) - base * 1.15) < 1e-9,
+      weaponId + ': 속사 하나면 회전속도 +15%여야 한다');
+    assert.ok(Math.abs(rotOf(weaponId, ['rot15', 'rot15']) - base * 1.15 * 1.15) < 1e-9,
+      weaponId + ': 속사는 곱으로 쌓여야 한다');
+  }
+
+  // 붙어 있을 때 회전 한 바퀴에 정확히 한 번 맞는다 (빠를수록 그만큼 더 때린다)
+  const sweep = augments => {
+    const b = makeBattle({ weaponId: 'sword', augments: augments });
+    const A = b.fighters[0], V = b.fighters[1];
+    const gap = A.radius + V.radius + 6;
+    let hits = 0, turns = 0, prevAng = A.weaponAngle, prevHp = 1e9;
+    for (let i = 0; i < 60 * 12; i++) {
+      A.x = 0; A.y = 0; A.vx = 0; A.vy = 0;
+      V.x = gap; V.y = 0; V.vx = 0; V.vy = 0;
+      A.maxHp = 1e9; A.hp = 1e9; V.maxHp = 1e9; V.hp = prevHp;
+      b.simT = 0; b.result = null; b.phase = 'fight';
+      b.update(1 / 60);
+      let d = A.weaponAngle - prevAng;
+      while (d < -Math.PI) d += Math.PI * 2;
+      while (d > Math.PI) d -= Math.PI * 2;
+      turns += Math.abs(d) / (Math.PI * 2);
+      prevAng = A.weaponAngle;
+      if (V.hp < prevHp) { hits++; prevHp = V.hp; }
+    }
+    return { hits: hits, turns: turns };
+  };
+  const plain = sweep([]);
+  const fast = sweep(['rot15', 'rot15', 'rot15', 'rot15']);
+  assert.ok(Math.abs(plain.hits / plain.turns - 1) < 0.12,
+    '한 바퀴에 한 번이어야 한다 (실제 ' + (plain.hits / plain.turns).toFixed(2) + ')');
+  assert.ok(Math.abs(fast.hits / fast.turns - 1) < 0.12,
+    '빨라져도 한 바퀴에 한 번이어야 한다 (실제 ' + (fast.hits / fast.turns).toFixed(2) + ')');
+  assert.ok(fast.hits > plain.hits * 1.4,
+    '회전이 75% 빨라지면 타격 수도 그만큼 늘어야 한다 (' + plain.hits + ' -> ' + fast.hits + ')');
 });
 
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
