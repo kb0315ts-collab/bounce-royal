@@ -422,9 +422,11 @@ function drawWeaponG(g, f) {
     case 'sword': case 'dagger': {
       const bladeLen = WEAPONS[f.weaponId].reach * ws;
       const w = (f.weaponId === 'sword' ? 13 : 9) * ws;
-      g.fillStyle(0x5a4030, 1); g.fillRect(R * 0.35, -3.5, 12, 7);
-      g.fillStyle(0xc9a23f, 1); g.fillRect(R * 0.55, -w * 0.7, 5, w * 1.4);
-      bladeShape(g, R * 0.55 + 5, bladeLen, w);
+      // 쌍단검은 두 자루를 회전축에서 서로 반대쪽으로 비켜 놓는다.
+      // 축 위에 겹쳐 그리면 공이 꼬치에 꿰인 것처럼 보인다.
+      const dual = !!f.flags.dualDagger;
+      const off = dual ? w * 0.7 : 0;
+      bladeUnit(g, R, bladeLen, w, off);
       if (f.flags.giantBlade) {
         g.lineStyle(2, 0xffd24d, 0.7);
         g.beginPath();
@@ -435,11 +437,9 @@ function drawWeaponG(g, f) {
         g.lineTo(R * 0.55 + 5, w / 2);
         g.closePath(); g.strokePath();
       }
-      if (f.flags.dualDagger) {
+      if (dual) {
         g.save(); g.rotateCanvas(Math.PI);
-        g.fillStyle(0x5a4030, 1); g.fillRect(R * 0.35, -3, 10, 6);
-        g.fillStyle(0xc3cfe6, 1);
-        g.fillTriangle(R * 0.5, -w / 2, R * 0.5 + bladeLen * 0.85, 0, R * 0.5, w / 2);
+        bladeUnit(g, R, bladeLen, w, off);   // 회전한 좌표계라 반대쪽으로 비켜난다
         g.restore();
       }
       break;
@@ -518,6 +518,16 @@ function bladeShape(g, x0, bladeLen, w) {
     g.lineTo(x0, w * b);
     g.closePath(); g.fillPath();
   }
+}
+
+/* 손잡이 + 코등이 + 검신 한 벌. off는 회전축에서 옆으로 비켜난 정도. */
+function bladeUnit(g, R, bladeLen, w, off) {
+  g.save();
+  if (off) g.translateCanvas(0, off);
+  g.fillStyle(0x5a4030, 1); g.fillRect(R * 0.35, -3.5, 12, 7);
+  g.fillStyle(0xc9a23f, 1); g.fillRect(R * 0.55, -w * 0.7, 5, w * 1.4);
+  bladeShape(g, R * 0.55 + 5, bladeLen, w);
+  g.restore();
 }
 
 function drawUnits(g, b) {
@@ -818,33 +828,32 @@ function drawWeapon(c, f) {
     case 'sword': case 'dagger': {
       const bladeLen = WEAPONS[f.weaponId].reach * ws;
       const w = (f.weaponId === 'sword' ? 13 : 9) * ws;
-      // 손잡이
-      c.fillStyle = '#5a4030';
-      c.fillRect(R * 0.35, -3.5, 12, 7);
-      // 가드
-      c.fillStyle = '#c9a23f';
-      c.fillRect(R * 0.55, -w * 0.7, 5, w * 1.4);
-      // 검신
-      const bg = c.createLinearGradient(0, -w / 2, 0, w / 2);
-      bg.addColorStop(0, '#f2f6ff'); bg.addColorStop(0.5, '#c3cfe6'); bg.addColorStop(1, '#8d9cbf');
-      c.fillStyle = bg;
-      c.beginPath();
-      c.moveTo(R * 0.55 + 5, -w / 2);
-      c.lineTo(R * 0.55 + 5 + bladeLen * 0.82, -w / 2);
-      c.lineTo(R * 0.55 + 5 + bladeLen, 0);
-      c.lineTo(R * 0.55 + 5 + bladeLen * 0.82, w / 2);
-      c.lineTo(R * 0.55 + 5, w / 2);
-      c.closePath(); c.fill();
-      if (f.flags.giantBlade) { c.strokeStyle = 'rgba(255,210,77,.7)'; c.lineWidth = 2; c.stroke(); }
-      // 쌍단검 뒤쪽
-      if (f.flags.dualDagger) {
-        c.rotate(Math.PI);
-        c.fillStyle = '#5a4030'; c.fillRect(R * 0.35, -3, 10, 6);
-        c.fillStyle = '#c3cfe6';
+      const dual = !!f.flags.dualDagger;
+      const off = dual ? w * 0.7 : 0;
+      // 손잡이 + 가드 + 검신 한 벌
+      const unit = () => {
+        c.save();
+        if (off) c.translate(0, off);
+        c.fillStyle = '#5a4030';
+        c.fillRect(R * 0.35, -3.5, 12, 7);
+        c.fillStyle = '#c9a23f';
+        c.fillRect(R * 0.55, -w * 0.7, 5, w * 1.4);
+        const bg = c.createLinearGradient(0, -w / 2 + off, 0, w / 2 + off);
+        bg.addColorStop(0, '#f2f6ff'); bg.addColorStop(0.5, '#c3cfe6'); bg.addColorStop(1, '#8d9cbf');
+        c.fillStyle = bg;
         c.beginPath();
-        c.moveTo(R * 0.5, -w / 2); c.lineTo(R * 0.5 + bladeLen * 0.85, 0); c.lineTo(R * 0.5, w / 2);
+        c.moveTo(R * 0.55 + 5, -w / 2);
+        c.lineTo(R * 0.55 + 5 + bladeLen * 0.82, -w / 2);
+        c.lineTo(R * 0.55 + 5 + bladeLen, 0);
+        c.lineTo(R * 0.55 + 5 + bladeLen * 0.82, w / 2);
+        c.lineTo(R * 0.55 + 5, w / 2);
         c.closePath(); c.fill();
-      }
+        if (f.flags.giantBlade) { c.strokeStyle = 'rgba(255,210,77,.7)'; c.lineWidth = 2; c.stroke(); }
+        c.restore();
+      };
+      unit();
+      // 쌍단검: 반대쪽 한 자루. 축 위에 겹치면 꼬치처럼 보이므로 같은 만큼 비켜 놓는다.
+      if (dual) { c.save(); c.rotate(Math.PI); unit(); c.restore(); }
       break;
     }
     case 'bow': {
