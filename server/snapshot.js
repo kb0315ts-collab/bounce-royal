@@ -38,7 +38,8 @@ function fighterView(f) {
     // 본체가 죽으면 분열체가 몸을 대신하므로 둘을 합쳐 센다 (분열체는 0에서 시작한다).
     bc: sfxCount(f, 'bounceTotal'), sc: sfxCount(f, 'sfxSkill'),
     // 소환수·분열체도 uid를 실어야 죽어서 배열이 밀려도 엉뚱한 대상과 보간되지 않는다
-    sm: f.summons.map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r) })),
+    // 소환수도 체력바를 그리므로 hp/maxHp를 함께 보낸다
+    sm: f.summons.map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r), h: Math.round(s.hp), m: s.maxHp })),
     // fl(피격 플래시)도 실어야 한다. 분열체는 본체와 따로 맞고 따로 번쩍인다.
     sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0) })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),

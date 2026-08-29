@@ -113,7 +113,7 @@ const ROUND_RESOLVE_MS = 700;
 const ROUND_ADVANCE_MS = 1000;
 
 /* 실시간 진행을 위한 단계별 제한시간(초). 넘기면 자동으로 처리된다. */
-const AUGMENT_TIME = 12;
+const AUGMENT_TIME = 15;
 const EVENT_VOTE_TIME = 12;
 const RANKED_SEARCH_TIME = 10;   // 실제 플레이어를 기다리는 시간(초). 이후 남은 자리는 AI
 
@@ -698,6 +698,7 @@ const Game = {
     updatePlayersPanel(this);
     setWatchOtherButton(false);
     banner(`ROUND ${this.round}`, MAPS[mapId].name + (ffa ? ' · 전원 집결!' : ''), 1500);
+    setTimeout(() => { if (this.state === 'battle') banner('방향을 설정하세요', `${AIM_TIME}초 안에 조준`, 1400); }, 1500);
     SFX.coin();
   },
 
@@ -796,7 +797,7 @@ const Game = {
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this);
     specTag(this.spectating ? `관전 중 · ${fb.fighters.map(f => f.name).join(' vs ')}` : null);
     const h = fb.human();
-    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 버튼을 끌어 방향 조준 → 손을 떼면 전투 시작');
+    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 방향을 설정하세요 · 버튼을 끌었다 떼면 전투 시작');
     else if (fb.phase === 'fight' && h && !h.dead && !h.mainDead && !h.player.copiedSkill && h.skillUses.common > 0)
       setHint(`🧭 버튼을 끌어 방향 전환 (남은 ${h.skillUses.common}회)`);
     else if (fb.phase === 'fight' && h && h.pendingAim) setHint('🧭 버튼을 끌어 방향을 정하세요');

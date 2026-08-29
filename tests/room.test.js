@@ -64,4 +64,73 @@ test('사람 자리는 서로 다른 토큰을 갖는다', () => {
   } finally { clearInterval(room.tickTimer); }
 });
 
+
+/* ---- 다른 전투 관전 ----
+ * 관전은 "서버가 어느 전투의 스냅샷을 보내는가"를 바꾸는 일이다.
+ * 클라이언트가 표시만 바꾸면 계속 자기 (이미 끝난) 전투만 보게 된다. */
+function roomInBattle() {
+  const { room } = makeRoom();
+  room.start();
+  for (const p of room.players) p.weaponId = 'sword';
+  room.startRound();
+  return room;
+}
+
+test('전투가 아직 진행 중이면 관전 요청을 거부한다', () => {
+  const room = roomInBattle();
+  try {
+    assert.equal(room.battles.length, 2, '4명이면 전투가 둘로 갈린다');
+    const p = room.players[0];
+    const mine = room.battles.findIndex(b => b.fighters.some(f => f.player.id === p.id));
+    const other = mine === 0 ? 1 : 0;
+    room.onSpectate(p, other);
+    assert.equal(p.spectate, null, '내 전투가 안 끝났는데 남의 판을 미리 보면 안 된다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('내 전투가 끝나면 다른 전투를 관전할 수 있다', () => {
+  const room = roomInBattle();
+  try {
+    const p = room.players[0];
+    const mine = room.battles.findIndex(b => b.fighters.some(f => f.player.id === p.id));
+    const other = mine === 0 ? 1 : 0;
+    room.battles[mine].result = { winner: room.battles[mine].fighters[0], reason: 'kill', draw: false };
+    p.conn.log.length = 0;
+    room.onSpectate(p, other);
+    assert.equal(p.spectate, other, '관전 대상이 서버에 기록되어야 한다');
+    assert.ok(p.conn.log.includes('spectating'), '관전이 시작됐음을 알려야 한다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('관전 중에는 그 전투의 스냅샷을 받는다', () => {
+  const room = roomInBattle();
+  try {
+    const p = room.players[0];
+    const mine = room.battles.findIndex(b => b.fighters.some(f => f.player.id === p.id));
+    const other = mine === 0 ? 1 : 0;
+    room.battles[mine].result = { winner: room.battles[mine].fighters[0], reason: 'kill', draw: false };
+    room.onSpectate(p, other);
+    // tick 안의 전송 대상 선택과 같은 규칙
+    const own = room.battleOf(p);
+    const watching = own && own.result && p.spectate != null ? room.battles[p.spectate] : null;
+    assert.equal(watching, room.battles[other], '관전 대상 전투를 보내야 한다');
+    const mySeats = room.battles[mine].fighters.map(f => f.player.id).sort();
+    const seenSeats = watching.fighters.map(f => f.player.id).sort();
+    assert.notDeepEqual(seenSeats, mySeats, '내 전투와 다른 참가자여야 한다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('라운드가 새로 시작하면 관전이 풀린다', () => {
+  const room = roomInBattle();
+  try {
+    const p = room.players[0];
+    const mine = room.battles.findIndex(b => b.fighters.some(f => f.player.id === p.id));
+    room.battles[mine].result = { winner: room.battles[mine].fighters[0], reason: 'kill', draw: false };
+    room.onSpectate(p, mine === 0 ? 1 : 0);
+    assert.notEqual(p.spectate, null);
+    room.startRound();
+    assert.equal(p.spectate, null, '새 라운드에서는 자기 전투를 봐야 한다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
 console.log('\n' + passed + '개 방 진행 테스트 통과');

@@ -658,6 +658,16 @@ function drawFx(g, glow, b, sc) {
  * ============================================================ */
 function drawUnitUI(g, b, sc) {
   for (const f of b.fighters) {
+    // 소환수 체력바. 본체보다 작게 그려 구분한다.
+    for (const s of f.summons) {
+      if (!s.maxHp) continue;
+      const ratio = Math.max(0, Math.min(1, s.hp / s.maxHp));
+      const sw = 20, sx = s.x - sw / 2, sy = s.y - s.r - 9;
+      g.fillStyle(0x000000, 0.45);
+      g.fillRect(sx - 1, sy - 1, sw + 2, 4.5);
+      g.fillStyle(toInt(ratio > 0.5 ? '#6bd968' : ratio > 0.25 ? '#ffd24d' : '#ff6879'), 1);
+      g.fillRect(sx, sy, sw * ratio, 2.5);
+    }
     if (!f.mainDead && !f.dead) {
       for (const s of f.satellites) {
         const a = s.ang;

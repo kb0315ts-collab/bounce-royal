@@ -284,6 +284,7 @@ const Net = {
   pickWeapon(id) { this.send({ t: 'weapon', id }); },
   aim(ang) { this.send({ t: 'aim', ang }); },
   skill(slot) { this.send({ t: 'skill', slot }); },
+  spectate(i) { this.send({ t: 'spectate', i }); },
   pickAugment(id) { this.send({ t: 'augment', id }); },
   refresh() { this.send({ t: 'refresh' }); },
   vote(id) { this.send({ t: 'vote', id }); },
@@ -432,7 +433,8 @@ function netFighter(view, meta, seat) {
       giantBlade: !!(fg & 1), dualDagger: !!(fg & 2),
       dualPistol: !!(fg & 4), bayonet: !!(fg & 8),
     },
-    summons: view.sm || NET_EMPTY,
+    // 스냅샷은 h/m으로 싣고 렌더러는 hp/maxHp를 읽는다 (소환수 체력바)
+    summons: (view.sm || NET_EMPTY).map(s => ({ u: s.u, x: s.x, y: s.y, r: s.r, hp: s.h, maxHp: s.m })),
     splitBalls: (view.sp || NET_EMPTY).map(s => ({ dead: false, x: s.x, y: s.y, r: s.r, flash: s.fl || 0 })),
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.

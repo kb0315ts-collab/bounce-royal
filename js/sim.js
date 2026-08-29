@@ -12,7 +12,7 @@ const PISTOL_BARRAGE_ROT = TAU * 2;  // 회전 난사 중 초당 2바퀴
 const BOW_CHARGE_TURNS = 2;          // 차지 샷: 두 바퀴 돌 동안 조준한다
 const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 난이도를 여기서 조절한다
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
-const AIM_TIME = 3;         // 라운드 시작 조준 제한시간
+const AIM_TIME = 5;         // 라운드 시작 조준 제한시간
 let UID = 0;
 
 /* ---------------- utils ---------------- */

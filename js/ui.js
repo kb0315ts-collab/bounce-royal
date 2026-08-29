@@ -219,7 +219,10 @@ function buildWeaponSelect(offers, onPick) {
 }
 
 function buildAugmentSelect(offers, player, onPick, subtitle, refreshOptions = null) {
-  const currentPlayers = typeof Game !== 'undefined' && Game.players?.length ? Game.players : lastIntroPlayers;
+  // 멀티에서는 서버가 준 최신 목록을 넘겨받는다. 없으면 싱글 기준으로 찾는다.
+  // (예전에는 소개 화면 때 목록을 그대로 써서 코인이 늘 5개로 보였다)
+  const currentPlayers = refreshOptions?.players?.length ? refreshOptions.players
+    : (typeof Game !== 'undefined' && Game.players?.length ? Game.players : lastIntroPlayers);
   selectionPlayers(currentPlayers);
   const round = typeof Game !== 'undefined' ? Game.round : '';
   if ($('aug-round-label')) $('aug-round-label').textContent = round ? `ROUND ${round}` : 'AUGMENT';
@@ -233,10 +236,21 @@ function buildAugmentSelect(offers, player, onPick, subtitle, refreshOptions = n
     el.type = 'button'; el.className = 'card augment-card';
     const icon = CAT_ICONS[augment.cat] || '◆';
     el.innerHTML = `<div class="art">${esc(icon)}</div><div class="head"><span class="nm">${esc(augment.name)}</span></div><span class="tag">${esc(CAT_TAGS[augment.cat] || augment.cat)}</span><div class="desc">${esc(augment.desc)}</div>`;
-    el.onclick = () => { playUI(); onPick?.(augment); };
+    el.onclick = () => {
+      if (box.dataset.picked) return;          // 한 번 고르면 잠근다
+      box.dataset.picked = '1';
+      // 혼자 할 때는 바로 화면이 넘어가지만, 남을 기다릴 때는 눌렸다는 표시가 필요하다
+      box.querySelectorAll('.augment-card').forEach(card => { card.classList.remove('picked'); card.disabled = true; });
+      el.classList.add('picked');
+      const wait = $('aug-sub');
+      if (wait) wait.textContent = `${augment.name} 선택 · 다른 플레이어를 기다리는 중…`;
+      playUI();
+      onPick?.(augment);
+    };
     bindLongPress(el, augment);
     box.appendChild(el);
   });
+  delete box.dataset.picked;                   // 새 후보가 오면 다시 고를 수 있다
   const p = playerSource(player), ch = CHARACTERS[p.charId], wp = WEAPONS[p.weaponId];
   if ($('aug-myinfo')) $('aug-myinfo').textContent = `${ch?.ico || ''} ${ch?.name || ''} · ${wp?.ico || ''} ${wp?.name || ''} · 🪙 ${Math.max(0, p.coins || 0)}개`;
   const owned = $('aug-owned');
@@ -877,16 +891,19 @@ function stopPhaseTimer() {
   phaseTimerHandle = null;
   for (const id of ['aug-timer', 'event-timer']) $(id)?.classList.add('hidden');
 }
-function startPhaseTimer(barId, seconds, onExpire) {
+/* fullSeconds는 눈금의 전체 길이다. 증강 새로고침처럼 단계 도중에 다시
+ * 부를 때 남은 시간만 주면 눈금이 다시 가득 차서 훨씬 빨리 줄어드는 것처럼 보인다. */
+function startPhaseTimer(barId, seconds, onExpire, fullSeconds) {
   stopPhaseTimer();
   const bar = $(barId);
   const fill = bar?.querySelector('i'), label = bar?.querySelector('b');
   bar?.classList.remove('hidden', 'urgent');
+  const span = Math.max(seconds, Number(fullSeconds) || 0);
   const startedAt = performance.now();
   let fired = false;
   const tick = () => {
     const left = Math.max(0, seconds - (performance.now() - startedAt) / 1000);
-    if (fill) fill.style.width = (100 * left / seconds) + '%';
+    if (fill) fill.style.width = (100 * left / span) + '%';
     if (label) label.textContent = left.toFixed(1);
     bar?.classList.toggle('urgent', left <= 3);
     if (left <= 0 && !fired) { fired = true; stopPhaseTimer(); onExpire?.(); }

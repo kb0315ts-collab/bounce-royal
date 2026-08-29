@@ -94,12 +94,20 @@ const Multi = {
       showMatchIntro(this.withLocal(m.players), m.seconds * 1000, null);
     });
 
+    net.on('spectating', m => {
+      this.spectating = true;
+      specTag('관전 중 · ' + (m.names || []).join(' vs '));
+      banner('관전', (m.names || []).join(' vs '), 1200);
+      setWatchOtherButton(false);
+    });
+
     net.on('round', m => {
       stopPhaseTimer();
       this.groups = m.groups || [];
       this.myGroup = this.groups.find(g => g.includes(net.seat)) || this.groups[0] || [];
       this.spectating = false;
       Game.state = 'battle';
+      banner('방향을 설정하세요', `${m.aimSeconds || 5}초 안에 조준`, 1400);
       showScreen(null);
       hudVisible(true);
       updatePlayersPanel(this.panelState());
@@ -120,8 +128,10 @@ const Multi = {
     net.on('eventOffers', m => {
       Game.state = 'eventVote';
       hudVisible(false);
+      this.eventOffers = m.offers || [];       // 결과 연출에서 같은 세 장을 그대로 쓴다
+      this.votes = [];
       showEventVote(m.offers, this.withLocal(m.players), choice => net.vote(choice && choice.id ? choice.id : choice));
-      startPhaseTimer('event-timer', m.seconds, null);
+      startPhaseTimer('event-timer', m.seconds, null, m.seconds);
     });
 
     net.on('voteCast', m => {
@@ -137,8 +147,16 @@ const Multi = {
       stopPhaseTimer();
       Game.state = 'eventVoteResult';
       const votes = new Map(m.votes);
+      // 선택지 세 장을 모두 넘겨야 네 명을 훑는 당첨 연출이 나온다.
+      // 당첨 이벤트 하나만 넘기면 카드가 한 장으로 줄어 의미가 없어진다.
       showEventVoteResult(
-        { votes, players: this.withLocal(m.players), offers: [m.event], winnerPlayerId: m.winnerId, event: m.event },
+        {
+          votes,
+          players: this.withLocal(m.players),
+          offers: (this.eventOffers && this.eventOffers.length) ? this.eventOffers : [m.event],
+          winnerPlayerId: m.winnerId,
+          event: m.event,
+        },
         null,
       );
     });
@@ -150,9 +168,9 @@ const Multi = {
       const me = net.players.find(p => p.id === net.seat) || { augments: [] };
       buildAugmentSelect(m.offers, me, aug => net.pickAugment(aug.id),
         m.total > 1 ? `${m.total - m.left + 1}/${m.total}번째 증강` : null,
-        { refreshes: m.refreshes, onRefresh: () => net.refresh() });
+        { refreshes: m.refreshes, onRefresh: () => net.refresh(), players: this.withLocal(net.players) });
       setRefreshButton(m.refreshes, () => net.refresh());
-      startPhaseTimer('aug-timer', m.seconds, null);
+      startPhaseTimer('aug-timer', m.seconds, null, m.fullSeconds || m.seconds);
     });
 
     net.on('gameOver', m => {
@@ -281,7 +299,7 @@ const Multi = {
     updateSkillbar(v);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this.panelState());
     const me = v.human();
-    if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 버튼을 끌어 방향 조준');
+    if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 방향을 설정하세요 · 버튼을 끌어 조준');
     else if (v.phase === 'fight' && me && me.skillUses.common > 0 && !me.player.copiedSkill) setHint(`🧭 버튼을 끌어 방향 전환 (남은 ${me.skillUses.common}회)`);
     else setHint(null);
     // 다른 전투 관전 전환
@@ -293,8 +311,12 @@ const Multi = {
     const myDone = v && v.result;
     const hasOther = this.groups.length > 1;
     setWatchOtherButton(!!(myDone && hasOther && !this.spectating), () => {
-      this.spectating = true;
-      specTag('관전 중');
+      // 관전은 서버가 보내주는 전투를 바꾸는 일이다. 클라이언트 혼자 표시만 바꿔서는
+      // 계속 내 (이미 끝난) 전투 화면만 보게 된다.
+      const mine = this.groups.findIndex(g => g.includes(BounceRoyalNet.seat));
+      const other = this.groups.findIndex((g, i) => i !== mine);
+      if (other < 0) return;
+      BounceRoyalNet.spectate(other);
       setWatchOtherButton(false);
     }, '다른 전투 보기');
   },

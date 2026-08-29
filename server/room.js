@@ -16,7 +16,7 @@ const { snapshot } = require('./snapshot.js');
 const TICK_HZ = 60;
 const SNAP_HZ = 20;
 const WEAPON_TIME = 12;
-const AUGMENT_TIME = 12;
+const AUGMENT_TIME = 15;
 const EVENT_VOTE_TIME = 12;
 const INTRO_TIME = 3;
 const ROUND_END_TIME = 3;
@@ -60,6 +60,7 @@ class Room {
       gamble: false, trollCondition: false, damageRewardMult: 1,
       wins: 0, losses: 0, streak: 0, rounds: 0,
       eliminated: false, elimOrder: 0, rank: 0, totalDmg: 0,
+      spectate: null,                              // 관전 중인 전투 번호 (내 전투가 끝난 뒤에만)
     }));
     core.resetGameEventState(this);
 
@@ -147,6 +148,7 @@ class Room {
     if (ffa) groups = [alive];
     else groups = core.BounceRoyalMatchmaking.selectPairs(this, alive, this.round).map(pair => pair.slice());
 
+    for (const p of this.players) p.spectate = null;
     this.battles = groups.map(group => {
       const battle = new core.Battle(ACTIVE_MAP, group, options);
       // 서버가 조준을 통제한다. AI는 기존 로직이 알아서 잠근다.
@@ -175,6 +177,17 @@ class Room {
     if (!b || !f || typeof ang !== 'number' || !isFinite(ang)) return;
     if (b.phase === 'aim' && !f.aimLocked) { b.setDir(f, ang); f.aimLocked = true; }
     else if (b.phase === 'fight') core.applyCommonAim(b, f, ang);
+  }
+  /* 다른 전투 관전. 내 전투가 끝났을 때만 받아준다. */
+  onSpectate(player, idx) {
+    if (this.phase !== 'battle' || !this.battles) return;
+    const own = this.battleOf(player);
+    if (!own || !own.result) return;
+    if (idx == null) { player.spectate = null; return; }
+    const target = this.battles[idx];
+    if (!target || target === own) return;
+    player.spectate = idx;
+    this.send(player, { t: 'spectating', i: idx, names: target.fighters.map(f => f.player.name) });
   }
   onSkill(player, slot) {
     const b = this.battleOf(player), f = this.fighterOf(player);
@@ -305,7 +318,7 @@ class Room {
       const total = core.eventAugmentPickCount(this, p);
       const offers = core.rollAugmentOffers(p);
       this.augmentState.set(p.id, { left: total, total, offers });
-      this.send(p, { t: 'augmentOffers', offers, left: total, total, refreshes: this.refreshes, seconds: AUGMENT_TIME });
+      this.send(p, { t: 'augmentOffers', offers, left: total, total, refreshes: this.refreshes, seconds: AUGMENT_TIME, fullSeconds: AUGMENT_TIME });
     }
   }
   onAugment(player, augId) {
@@ -318,7 +331,7 @@ class Room {
     st.left--;
     if (st.left > 0 && player.coins > 0) {
       st.offers = core.rollAugmentOffers(player);
-      this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft() });
+      this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
     }
     this.maybeFinishAugment();
   }
@@ -328,7 +341,7 @@ class Room {
     if (!st || st.left <= 0) return;
     this.refreshes--;
     st.offers = core.rollAugmentOffers(player);
-    this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft() });
+    this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
   }
   maybeFinishAugment() {
     const done = Array.from(this.augmentState.values()).every(st => st.left <= 0);
@@ -388,7 +401,10 @@ class Room {
         this.snapAcc = 0;
         const seq = ++this.snapSeq;   // 한 번의 전송 배치는 모두 같은 순번
         for (const p of this.players) {
-          const b = this.battleOf(p) || this.battles[0];
+          const own = this.battleOf(p);
+          // 내 전투가 끝난 뒤에만 다른 전투를 볼 수 있다 (진행 중인 남의 판을 미리 보지 못하게)
+          const watching = own && own.result && p.spectate != null ? this.battles[p.spectate] : null;
+          const b = watching || own || this.battles[0];
           if (b) this.send(p, { t: 's', q: seq, b: snapshot(b) });
         }
       }
@@ -441,7 +457,7 @@ class Room {
       this.send(player, { t: 'weaponOffers', ids: this.offers.get(player.id), seconds: this.timeLeft(), players: this.publicPlayers() });
     } else if (this.phase === 'augment' && this.augmentState) {
       const st = this.augmentState.get(player.id);
-      if (st && st.left > 0) this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft() });
+      if (st && st.left > 0) this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
     } else if (this.phase === 'event' && !this.eventVotes.has(player.id)) {
       this.send(player, { t: 'eventOffers', offers: this.eventOffers, seconds: this.timeLeft(), players: this.publicPlayers() });
     }
