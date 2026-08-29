@@ -126,7 +126,7 @@ const Net = {
     switch (msg.t) {
       case 'welcome':
         if (!this.token) this.saveToken(msg.token);
-        this.searchSeconds = msg.searchSeconds;
+        this.roomSize = msg.roomSize;
         break;
       case 'you':
         this.seat = msg.id;

@@ -72,6 +72,7 @@ node tests/net.test.js
 node tests/parity.test.js
 node tests/room.test.js
 node tests/ui.test.js
+node tests/queue.test.js
 ```
 
 전부 통과해야 한다. 테스트는 렌더러(`js/render.js`)를 로드하지 않으므로,
@@ -227,7 +228,8 @@ Blueprint를 쓰지 않고 수동으로 만들 때의 설정값:
 | 이름 | 기본 | 설명 |
 |---|---|---|
 | `PORT` | 8080 | 호스팅이 자동으로 주입한다. 건드리지 말 것 |
-| `SEARCH_SECONDS` | 10 | 대기열에서 사람을 기다리는 시간 |
+| `BOT_JOIN_START` | 8 | 이때까지 사람이 안 모이면 봇을 붙이기 시작한다(초) |
+| `BOT_JOIN_END` | 17 | 늦어도 이때까지는 자리를 다 채운다(초) |
 | `FILL_WITH_AI` | 1 | 0이면 사람 4명이 모일 때까지 시작하지 않는다 |
 | `FORCE_EVENT` | 없음 | **테스트 전용.** 특정 이벤트를 강제한다(예: `nextFfa`). 운영에서는 절대 설정하지 말 것 |
 
@@ -245,7 +247,10 @@ curl https://<서비스>.onrender.com/healthz
 ```
 
 그다음 브라우저 두 창에서 접속해 **🌐 온라인 대전**을 눌러 서로 매칭되는지 본다.
-`SEARCH_SECONDS` 안에 4명이 모이지 않으면 남은 자리는 AI로 채워진다.
+사람이 4명 모이면 즉시 시작한다. 그 전에는 `BOT_JOIN_START`초까지 아무도 붙지
+않다가, `BOT_JOIN_START`~`BOT_JOIN_END`초 사이 무작위 시점에 봇이 한 명씩
+합류해 늦어도 `BOT_JOIN_END`초면 자리가 찬다. 기다리는 동안 사람이 들어오면
+봇 자리를 먼저 내주므로 표시 인원은 그대로이면서 진짜 사람으로 바뀐다.
 
 ### 8.6 서버 코드 수정 시
 

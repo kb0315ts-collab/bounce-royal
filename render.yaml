@@ -13,7 +13,9 @@ services:
     startCommand: node server/index.js
     healthCheckPath: /healthz
     envVars:
-      - key: SEARCH_SECONDS
-        value: "20"
+      - key: BOT_JOIN_START
+        value: "8"
+      - key: BOT_JOIN_END
+        value: "17"
       - key: FILL_WITH_AI
         value: "1"

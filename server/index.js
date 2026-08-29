@@ -8,8 +8,10 @@
  *
  * 환경변수
  *   PORT           listen 포트 (기본 8080)
- *   SEARCH_SECONDS 대기열에서 사람을 기다리는 시간 (기본 10)
- *   FILL_WITH_AI   1이면 시간 초과 시 남은 자리를 AI로 채운다 (기본 1)
+ *   BOT_JOIN_START 이 시간까지 사람이 안 모이면 봇을 붙이기 시작한다 (초, 기본 8)
+ *   BOT_JOIN_END   늦어도 이때까지는 자리를 다 채운다 (초, 기본 17)
+ *                  두 시각 사이 무작위 시점에 한 명씩 들어온다
+ *   FILL_WITH_AI   0이면 사람 4명이 모일 때까지 시작하지 않는다 (기본 1)
  * ============================================================ */
 const http = require('node:http');
 const crypto = require('node:crypto');
@@ -20,7 +22,10 @@ const { Room } = require('./room.js');
 const core = require('./game-core.js');
 
 const PORT = Number(process.env.PORT || 8080);
-const SEARCH_SECONDS = Number(process.env.SEARCH_SECONDS || 10);
+// 사람이 안 모이면 봇을 붙인다. 한 번에 자리를 다 채우면 대기가 끝났다는 게
+// 티가 나므로, START~END 사이 무작위 시점에 한 명씩 들어오게 한다.
+const BOT_JOIN_START = Number(process.env.BOT_JOIN_START || 8);
+const BOT_JOIN_END = Number(process.env.BOT_JOIN_END || 17);
 const FILL_WITH_AI = process.env.FILL_WITH_AI !== '0';
 const ROOM_SIZE = 4;
 const ROOT = path.resolve(__dirname, '..');
@@ -55,6 +60,27 @@ const server = http.createServer((req, res) => {
 let connSeq = 0;
 const wss = new WebSocketServer({ server });
 const queue = [];          // 대기 중인 conn
+/* 대기열에 합류한 것처럼 보이는 봇 자리. 사람이 새로 들어오면 그 자리를 내준다.
+ * 대기가 시작될 때 봇들이 들어올 시각을 한 번에 뽑아 둔다. 전부 START~END
+ * 사이라 8초 전에는 아무도 안 붙고, 늦어도 17초면 자리가 찬다. */
+let pendingBots = 0;
+let botJoinTimes = [];
+const BOT_JOIN_GAP_MS = 800;   // 둘이 같은 순간에 들어오면 한꺼번에 찬 것으로 보인다
+function planQueueFill(now) {
+  const from = now + BOT_JOIN_START * 1000;
+  const to = now + BOT_JOIN_END * 1000;
+  botJoinTimes = [];
+  for (let i = 0; i < ROOM_SIZE - 1; i++) {
+    botJoinTimes.push(from + Math.random() * Math.max(0, to - from));
+  }
+  botJoinTimes.sort((a, b) => a - b);
+  // 뒤에서부터 최소 간격을 확보한다. 마지막을 뒤로 밀지 않으므로
+  // 총 대기는 BOT_JOIN_END를 넘지 않는다.
+  for (let i = botJoinTimes.length - 2; i >= 0; i--) {
+    botJoinTimes[i] = Math.max(from, Math.min(botJoinTimes[i], botJoinTimes[i + 1] - BOT_JOIN_GAP_MS));
+  }
+}
+function resetQueueFill() { pendingBots = 0; botJoinTimes = []; }
 const rooms = new Set();
 const roomsByCode = new Map();   // 방 코드 → Room (친구끼리 코드로 입장)
 const pendingRooms = new Map();  // 방 코드 → 아직 시작 안 한 대기실
@@ -99,22 +125,41 @@ function leaveQueue(conn) {
 
 function queueStatus() {
   const now = Date.now();
+  const found = Math.min(ROOM_SIZE, queue.length + pendingBots);
   for (const conn of queue) {
-    const left = Math.max(0, SEARCH_SECONDS - (now - conn.queuedAt) / 1000);
-    conn.send({ t: 'queue', found: queue.length, need: ROOM_SIZE, left: Math.ceil(left) });
+    // 남은 시간을 세지 않는다. 언제 잡힐지 모르는 대기라 올라가는 편이 자연스럽다.
+    const elapsed = Math.floor((now - conn.queuedAt) / 1000);
+    conn.send({ t: 'queue', found, need: ROOM_SIZE, elapsed });
   }
 }
 
 function tryFormRoom() {
   // 사람이 4명 모이면 즉시 시작
   if (queue.length >= ROOM_SIZE) {
+    resetQueueFill();
     startRoom(queue.splice(0, ROOM_SIZE));
     return;
   }
-  // 가장 오래 기다린 사람이 제한시간을 넘겼으면 AI로 채워 시작
-  if (!FILL_WITH_AI || !queue.length) return;
-  const waited = (Date.now() - queue[0].queuedAt) / 1000;
-  if (waited >= SEARCH_SECONDS) startRoom(queue.splice(0, queue.length));
+  if (!queue.length) { resetQueueFill(); return; }
+  if (!FILL_WITH_AI) return;
+
+  // 사람이 늘면 봇 자리를 먼저 내준다 (표시 인원은 그대로, 진짜 사람으로 바뀐다)
+  if (queue.length + pendingBots > ROOM_SIZE) pendingBots = ROOM_SIZE - queue.length;
+
+  const now = Date.now();
+  if (!botJoinTimes.length) planQueueFill(queue[0].queuedAt);
+  // 시각이 지난 봇 수만큼 채우되, 한 번에 한 명씩만 늘린다.
+  // 뽑힌 시각이 몰려도 화면에서는 하나씩 들어오는 것으로 보여야 한다.
+  const due = Math.min(botJoinTimes.filter(t => now >= t).length, ROOM_SIZE - queue.length);
+  if (due > pendingBots) {
+    pendingBots = due;
+    queueStatus();                       // 새로 들어온 것을 바로 알린다
+  }
+  if (queue.length + pendingBots >= ROOM_SIZE) {
+    const conns = queue.splice(0, queue.length);
+    resetQueueFill();
+    startRoom(conns);
+  }
 }
 
 function startRoom(conns, code) {
@@ -145,7 +190,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 wss.on('connection', ws => {
   const conn = makeConn(ws);
-  conn.send({ t: 'welcome', token: conn.token, searchSeconds: SEARCH_SECONDS, roomSize: ROOM_SIZE });
+  conn.send({ t: 'welcome', token: conn.token, roomSize: ROOM_SIZE });
 
   ws.on('message', raw => {
     let msg;
@@ -254,5 +299,5 @@ wss.on('connection', ws => {
 setInterval(() => { queueStatus(); tryFormRoom(); }, 500);
 
 server.listen(PORT, () => {
-  log(`바운스 로얄 서버 · 포트 ${PORT} · 대기 ${SEARCH_SECONDS}초 · AI 채우기 ${FILL_WITH_AI ? 'ON' : 'OFF'}`);
+  log(`바운스 로얄 서버 · 포트 ${PORT} · 봇 합류 ${BOT_JOIN_START}~${BOT_JOIN_END}초 · AI 채우기 ${FILL_WITH_AI ? 'ON' : 'OFF'}`);
 });

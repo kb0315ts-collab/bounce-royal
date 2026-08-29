@@ -64,7 +64,7 @@ const Multi = {
     const net = BounceRoyalNet;
 
     net.on('queue', m => {
-      setRankedSearchState(`플레이어를 찾는 중… ${m.left}초 · ${m.found}/${m.need}명`, true);
+      setRankedSearchState(`플레이어를 찾는 중… ${m.elapsed}초 · ${m.found}/${m.need}명`, true);
     });
 
     net.on('roomCreated', m => this.showLobby(m));
