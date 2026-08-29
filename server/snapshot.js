@@ -18,7 +18,9 @@ function fighterView(f) {
     fl: r1(f.flash),
     // 렌더링에 영향을 주는 상태만 추린다
     ti: { im: r1(t.immune), un: r1(t.untouchable), fz: r1(t.freeze), ad: r1(t.actingDead), st: r1(t.stun), ba: r1(t.balloon), ra: r1(t.rampage), gb: r1(t.gunBarrage) },
-    ch: f.charging ? 1 : 0,
+    // 충전 진행도. 렌더러가 시위 당겨지는 정도로 쓴다(1에서 포화).
+    // 0/1만 보내면 멀티에서 활 차지가 처음부터 끝까지 최대로 당겨진 채 보인다.
+    ch: f.charging ? Math.max(0.05, Math.min(1, r1(f.charging.t))) : 0,
     gf: r1(f.gunFlash || 0),
     // 무기 모양에 영향을 주는 증강만 비트로 싣는다
     fg: (f.flags.giantBlade ? 1 : 0) | (f.flags.dualDagger ? 2 : 0)

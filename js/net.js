@@ -408,7 +408,7 @@ function netFighter(view, meta, seat) {
     dead: !!view.d, mainDead: !!view.md,
     flash: view.fl,
     gunFlash: view.gf,
-    charging: view.ch ? { t: 1 } : null,
+    charging: view.ch ? { t: view.ch } : null,
     gun: { reloadT: view.rl ? 1 : 0, focus: false },
     timers: {
       immune: ti.im || 0, untouchable: ti.un || 0, freeze: ti.fz || 0,

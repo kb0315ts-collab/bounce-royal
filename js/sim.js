@@ -9,6 +9,9 @@ const ROCKET_SPEED = 760;
 const DIAMOND_L = 405;      // 다이아 경기장 기본 크기 (4인 난투)
 const DUEL_ARENA_L = 320;   // 1대1은 조우율을 위해 좁힌다
 const PISTOL_BARRAGE_ROT = TAU * 2;  // 회전 난사 중 초당 2바퀴
+const BOW_CHARGE_TURNS = 2;          // 차지 샷: 두 바퀴 돌 동안 조준한다
+const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 난이도를 여기서 조절한다
+const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
 const AIM_TIME = 3;         // 라운드 시작 조준 제한시간
 let UID = 0;
 
@@ -1300,7 +1303,11 @@ function updateWeapon(b, f, dt) {
   // 회전하거나(근접·회전 난사) 상대를 조준하거나(그 외 원거리·지뢰) 둘 중 하나다.
   if (f.timers.weaponLock <= 0) {
     let applied;
-    if (f.spinRemaining > 0) {
+    if (f.charging) {
+      // 차지 샷은 자동 조준을 끄고 천천히 돈다. 두 바퀴 도는 동안 직접 노려서 쏜다.
+      applied = BOW_CHARGE_ROT * dt;
+      f.charging.spin += applied;
+    } else if (f.spinRemaining > 0) {
       applied = Math.min(f.spinRemaining, TAU / 0.6 * dt);
       f.spinRemaining = Math.max(0, f.spinRemaining - applied);
     } else {
@@ -1321,6 +1328,10 @@ function updateWeapon(b, f, dt) {
         addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 10, r1: 50, color: '#9fd0ff', dur: 0.25 });
       }
     }
+  }
+  // 두 바퀴를 다 돌 때까지 안 쏘면 그 자리에서 자동으로 나간다 (사용 횟수는 그대로 소비)
+  if (f.charging && f.charging.spin >= TAU * BOW_CHARGE_TURNS && f.skillUses.weapon > 0) {
+    if (releaseCharge(b, f)) f.skillUses.weapon--;
   }
   if (f.timers.weaponLock > 0 || f.charging) {
     // 무기 정지/충전 중에는 발사 없음 (회전만)
@@ -1843,7 +1854,7 @@ function useSkill(b, f, slot) {
       popup(b, f.x, f.y - f.radius - 24, '돌진 준비…', '#8ef');
       break;
     case 'bow': {
-      f.charging = { t: 0 };
+      f.charging = { t: 0, spin: 0 };
       popup(b, f.x, f.y - f.radius - 24, '차지 중…', '#ffe08a');
       f.sfxSkill++;
       if (typeof SFX !== 'undefined' && SFX.skill) SFX.skill();
@@ -1904,6 +1915,21 @@ function aiChooseStartDir(b, f) {
 
 function aiUpdate(b, f, dt) {
   if (b.phase !== 'fight' || f.dead || f.mainDead || f.timers.stun > 0) return;
+  // 차지 샷 조준만은 판단 주기와 따로, 매 프레임 본다.
+  // 활은 두 바퀴 도는 동안 상대와 겹치는 순간이 0.1초 남짓이라
+  // 0.2~0.4초마다 보는 일반 판단으로는 절반 넘게 그냥 지나쳐 버린다.
+  if (f.charging && f.charging.t >= 1 && f.skillUses.weapon > 0) {
+    const tgt = b.nearestEnemyMain(f);
+    if (tgt) {
+      // 화살이 날아가는 동안 상대가 움직이는 만큼 앞을 겨눈다
+      const flight = dist(f.x, f.y, tgt.x, tgt.y) / 580;
+      const spd = tgt.st ? tgt.st.move : 170;
+      const aimAng = Math.atan2(tgt.y + tgt.vy * spd * flight - f.y, tgt.x + tgt.vx * spd * flight - f.x);
+      let off = f.weaponAngle - aimAng;
+      while (off > Math.PI) off -= TAU; while (off < -Math.PI) off += TAU;
+      if (Math.abs(off) < 0.1) { useSkill(b, f, 'weapon'); return; }
+    }
+  }
   f.aiT -= dt;
   if (f.aiT > 0) return;
   f.aiT = rand(0.2, 0.4);
@@ -1953,9 +1979,8 @@ function aiUpdate(b, f, dt) {
       case 'sword': if (d < f.radius + wp.reach * weaponScale(f) + 55) use('weapon'); break;
       case 'dagger': if (d > 130 && d < 430) use('weapon'); break;
       case 'bow':
+        // 발사는 위쪽 매 프레임 조준 검사가 맡는다. 여기서는 충전 시작만 판단한다.
         if (!f.charging && d < 520) use('weapon');
-        else if (f.charging && f.charging.t >= 1 && Math.abs(diff) < 0.28) use('weapon');
-        else if (f.charging && f.charging.t > 2.6) use('weapon');
         break;
       case 'pistol': if (d < 430 && Math.abs(diff) < 0.5) use('weapon'); break;
       case 'staff': if (b.simT > 7 || eHpP < 0.45) use('weapon'); break;
