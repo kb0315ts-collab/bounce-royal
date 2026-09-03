@@ -1092,6 +1092,45 @@ test('전투원의 st는 만들어진 순간부터 모양이 완전하다', () =
   assert.deepEqual(before, after, '초기 st와 계산된 st의 키가 달라지면 안 된다');
 });
 
+
+test('AI 증강 선택은 실측 성향과 그 판의 사정을 함께 본다', () => {
+  const pick = (ids, player) => {
+    const offers = ids.map(id => AUG_BY_ID[id]);
+    const counts = {};
+    for (let i = 0; i < 3000; i++) {
+      const got = aiPickAugment(offers, player);
+      counts[got.id] = (counts[got.id] || 0) + 1;
+    }
+    return counts;
+  };
+  const base = { augments: [], coins: 5, coinsLost: 0, rounds: 1 };
+
+  // 무기 전용은 실측 승률이 압도적이다. 나오면 대부분 집어야 한다.
+  const w = pick(['w_giant', 'winMomentum', 'copy_cat'], { ...base, weaponId: 'sword' });
+  assert.ok(w.w_giant > w.winMomentum * 2, '무기 전용을 확실히 선호해야 한다 (실제 ' + JSON.stringify(w) + ')');
+
+  // 코인이 곧 목숨이다. 여유가 없으면 코인을 거는 증강을 피한다.
+  const rich = pick(['devilDeal', 'hp15'], { ...base, coins: 5 });
+  const poor = pick(['devilDeal', 'hp15'], { ...base, coins: 1 });
+  assert.ok(poor.devilDeal < rich.devilDeal / 2,
+    '코인이 없을 때 악마와의 거래를 덜 집어야 한다 (여유 ' + rich.devilDeal + ' → 위기 ' + poor.devilDeal + ')');
+  // 반대로 벼랑 끝은 코인이 없을 때가 제철이다
+  const brinkPoor = pick(['brink', 'hp15'], { ...base, coins: 1 });
+  const brinkRich = pick(['brink', 'hp15'], { ...base, coins: 5 });
+  assert.ok(brinkPoor.brink > brinkRich.brink, '벼랑 끝은 코인이 적을 때 값어치가 크다');
+
+  // 조건이 붙은 것은 조건을 갖췄을 때만 집는다
+  const noCd = pick(['autoExpert', 'hp15'], { ...base });
+  const withCd = pick(['autoExpert', 'hp15'], { ...base, augments: ['missile', 'shuriken'] });
+  assert.ok(withCd.autoExpert > noCd.autoExpert * 2,
+    '쿨타임 증강이 없으면 자동화 전문가를 피해야 한다 (없을 때 ' + noCd.autoExpert + ' → 있을 때 ' + withCd.autoExpert + ')');
+
+  // 누적형은 끝물에 집어봐야 쌓일 시간이 없다
+  const early = pick(['winMomentum', 'hp15'], { ...base, rounds: 1 });
+  const late = pick(['winMomentum', 'hp15'], { ...base, rounds: 7 });
+  assert.ok(late.winMomentum < early.winMomentum, '끝물에는 누적형을 덜 집어야 한다');
+});
+
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
 `,
 ].join('\n');

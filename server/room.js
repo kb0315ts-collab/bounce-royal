@@ -313,7 +313,7 @@ class Room {
     for (const p of this.players) {
       if (!p.isAI || p.eliminated) continue;
       const picks = core.eventAugmentPickCount(this, p);
-      for (let i = 0; i < picks; i++) core.applyAugmentPick(p, core.aiPickAugment(core.rollAugmentOffers(p)));
+      for (let i = 0; i < picks; i++) core.applyAugmentPick(p, core.aiPickAugment(core.rollAugmentOffers(p), p));
     }
     for (const p of this.players) {
       if (!p.eliminated && p.coins <= 0) { p.eliminated = true; p.elimOrder = this.elimCounter++; }
@@ -362,7 +362,7 @@ class Room {
     for (const [pid, st] of this.augmentState) {
       const player = this.players[pid];
       while (st.left > 0) {
-        core.applyAugmentPick(player, core.aiPickAugment(st.offers));
+        core.applyAugmentPick(player, core.aiPickAugment(st.offers, player));
         st.left--;
         if (st.left > 0) st.offers = core.rollAugmentOffers(player);
       }

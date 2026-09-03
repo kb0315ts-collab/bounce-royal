@@ -393,13 +393,79 @@ function applyAugmentPick(player, aug) {
   }
   if (aug.cat === 'copy') player.copiedSkill = aug.charId;
 }
-function aiPickAugment(offers) {
-  const w = offers.map(a => {
-    if (a.cat === 'weapon' || a.cat === 'auto') return 1.35;
-    if (a.cat === 'stat') return 1.15;
-    if (a.cat === 'coin') return 0.6;
-    return 1;
-  });
+/* ---- AI 증강 선택 ----
+ * 성향 값은 짐작이 아니라 실측이다. 무작위 빌드끼리 1497판을 붙여
+ * 각 증강이 들어간 쪽의 승률을 센 뒤, (승률 - 50%)에 비례하도록 옮겼다.
+ * 밸런스를 고치면 이 값도 다시 재야 한다. */
+const AI_CAT_WEIGHT = {
+  weapon: 2.60,   // 61.8%  압도적이다 (삼중 마법 97%, 트리플 샷 96%). 나올 때마다 집는 게 맞다
+  time: 1.23,     // 53.9%
+  summon: 1.19,   // 53.2%
+  death: 1.14,    // 52.3%
+  auto: 1.13,     // 52.1%
+  onhit: 1.06,    // 51.0%
+  stat: 1.03,     // 50.5%  평범하다. 예전에는 과대평가하고 있었다
+  physics: 0.96,  // 49.3%
+  coin: 0.92,     // 48.6%
+  trade: 0.89,    // 48.2%
+  tempo: 0.89,    // 48.2%
+  hpcond: 0.86,   // 47.7%
+  cc: 0.86,       // 47.6%
+  link: 0.79,     // 46.5%
+  skill: 0.77,    // 46.2%
+  streak: 0.76,   // 46.0%  누적형은 생각보다 약하다
+  copy: 0.72,     // 45.3%
+};
+/* 카테고리 평균에서 크게 벗어난 개별 증강 (표본 200판 이상) */
+const AI_AUG_WEIGHT = {
+  vampiric: 1.5,        // 63%
+  missile: 1.4,         // 62%
+  meditate: 1.4,        // 61%
+  winMomentum: 0.85,    // 44%
+  gravityWell: 0.8,     // 43%
+  escapeInstinct: 0.8,  // 43%
+  winAccel: 0.8,        // 43%
+  trollCondition: 0.8,  // 43%
+  hitCharge: 0.8,       // 43%
+  flame: 0.75,          // 42%
+  talent: 0.7,          // 40%
+  bloodRush: 0.7,       // 40%
+};
+/* '자동화 전문가'가 쿨타임을 줄여 주는 대상 */
+const COOLDOWN_AUGMENTS = ['missile', 'shuriken', 'sleepGas', 'gravityWell'];
+
+/* 후보 하나의 점수. 성향(실측)에 그 판의 사정을 곱한다.
+ * 사정은 고르는 시점에 알 수 있는 것만 쓴다 — 가진 증강, 코인, 치른 라운드. */
+function aiAugmentScore(aug, player) {
+  const owned = (player && player.augments) || [];
+  const has = id => owned.indexOf(id) >= 0;
+  const count = id => owned.reduce((n, x) => n + (x === id ? 1 : 0), 0);
+  const coins = player && player.coins != null ? player.coins : 5;
+  const rounds = (player && player.rounds) || 0;
+
+  const cat = aug.weapon ? 'weapon' : aug.cat;
+  let w = (AI_CAT_WEIGHT[cat] || 1) * (AI_AUG_WEIGHT[aug.id] || 1);
+
+  // 조건이 붙은 것은 조건을 실제로 갖췄을 때만 값어치가 있다
+  if (aug.id === 'autoExpert') {
+    const n = COOLDOWN_AUGMENTS.reduce((s, id) => s + (has(id) ? 1 : 0), 0);
+    w *= n === 0 ? 0.3 : 1 + 0.4 * n;
+  }
+  if (aug.id === 'speedPower') w *= 0.4 + 0.5 * count('move15');
+
+  // 코인이 곧 목숨이다. 여유가 없으면 거는 증강을 피하고, 벼랑 끝에서는 오히려 챙긴다.
+  if (aug.id === 'devilDeal' || aug.id === 'gamble') w *= coins <= 2 ? 0.15 : coins >= 4 ? 1.1 : 0.6;
+  if (aug.id === 'brink') w *= coins <= 2 ? 2.2 : 0.5;
+  if (aug.id === 'fallenPower') w *= 1 + 0.3 * Math.min(3, (player && player.coinsLost) || 0);
+
+  // 누적형은 획득 이후부터 쌓인다. 끝물에 집으면 쌓일 시간이 없다.
+  if (cat === 'streak') w *= rounds >= 5 ? 0.6 : 1;
+
+  return Math.max(0.05, w);
+}
+
+function aiPickAugment(offers, player) {
+  const w = offers.map(a => aiAugmentScore(a, player));
   let total = 0; for (const x of w) total += x;
   let r = Math.random() * total;
   for (let i = 0; i < offers.length; i++) { r -= w[i]; if (r <= 0) return offers[i]; }

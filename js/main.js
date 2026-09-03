@@ -321,7 +321,7 @@ function applyAiAugmentChoices(state) {
     const pickCount = eventAugmentPickCount(state, player);
     for (let pickIndex = 0; pickIndex < pickCount && player.coins > 0; pickIndex++) {
       const offers = rollAugmentOffers(player);
-      if (offers.length) applyAugmentPick(player, aiPickAugment(offers));
+      if (offers.length) applyAugmentPick(player, aiPickAugment(offers, player));
     }
   }
 }
@@ -984,7 +984,7 @@ const Game = {
       setRefreshButton(this.refreshes, onRefresh);
       // 제한시간을 넘기면 AI와 같은 기준으로 하나를 자동 선택한다.
       if (typeof startPhaseTimer === 'function') {
-        startPhaseTimer('aug-timer', AUGMENT_TIME, () => pickOffer(aiPickAugment(offers)));
+        startPhaseTimer('aug-timer', AUGMENT_TIME, () => pickOffer(aiPickAugment(offers, this.human)));
       }
     };
     renderOffers();
