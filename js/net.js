@@ -50,6 +50,7 @@ const Net = {
   steerPending: null,
   steerTimer: null,
   steerLastSentAt: 0,
+  aimLastSentAt: 0,
 
   on(type, fn) { (this.handlers[type] || (this.handlers[type] = [])).push(fn); return this; },
   emit(type, payload) { for (const fn of this.handlers[type] || []) { try { fn(payload); } catch (e) { console.error(e); } } },
@@ -126,6 +127,7 @@ const Net = {
     this.steerLast = null;
     this.steerActive = false;
     this.steerLastSentAt = 0;
+    this.aimLastSentAt = 0;
   },
 
   clearFx() {
@@ -303,7 +305,20 @@ const Net = {
   startRoom() { this.send({ t: 'startRoom' }); },
   leaveRoom() { this.send({ t: 'leaveRoom' }); },
   pickWeapon(id) { this.send({ t: 'weapon', id }); },
-  aim(ang) { this.send({ t: 'aim', ang }); },
+  /* 조준 방향. 끄는 동안은 조향과 같은 상한(15Hz)으로 흘려보내고,
+   * 손을 놓을 때는 lock을 붙여 즉시 확정한다. */
+  aim(ang, lock = true) {
+    if (typeof ang !== 'number' || !Number.isFinite(ang)) return false;
+    const norm = Math.atan2(Math.sin(ang), Math.cos(ang));
+    if (!lock) {
+      const now = Date.now();
+      if (now - this.aimLastSentAt < STEER_SEND_INTERVAL) return false;
+      this.aimLastSentAt = now;
+      return this.send({ t: 'aim', ang: norm, lock: false });
+    }
+    this.aimLastSentAt = 0;
+    return this.send({ t: 'aim', ang: norm, lock: true });
+  },
   /* 포인터의 60Hz 입력을 그대로 보내지 않는다. 바뀐 최신 값만 최대 15Hz로
    * 보내되, 손을 놓는 패킷은 즉시 보내 잔류 조향을 막는다. */
   steer(angle, magnitude, active = true) {

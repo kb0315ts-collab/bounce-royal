@@ -1178,6 +1178,18 @@ function bindSteerJoystick(controlId, baseId, knobId) {
     }
   };
 
+  /* 조준 단계에서 방향을 잡아 둔다. lock=true면 그 자리에서 확정한다. */
+  const sendAimDir = (ang, lock, targetBattle = active?.battle, targetFighter = active?.fighter) => {
+    if (!Number.isFinite(ang)) return;
+    if (Game.mode === 'multi') {
+      if (typeof BounceRoyalMulti?.sendAim === 'function') BounceRoyalMulti.sendAim(ang, lock);
+      return;
+    }
+    const battle = targetBattle, fighter = targetFighter;
+    if (Game.focus !== battle || !battle || battle.phase !== 'aim' || !fighter || fighter.aimLocked) return;
+    battle.aimDir(fighter, ang, lock);
+  };
+
   const clearSteer = (targetFighter = active?.fighter) => {
     const fighter = targetFighter || currentTarget().fighter;
     if (Game.mode === 'multi') {
@@ -1232,6 +1244,9 @@ function bindSteerJoystick(controlId, baseId, knobId) {
       const preview = active.mag > 0 && active.ang !== null ? { active:true, ang:active.ang } : null;
       if (Game.mode === 'multi') BounceRoyalMulti.humanAim = preview;
       else if (active.battle) active.battle.humanAim = preview;
+      // 끄는 동안 방향을 미리 잡아 둔다. 손을 놓지 않고 제한시간이 끝나도
+      // 마지막으로 향하던 방향으로 나가야 한다.
+      if (preview) sendAimDir(active.ang, false, active.battle, active.fighter);
     } else if (active.mag > 0 && active.ang !== null) {
       sendSteer(active.ang, active.mag, active.fighter);
       active.lastSent = performance.now();
@@ -1253,17 +1268,9 @@ function bindSteerJoystick(controlId, baseId, knobId) {
       } catch (err) { /* 일부 WebView 미지원 */ }
     }
     if (!commitAim || ending.mode !== 'aim' || ending.ang === null || !(ending.mag > 0)) return;
-    if (Game.mode === 'multi') {
-      if (typeof BounceRoyalMulti?.sendAim === 'function') BounceRoyalMulti.sendAim(ending.ang);
-      SFX.skill();
-      return;
-    }
-    const battle = ending.battle, fighter = ending.fighter;
-    if (Game.focus === battle && battle?.phase === 'aim' && fighter && !fighter.aimLocked) {
-      battle.setDir(fighter, ending.ang);
-      fighter.aimLocked = true;
-      SFX.bounce();
-    }
+    // 놓기 전 마지막 방향으로 확정한다
+    sendAimDir(ending.ang, true, ending.battle, ending.fighter);
+    SFX.bounce();
   };
 
   control.addEventListener('pointerdown', event => {

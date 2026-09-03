@@ -381,7 +381,9 @@ function buildFighter(player, battle) {
     splitUsed: false, lastStandUsed: false,
     mainDead: false, dead: false, deathAt: 0, downPending: false,
     lastResistanceUsed: false, survivalInstinctUsed: false,
-    flash: 0, staticCd: 0, collisionCd: 0, onSticky: false, pendingAim: false, aimLocked: false,
+    // aimTouched: 조준 단계에서 조이스틱으로 방향을 한 번이라도 잡았는가.
+    // 잡아 뒀다면 제한시간이 끝나도 그 방향으로 나간다 (누른 채로 시간이 지난 경우).
+    flash: 0, staticCd: 0, collisionCd: 0, onSticky: false, pendingAim: false, aimLocked: false, aimTouched: false,
     rocketActive: false, rocketHits: new Set(),
     steer: { active: false, angle: 0, magnitude: 0, power: 0, lock: 0 },
     aiT: rand(0.4, 1.4), aiSteerT: rand(0.4, 0.7), aiSteerSide: chance(0.5) ? 1 : -1,
@@ -678,6 +680,16 @@ class Battle {
     f.vx = Math.cos(ang); f.vy = Math.sin(ang);
   }
   setDir(f, ang) { f.vx = Math.cos(ang); f.vy = Math.sin(ang); }
+  /* 조준 단계에서 조이스틱을 끄는 동안 방향만 갱신한다. lock=true면 그 자리에서 확정한다.
+   * 확정하지 않아도 제한시간이 끝나면 마지막으로 잡아 둔 방향으로 나간다. */
+  aimDir(f, ang, lock) {
+    if (!f || f.aimLocked || this.phase !== 'aim') return false;
+    if (!Number.isFinite(ang)) return false;
+    this.setDir(f, ang);
+    f.aimTouched = true;
+    if (lock) f.aimLocked = true;
+    return true;
+  }
   setSteerInput(f, ang, magnitude = 1) { return setSteerInput(f, ang, magnitude); }
   clearSteerInput(f) { return clearSteerInput(f); }
 
@@ -793,8 +805,12 @@ class Battle {
       for (const f of this.fighters) {
         if (f.aimLocked) continue;
         if (f.isAI) { f.aiT -= rdt; if (f.aiT <= 0) { const a = aiChooseStartDir(this, f); this.setDir(f, a); f.aimLocked = true; } }
-        // 제한시간 안에 방향을 정하지 않으면 아무 방향으로나 출발한다.
-        else if (this.aimTimeout <= 0) { this.setDir(f, rand(0, TAU)); f.aimLocked = true; }
+        // 제한시간이 끝나면 출발한다. 조이스틱으로 방향을 잡아 뒀다면(누른 채로
+        // 시간이 지난 경우 포함) 그 방향 그대로, 아예 안 건드렸으면 아무 방향으로나.
+        else if (this.aimTimeout <= 0) {
+          if (!f.aimTouched) this.setDir(f, rand(0, TAU));
+          f.aimLocked = true;
+        }
       }
       if (this.fighters.every(f => f.aimLocked)) { this.phase = 'count'; this.countT = 1.8; }
     } else if (this.phase === 'count') {

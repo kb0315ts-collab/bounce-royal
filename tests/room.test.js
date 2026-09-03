@@ -341,4 +341,64 @@ test('표가 하나로 모이면 룰렛을 건너뛰므로 더 짧다', () => {
   } finally { clearInterval(room.tickTimer); }
 });
 
+
+/* ---- 조준 단계 방향 ----
+ * 조이스틱을 끄는 동안 방향만 잡아 두고, 손을 놓거나 제한시간이 끝날 때 나간다.
+ * 누른 채로 시간이 지나도 마지막 방향이 살아 있어야 한다. */
+function aimRoom() {
+  const { room } = makeRoom();
+  room.start();
+  for (const p of room.players) p.weaponId = 'sword';
+  room.startRound();
+  const player = room.players[0];
+  return { room, player, battle: room.battleOf(player), fighter: room.fighterOf(player) };
+}
+
+test('조준 중에는 방향만 잡히고 확정되지 않는다', () => {
+  const { room, player, fighter } = aimRoom();
+  try {
+    assert.equal(room.onAim(player, Math.PI / 2, false), true);
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - Math.PI / 2) < 1e-9, '방향은 즉시 반영되어야 한다');
+    assert.equal(fighter.aimLocked, false, '손을 놓기 전에는 확정되면 안 된다');
+    assert.equal(fighter.aimTouched, true);
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('누른 채로 제한시간이 끝나면 마지막 방향으로 나간다', () => {
+  const { room, player, battle, fighter } = aimRoom();
+  try {
+    room.onAim(player, 0.3, false);
+    room.onAim(player, 2.1, false);          // 손은 계속 누르고 있다
+    for (let i = 0; i < 60 * 8 && battle.phase === 'aim'; i++) battle.update(1 / 60);
+    assert.notEqual(battle.phase, 'aim', '제한시간이 끝나면 출발해야 한다');
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - 2.1) < 1e-9,
+      '마지막으로 향하던 방향이어야 한다 (실제 ' + Math.atan2(fighter.vy, fighter.vx) + ')');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('손을 놓으면 놓기 전 마지막 방향으로 확정된다', () => {
+  const { room, player, fighter } = aimRoom();
+  try {
+    room.onAim(player, 0.4, false);
+    room.onAim(player, -1.2, true);
+    assert.equal(fighter.aimLocked, true);
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - (-1.2)) < 1e-9);
+    assert.equal(room.onAim(player, 3.0, true), false, '확정 뒤에는 더 못 바꾼다');
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - (-1.2)) < 1e-9);
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('아무것도 안 건드리면 예전처럼 아무 방향으로 나간다', () => {
+  const dirs = new Set();
+  for (let k = 0; k < 6; k++) {
+    const { room, battle, fighter } = aimRoom();
+    try {
+      for (let i = 0; i < 60 * 8 && battle.phase === 'aim'; i++) battle.update(1 / 60);
+      assert.equal(fighter.aimTouched, false);
+      dirs.add(Math.atan2(fighter.vy, fighter.vx).toFixed(3));
+    } finally { clearInterval(room.tickTimer); }
+  }
+  assert.ok(dirs.size > 1, '건드리지 않았으면 방향이 무작위여야 한다');
+});
+
 console.log('\n' + passed + '개 방 진행 테스트 통과');

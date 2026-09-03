@@ -271,7 +271,7 @@ const Multi = {
     if (v.phase === 'aim' && !me.aimLocked) return 'aim';
     return null;
   },
-  sendAim(ang) { BounceRoyalNet.aim(ang); },
+  sendAim(ang, lock = true) { BounceRoyalNet.aim(ang, lock); },
   canSteer() {
     const v = this.view, me = v && v.human();
     const alive = me && !me.dead && (!me.mainDead

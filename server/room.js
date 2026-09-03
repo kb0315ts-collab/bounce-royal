@@ -183,10 +183,13 @@ class Room {
     return b ? b.fighters.find(f => f.player.id === player.id) : null;
   }
 
-  onAim(player, ang) {
+  /* 조준 단계 방향. lock이 false면 방향만 잡아 두고, 손을 놓거나 제한시간이
+   * 끝날 때 그 방향으로 나간다. 누른 채로 시간이 지나도 마지막 방향이 살아 있다. */
+  onAim(player, ang, lock) {
     const b = this.battleOf(player), f = this.fighterOf(player);
-    if (!b || !f || typeof ang !== 'number' || !isFinite(ang)) return;
-    if (b.phase === 'aim' && !f.aimLocked) { b.setDir(f, ang); f.aimLocked = true; }
+    if (!b || !f || typeof ang !== 'number' || !isFinite(ang)) return false;
+    if (this.phase !== 'battle' || b.phase !== 'aim' || f.aimLocked) return false;
+    return b.aimDir(f, Math.atan2(Math.sin(ang), Math.cos(ang)), lock === true);
   }
   /* 위치와 속도는 서버가 계속 계산한다. 클라이언트가 보낸 희망 방향과 입력
    * 세기만 검증·정규화해 전투 시뮬레이션에 전달한다. */

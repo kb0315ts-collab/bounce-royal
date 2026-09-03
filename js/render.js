@@ -758,34 +758,10 @@ function drawAimUI(g, b) {
       else drawArrowG(g, f.x, f.y, Math.atan2(f.vy, f.vx), 44 + Math.sin(t * 5) * 8, f.color, 3, 0.9);
     }
   }
+  // 조준 방향만 화살표로 보여준다. 벽 반사까지 그리던 궤적 예측선은 없앴다.
   const human = b.human();
   if (human && b.humanAim && b.humanAim.active) {
-    const f = human;
-    const ang = b.humanAim.ang;
-    const isCommon = b.phase === 'fight';
-    const col = isCommon ? '#ffd24d' : '#4da6ff';
-    drawArrowG(g, f.x, f.y, ang, 80, col, 4.5);
-    const dx = Math.cos(ang), dy = Math.sin(ang);
-    const hit = b.arena.castRay(f.x, f.y, dx, dy, f.radius);
-    const sx = f.x + dx * (f.radius + 14), sy = f.y + dy * (f.radius + 14);
-    // setLineDash 대체: 점선을 직접 끊어 그린다
-    const dash = (x1, y1, x2, y2) => {
-      const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len;
-      g.lineStyle(2, toInt(col), 0.55);
-      for (let d = 0; d < len; d += 17) {
-        const e = Math.min(len, d + 8);
-        g.beginPath(); g.moveTo(x1 + ux * d, y1 + uy * d); g.lineTo(x1 + ux * e, y1 + uy * e); g.strokePath();
-      }
-    };
-    if (hit) {
-      dash(sx, sy, hit.x, hit.y);
-      const dot = dx * hit.nx + dy * hit.ny;
-      const rx = dx - 2 * dot * hit.nx, ry = dy - 2 * dot * hit.ny;
-      dash(hit.x, hit.y, hit.x + rx * 120, hit.y + ry * 120);
-      g.fillStyle(toInt(col), 1); g.fillCircle(hit.x, hit.y, 5);
-    } else {
-      dash(sx, sy, f.x + dx * 300, f.y + dy * 300);
-    }
+    drawArrowG(g, human.x, human.y, b.humanAim.ang, 80, '#4da6ff', 4.5);
   }
 }
 
