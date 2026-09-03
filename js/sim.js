@@ -14,6 +14,9 @@ const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 �
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
 const AIM_TIME = 5;         // 라운드 시작 조준 제한시간
 const MELEE_ASPD_GAIN = 2;  // 근접이 공격속도 증가분을 받는 배율
+const STEER_MAX_RAD = 50 * Math.PI / 180; // 최대 조향속도: 초당 50도
+const STEER_RAMP_TIME = 0.25;              // 입력이 최대 조향력에 도달하는 시간
+const STEER_BOUNCE_LOCK = 0.15;            // 벽 반사 직후에는 반사 방향을 우선한다
 let UID = 0;
 
 /* ---------------- utils ---------------- */
@@ -34,6 +37,77 @@ function segDist(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + abx * t), py - (ay + aby * t));
 }
 function angleTo(ax, ay, bx, ay2) { return Math.atan2(ay2 - ay, bx - ax); }
+function angleDelta(from, to) {
+  let d = (to - from) % TAU;
+  if (d > Math.PI) d -= TAU;
+  else if (d < -Math.PI) d += TAU;
+  return d;
+}
+
+function steerBodies(f) {
+  if (f && f.mainDead && f.splitBalls && f.splitBalls.length) {
+    return f.splitBalls.filter(s => !s.dead);
+  }
+  return f ? [f] : [];
+}
+
+/*
+ * 조향 입력은 이동을 직접 덮어쓰지 않고 목표만 저장한다.
+ * angle은 월드 좌표계 라디안, magnitude는 0..1이다. 분열 후 본체에
+ * 들어온 입력은 살아 있는 두 분열체에 똑같이 전달된다.
+ */
+function setSteerInput(f, angle, magnitude = 1) {
+  if (!f || !Number.isFinite(angle) || !Number.isFinite(magnitude)) return false;
+  const mag = clamp(magnitude, 0, 1);
+  if (mag <= 0) return clearSteerInput(f);
+  let changed = false;
+  for (const body of steerBodies(f)) {
+    if (!body.steer) body.steer = { active: false, angle: 0, magnitude: 0, power: 0, lock: 0 };
+    const wasActive = body.steer.active;
+    body.steer.active = true;
+    body.steer.angle = angle;
+    body.steer.magnitude = mag;
+    if (!wasActive) body.steer.power = 0;
+    changed = true;
+  }
+  return changed;
+}
+
+function clearSteerInput(f) {
+  if (!f) return false;
+  let changed = false;
+  for (const body of steerBodies(f)) {
+    if (!body.steer) body.steer = { active: false, angle: 0, magnitude: 0, power: 0, lock: 0 };
+    body.steer.active = false;
+    body.steer.magnitude = 0;
+    body.steer.power = 0;
+    changed = true;
+  }
+  return changed;
+}
+
+function steeringBlocked(f) {
+  const T = f.timers || {};
+  return f.rocketActive || T.dashPrep > 0 || T.dashT > 0 || T.stun > 0 || T.bind > 0;
+}
+
+function applySteering(f, dt) {
+  const s = f.steer;
+  if (!s || dt <= 0) return;
+  s.lock = Math.max(0, (s.lock || 0) - dt);
+  if (!s.active || s.lock > 0 || steeringBlocked(f)) return;
+
+  // 입력 자체의 조향력이 0.25초에 걸쳐 올라간다. 스틱 세기는 별도 배율로 즉시 반영한다.
+  s.power = Math.min(1, (s.power || 0) + dt / STEER_RAMP_TIME);
+  const len = Math.hypot(f.vx, f.vy);
+  if (len <= 1e-9 || s.power <= 0) return;
+  const current = Math.atan2(f.vy, f.vx);
+  const maxTurn = STEER_MAX_RAD * s.power * s.magnitude * dt;
+  const next = current + clamp(angleDelta(current, s.angle), -maxTurn, maxTurn);
+  // 방향만 바꾸고 벡터의 길이는 그대로 둔다. 실제 이동속도는 st.move가 맡는다.
+  f.vx = Math.cos(next) * len;
+  f.vy = Math.sin(next) * len;
+}
 
 /* ============================================================
  * 경기장
@@ -302,14 +376,16 @@ function buildFighter(player, battle) {
     sfxSkill: 0,        // 스킬 효과음이 난 횟수. 멀티에서 클라이언트가 같은 소리를 재생하는 근거
 
     hist: [], histT: 0,
-    skillUses: { char: 1, weapon: 1, common: 1 },
+    skillUses: { char: 1, weapon: 1, common: player.copiedSkill ? 1 : 0 },
     summons: [], splitBalls: [], satellites: [],
     splitUsed: false, lastStandUsed: false,
     mainDead: false, dead: false, deathAt: 0, downPending: false,
     lastResistanceUsed: false, survivalInstinctUsed: false,
     flash: 0, staticCd: 0, collisionCd: 0, onSticky: false, pendingAim: false, aimLocked: false,
     rocketActive: false, rocketHits: new Set(),
-    aiT: rand(0.4, 1.4), spawnX: 0, spawnY: 0,
+    steer: { active: false, angle: 0, magnitude: 0, power: 0, lock: 0 },
+    aiT: rand(0.4, 1.4), aiSteerT: rand(0.4, 0.7), aiSteerSide: chance(0.5) ? 1 : -1,
+    spawnX: 0, spawnY: 0,
   };
   for (const id of player.augments) applyAugmentBattle(f, id, player);
   f.rocketActive = !!f.flags.rocketStart;
@@ -317,7 +393,7 @@ function buildFighter(player, battle) {
   f.hp = f.maxHp;
   f.skillUses.char += f.flags.talent ? 1 : 0;
   f.skillUses.weapon += f.flags.weaponMastery ? 1 : 0;
-  f.skillUses.common += f.flags.battery ? 1 : 0;
+  if (player.copiedSkill) f.skillUses.common += f.flags.battery ? 1 : 0;
   if (player.weaponId === 'pistol') {
     const mag = wp.burst + (f.flags.extMag ? 4 : 0);
     f.gun = { mag, burst: mag, shotT: 0.4, reloadT: 0, focus: false };
@@ -344,6 +420,7 @@ function augEligible(a, player) {
   if (a.req && !player.augments.includes(a.req)) return false;
   if (!a.stackable && player.augments.includes(a.id)) return false;
   switch (a.id) {
+    case 'battery': return !!player.copiedSkill;
     case 'devilDeal': return player.coins >= 2;
     case 'gamble': return !player.gamble && !player.trollCondition;
     case 'trollCondition': return !player.trollCondition && !player.gamble;
@@ -601,6 +678,8 @@ class Battle {
     f.vx = Math.cos(ang); f.vy = Math.sin(ang);
   }
   setDir(f, ang) { f.vx = Math.cos(ang); f.vy = Math.sin(ang); }
+  setSteerInput(f, ang, magnitude = 1) { return setSteerInput(f, ang, magnitude); }
+  clearSteerInput(f) { return clearSteerInput(f); }
 
   spawnSummon(f, legion = false) {
     const a = rand(0, TAU);
@@ -639,6 +718,7 @@ class Battle {
       clone.skillUses = f.skillUses; // the two copies share the original remaining active uses
       clone.rocketActive = f.rocketActive;
       clone.rocketHits = new Set();
+      clone.steer = { ...f.steer };
       clone.timers = {
         ...f.timers,
         actingDead: 0, dashPrep: 0, dashT: 0, fuse: 0, det: 0,
@@ -1180,6 +1260,7 @@ function updateTimers(b, f, dt) {
 function moveFighter(b, f, dt) {
   if (f.mainDead || f.dead) return;
   if (f.timers.stun > 0) return;
+  applySteering(f, dt);
   const px = f.x, py = f.y;
   const wasRocket = f.rocketActive;
   if (f.timers.dashPrep > 0) { /* 정지 */ }
@@ -1264,6 +1345,7 @@ function resolveFighterCollision(b, a, c) {
 
 function onWallBounce(b, f, n) {
   f.bounceTotal += n;
+  if (f.steer) f.steer.lock = Math.max(f.steer.lock || 0, STEER_BOUNCE_LOCK);
   if (typeof SFX !== 'undefined') SFX.bounce();
   if (f.flags.elastic) f.timers.elastic = 1;
   if (f.rocketActive) {
@@ -1987,8 +2069,43 @@ function aiChooseStartDir(b, f) {
   return ang + rand(-0.12, 0.12);
 }
 
+function aiChooseSteer(b, f, e) {
+  const wp = WEAPONS[f.weaponId];
+  const d = dist(f.x, f.y, e.x, e.y);
+  const toward = Math.atan2(e.y - f.y, e.x - f.x);
+  let angle = toward;
+
+  if (wp.type === 'melee') {
+    // 근접은 약간의 예측과 오차를 섞어 쫓되, 완벽한 유도탄처럼 붙지는 않는다.
+    const lead = clamp(d / 380, 0, 0.65);
+    angle = Math.atan2(e.y + e.vy * 120 * lead - f.y, e.x + e.vx * 120 * lead - f.x);
+    angle += rand(-0.18, 0.18);
+  } else {
+    const ideal = f.weaponId === 'staff' ? 225 : f.weaponId === 'mine' ? 190 : 250;
+    if (d < ideal * 0.72) {
+      angle = toward + Math.PI + rand(-0.24, 0.24); // 너무 가까우면 거리를 벌린다
+    } else if (d > ideal * 1.35) {
+      angle = toward + rand(-0.25, 0.25);           // 너무 멀면 다시 사거리로 들어온다
+    } else {
+      // 적정 거리에서는 한쪽으로 선회한다. 가끔 방향을 바꿔 패턴을 읽을 수 있게 한다.
+      if (chance(0.16)) f.aiSteerSide *= -1;
+      angle = toward + f.aiSteerSide * rand(1.05, 1.38);
+    }
+  }
+  return { angle, magnitude: rand(0.72, 0.96) };
+}
+
 function aiUpdate(b, f, dt) {
   if (b.phase !== 'fight' || f.dead || f.mainDead || f.timers.stun > 0) return;
+  f.aiSteerT -= dt;
+  if (f.aiSteerT <= 0) {
+    f.aiSteerT = rand(0.4, 0.7);
+    const steerTarget = b.nearestEnemyMain(f);
+    if (steerTarget) {
+      const choice = aiChooseSteer(b, f, steerTarget);
+      setSteerInput(f, choice.angle, choice.magnitude);
+    } else clearSteerInput(f);
+  }
   // 차지 샷 조준만은 판단 주기와 따로, 매 프레임 본다.
   // 활은 두 바퀴 도는 동안 상대와 겹치는 순간이 0.1초 남짓이라
   // 0.2~0.4초마다 보는 일반 판단으로는 절반 넘게 그냥 지나쳐 버린다.
@@ -2030,19 +2147,6 @@ function aiUpdate(b, f, dt) {
   if (f.skillUses.common > 0) {
     const cid = f.player.copiedSkill;
     if (cid) { if (charHeur(cid)) use('common'); }
-    else {
-      // 방향 전환
-      if (wp.type === 'melee' && d > 240) {
-        f.skillUses.common--;
-        const lead = clamp(d / 300, 0, 1) * 0.6;
-        b.setDir(f, Math.atan2(e.y + e.vy * 170 * lead - f.y, e.x + e.vx * 170 * lead - f.x));
-        addFx(b, { type: 'ring', x: f.x, y: f.y, r0: f.radius, r1: f.radius + 36, color: f.color, dur: 0.3 });
-      } else if ((wp.type === 'ranged' || f.weaponId === 'mine') && d < 140) {
-        f.skillUses.common--;
-        b.setDir(f, Math.atan2(f.y - e.y, f.x - e.x) + rand(-0.4, 0.4));
-        addFx(b, { type: 'ring', x: f.x, y: f.y, r0: f.radius, r1: f.radius + 36, color: f.color, dur: 0.3 });
-      }
-    }
   }
   // 무기 스킬
   if (f.skillUses.weapon > 0) {

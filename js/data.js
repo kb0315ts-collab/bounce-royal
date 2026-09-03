@@ -147,7 +147,7 @@ const AUGMENTS = [
   { id:'counter',    cat:'onhit', name:'반격', desc:'피해를 받은 뒤 다음 무기 공격 피해 +30%' },
   { id:'hitCharge',  cat:'onhit', name:'피격 충전', desc:'피해를 받을 때마다 모든 피해량 +3% (최대 5중첩)' },
   // ---- 스킬 강화 ----
-  { id:'battery',         cat:'skill', name:'추가 배터리', desc:'공용 스킬 사용 횟수 +1' },
+  { id:'battery',         cat:'skill', name:'추가 배터리', desc:'카피 스킬 사용 횟수 +1 (카피 스킬 보유 시에만 등장)' },
   { id:'weaponMastery',   cat:'skill', name:'무기 숙련', desc:'무기 전용 스킬 사용 횟수 +1' },
   { id:'talent',          cat:'skill', name:'타고난 재능', desc:'캐릭터 전용 스킬 사용 횟수 +1' },
   // ---- 빌드 연결 ----
@@ -173,12 +173,12 @@ const AUGMENTS = [
   { id:'m_heal',  cat:'weapon', weapon:'mine', name:'회복 지뢰', desc:'자신이 지뢰를 밟으면 체력 8% 회복' },
   { id:'m_freeze',cat:'weapon', weapon:'mine', name:'빙결 지뢰', desc:'상대가 밟으면 2초간 이동속도·공격속도 대폭 감소' },
   // ---- 캐릭터 스킬 카피 ----
-  { id:'copy_cat', cat:'copy', charId:'cat', name:'고양이 발바닥의 기술', desc:'공용 방향 전환 제거 → 1초 후 경기장 중앙에 피해 24의 고양이 발바닥 낙하' },
-  { id:'copy_wak', cat:'copy', charId:'wak', name:'왁뿌볼의 기술', desc:'공용 방향 전환 제거 → 파괴 폭주 획득' },
-  { id:'copy_soft',cat:'copy', charId:'soft', name:'말랑이의 기술', desc:'공용 방향 전환 제거 → 2초 피해 무시 획득' },
-  { id:'copy_bomb',cat:'copy', charId:'bomb', name:'폭탄의 기술', desc:'공용 방향 전환 제거 → 시한폭발 획득' },
-  { id:'copy_bball',cat:'copy',charId:'bball', name:'농구공의 기술', desc:'공용 방향 전환 제거 → 3바운드 획득' },
-  { id:'copy_balloon',cat:'copy',charId:'balloon', name:'풍선의 기술', desc:'공용 방향 전환 제거 → 팽창 획득' },
+  { id:'copy_cat', cat:'copy', charId:'cat', name:'고양이 발바닥의 기술', desc:'카피 스킬로 1초 후 경기장 중앙에 피해 24의 고양이 발바닥 낙하' },
+  { id:'copy_wak', cat:'copy', charId:'wak', name:'왁뿌볼의 기술', desc:'카피 스킬로 파괴 폭주 사용' },
+  { id:'copy_soft',cat:'copy', charId:'soft', name:'말랑이의 기술', desc:'카피 스킬로 2초간 모든 피해 무시' },
+  { id:'copy_bomb',cat:'copy', charId:'bomb', name:'폭탄의 기술', desc:'카피 스킬로 시한폭발 사용' },
+  { id:'copy_bball',cat:'copy',charId:'bball', name:'농구공의 기술', desc:'카피 스킬로 3바운드 사용' },
+  { id:'copy_balloon',cat:'copy',charId:'balloon', name:'풍선의 기술', desc:'카피 스킬로 팽창 사용' },
 ];
 
 const AUG_BY_ID = {};

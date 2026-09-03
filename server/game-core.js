@@ -18,7 +18,7 @@ const EXPORTS = [
   'Battle', 'Arena', 'CHARACTERS', 'WEAPONS', 'MAPS', 'AUGMENTS', 'AUG_BY_ID',
   'AI_NAMES', 'BATTLE_TIME', 'OVERTIME', 'AIM_TIME', 'DIAMOND_L', 'DUEL_ARENA_L',
   'rollAugmentOffers', 'applyAugmentPick', 'aiPickAugment', 'augEligible',
-  'winRound', 'loseCoin', 'useSkill', 'applyCommonAim', 'buildFighter',
+  'winRound', 'loseCoin', 'useSkill', 'applyCommonAim', 'setSteerInput', 'clearSteerInput', 'buildFighter',
   'GAME_EVENTS', 'GAME_EVENT_BY_ID', 'rollGameEventOffers', 'resolveGameEventVote',
   'resetGameEventState', 'applyGameEvent', 'eventAugmentPickCount',
   'BounceRoyalMatchmaking', 'shuffle', 'pick', 'rand',

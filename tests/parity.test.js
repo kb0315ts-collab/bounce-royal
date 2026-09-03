@@ -241,6 +241,9 @@ test('폭발 고리에는 폭발음 표시가 붙는다', () => {
   const b = new core.Battle('diamond', players);
   b.phase = 'fight'; b.simT = 0;
   b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+  // 일반 고리 발생을 우연한 충돌에 맡기면 AI 이동 변화에 따라 테스트가 흔들린다.
+  // 직렬화하려는 입력을 직접 하나 넣어 m=0 경로를 결정적으로 확인한다.
+  b.fx.push({ type:'ring', x:0, y:0, r0:4, r1:24, color:'#ffffff', t:0, dur:0.5 });
   let sawBoom = false, sawPlain = false;
   for (let i = 0; i < 60 * 12; i++) {
     if (i % 150 === 40) { b.fighters[0].skillUses.char = 9; core.useSkill(b, b.fighters[0], 'char'); }

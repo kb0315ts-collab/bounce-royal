@@ -18,6 +18,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 function makeEl(tag) {
   const el = {
     tagName: tag, children: [], dataset: {}, style: {}, disabled: false,
+    _attrs: {},
     _classes: new Set(), textContent: '', innerHTML: '', type: '', onclick: null,
     classList: {
       add(...c) { c.forEach(x => el._classes.add(x)); },
@@ -30,7 +31,8 @@ function makeEl(tag) {
     replaceChildren() { el.children.length = 0; },
     insertAdjacentElement(_, c) { el.children.push(c); return c; },
     addEventListener() {}, removeEventListener() {},
-    setAttribute() {}, getAttribute() { return null; },
+    setAttribute(name, value) { el._attrs[name] = String(value); },
+    getAttribute(name) { return Object.prototype.hasOwnProperty.call(el._attrs, name) ? el._attrs[name] : null; },
     querySelector(sel) { return el._find(sel)[0] || null; },
     querySelectorAll(sel) { return el._find(sel); },
     getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; },
@@ -64,7 +66,8 @@ function ensure(id) {
 // ui.js가 찾는 요소들을 미리 만들어 둔다
 for (const id of ['aug-cards', 'aug-sub', 'aug-round-label', 'aug-myinfo', 'aug-owned',
   'aug-timer', 'event-timer', 'weapon-timer', 'weapon-cards', 'btn-refresh', 'refresh-count',
-  'event-cards', 'event-status', 'scr-weapon', 'scr-augment', 'scr-event']) ensure(id);
+  'event-cards', 'event-status', 'scr-weapon', 'scr-augment', 'scr-event',
+  'steer-control', 'steer-label', 'sk-char', 'sk-weapon', 'sk-common']) ensure(id);
 for (const id of ['scr-weapon', 'scr-augment', 'scr-event']) {
   const head = makeEl('div'); head._classes.add('screen-head');
   ensure(id).appendChild(head);
@@ -74,6 +77,11 @@ for (const id of ['aug-timer', 'event-timer', 'weapon-timer']) {
   const fill = makeEl('i'); fill._classes.add('i');
   const label = makeEl('b'); label._classes.add('b');
   ensure(id).appendChild(fill); ensure(id).appendChild(label);
+}
+for (const id of ['sk-char', 'sk-weapon', 'sk-common']) {
+  for (const cls of ['lbl', 'ico', 'uses', 'cdoverlay']) {
+    const child = makeEl('span'); child._classes.add(cls); ensure(id).appendChild(child);
+  }
 }
 
 let intervalId = 0;
@@ -106,10 +114,10 @@ const context = vm.createContext(sandbox);
 vm.runInContext([
   read('js/data.js'),
   read('js/ui.js'),
-  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers };',
+  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers, updateSkillbar };',
 ].join('\n'), context, { filename: 'bounce-royal-ui.test.bundle.js' });
 
-const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer } = context.__uiApi;
+const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, updateSkillbar } = context.__uiApi;
 const $ = id => byId.get(id);
 
 let passed = 0;
@@ -218,6 +226,50 @@ test('무기 선택 화면에도 제한시간 막대가 뜬다', () => {
   assert.ok(parseFloat(bar.children[1].textContent) > 14, '남은 시간을 숫자로 보여야 한다');
   stopPhaseTimer();
   assert.ok(bar.classList.contains('hidden'), '단계가 끝나면 감춰야 한다');
+});
+
+test('기존 방향전환 버튼은 사라지고 이동 조이스틱이 전투 중 활성화된다', () => {
+  const fighter = {
+    dead:false, mainDead:false, splitBalls:[], charId:'cat', weaponId:'sword',
+    timers:{ stun:0, bind:0, dashPrep:0, dashT:0 }, flags:{},
+    player:{ copiedSkill:null }, skillUses:{ char:1, weapon:1, common:0 },
+  };
+  const battle = { phase:'fight', result:null, human:() => fighter };
+  updateSkillbar(battle);
+  assert.equal($('sk-common').style.display, 'none', '일반 방향전환 버튼이 남으면 안 된다');
+  assert.equal($('sk-common').hidden, true);
+  assert.equal($('steer-control').style.display, '', '이동 조이스틱은 전투 중 보여야 한다');
+  assert.equal($('steer-control').getAttribute('aria-disabled'), 'false');
+  assert.equal($('steer-label').textContent, '꾹 눌러 천천히 조향');
+});
+
+test('카피 증강이 있을 때만 세 번째 스킬 버튼이 별도로 나타난다', () => {
+  const fighter = {
+    dead:false, mainDead:false, splitBalls:[], charId:'cat', weaponId:'sword',
+    timers:{ stun:0, bind:0, dashPrep:0, dashT:0 }, flags:{ battery:1 },
+    player:{ copiedSkill:'soft' }, skillUses:{ char:1, weapon:1, common:2 },
+  };
+  updateSkillbar({ phase:'fight', result:null, human:() => fighter });
+  assert.equal($('sk-common').style.display, '');
+  assert.equal($('sk-common').hidden, false);
+  assert.equal($('sk-common').querySelector('.lbl').textContent, '말랑 방어');
+  assert.equal($('sk-common').querySelector('.uses').textContent, '●●');
+  assert.equal($('steer-control').getAttribute('aria-disabled'), 'false', '카피 스킬과 조향은 함께 유지되어야 한다');
+});
+
+test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활성화한다', () => {
+  updateSkillbar(null);
+  assert.equal($('steer-control').style.display, 'none', '내 전투가 없으면 조이스틱을 숨겨야 한다');
+
+  const fighter = {
+    dead:false, mainDead:false, splitBalls:[], charId:'cat', weaponId:'sword',
+    timers:{ stun:0, bind:0, dashPrep:0, dashT:1 }, flags:{},
+    player:{ copiedSkill:null }, skillUses:{ char:1, weapon:1, common:0 },
+  };
+  updateSkillbar({ phase:'fight', result:null, human:() => fighter });
+  assert.equal($('steer-control').style.display, '');
+  assert.equal($('steer-control').getAttribute('aria-disabled'), 'true');
+  assert.equal($('steer-label').textContent, '강제 이동 · 조향 불가');
 });
 
 console.log('\n' + passed + '개 선택 화면 테스트 통과');

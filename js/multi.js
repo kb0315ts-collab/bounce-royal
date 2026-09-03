@@ -45,6 +45,7 @@ const Multi = {
   },
 
   stop() {
+    this.clearSteer();
     this.active = false;
     this.view = null;
     this.humanAim = null;
@@ -95,6 +96,7 @@ const Multi = {
     });
 
     net.on('spectating', m => {
+      this.clearSteer();
       this.spectating = true;
       specTag('관전 중 · ' + (m.names || []).join(' vs '));
       banner('관전', (m.names || []).join(' vs '), 1200);
@@ -102,12 +104,13 @@ const Multi = {
     });
 
     net.on('round', m => {
+      this.clearSteer();
       stopPhaseTimer();
       this.groups = m.groups || [];
       this.myGroup = this.groups.find(g => g.includes(net.seat)) || this.groups[0] || [];
       this.spectating = false;
       Game.state = 'battle';
-      banner('방향을 설정하세요', `${m.aimSeconds || 5}초 안에 조준`, 1400);
+      banner('시작 방향을 정하세요', `${m.aimSeconds || 5}초 안에 조이스틱을 끌었다 놓기`, 1400);
       showScreen(null);
       hudVisible(true);
       updatePlayersPanel(this.panelState());
@@ -116,6 +119,7 @@ const Multi = {
     });
 
     net.on('roundEnd', m => {
+      this.clearSteer();
       const me = m.players.find(p => p.id === net.seat);
       for (const line of m.lines || []) {
         if (line.kind === 'win' && line.winner === net.seat) { banner('승리!', line.why || '', 1200); SFX.win(); }
@@ -175,6 +179,7 @@ const Multi = {
     });
 
     net.on('gameOver', m => {
+      this.clearSteer();
       stopPhaseTimer();
       Game.state = 'over';
       hudVisible(false);
@@ -198,6 +203,7 @@ const Multi = {
       updatePlayersPanel(this.panelState());
     });
     net.on('resumed', m => {
+      this.clearSteer();
       banner('다시 연결됨', `라운드 ${m.round}`, 1400);
       Game.mode = 'multi';
       this.active = true;
@@ -207,6 +213,7 @@ const Multi = {
 
     net.on('close', () => {
       if (!this.active) return;
+      this.clearSteer();
       banner('서버 연결 끊김', '다시 접속을 시도하세요', 2000);
     });
   },
@@ -260,12 +267,23 @@ const Multi = {
   /* ---------------- 입력 ---------------- */
   canAim() {
     const v = this.view, me = v && v.human();
-    if (!v || !me || me.dead || me.mainDead) return null;
+    if (!v || !me || me.dead || (me.mainDead && !(me.splitBalls || []).some(split => !split.dead))) return null;
     if (v.phase === 'aim' && !me.aimLocked) return 'aim';
-    if (v.phase === 'fight' && !me.player.copiedSkill && me.skillUses.common > 0) return 'common';
     return null;
   },
   sendAim(ang) { BounceRoyalNet.aim(ang); },
+  canSteer() {
+    const v = this.view, me = v && v.human();
+    const alive = me && !me.dead && (!me.mainDead
+      || (me.splitBalls || []).some(split => !split.dead));
+    return !!(this.active && Game.state === 'battle' && !this.spectating
+      && v && v.phase === 'fight' && alive);
+  },
+  sendSteer(angle, magnitude) {
+    if (!this.canSteer()) { this.clearSteer(); return false; }
+    return BounceRoyalNet.steer(angle, magnitude, true);
+  },
+  clearSteer() { return BounceRoyalNet.clearSteer(); },
   sendSkill(slot) { BounceRoyalNet.skill(slot); },
 
   /* ---------------- 매 프레임 ---------------- */
@@ -301,7 +319,7 @@ const Multi = {
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this.panelState());
     const me = v.human();
     // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 방향을 설정하세요 · 버튼을 끌어 조준');
+    if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 이동 조이스틱을 끌었다 놓아 시작 방향을 정하세요');
     else setHint(null);
     // 다른 전투 관전 전환
     this.offerSpectate();

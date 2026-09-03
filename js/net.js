@@ -14,6 +14,10 @@
 const NET_TOKEN_KEY = 'bounce-royale-session-v1';
 const SNAP_BUFFER = 12;              // 보간용으로 들고 있는 스냅샷 수
 const INTERP_DELAY = 100;            // 이만큼 과거를 그려 끊김을 흡수한다 (ms)
+const STEER_SEND_HZ = 15;            // 조향 입력 전송 상한
+const STEER_SEND_INTERVAL = 1000 / STEER_SEND_HZ;
+const STEER_ANGLE_EPS = 0.005;
+const STEER_MAG_EPS = 0.01;
 
 /* 서버 주소: 같은 호스트에서 서빙되면 그대로, 아니면 window.BOUNCE_SERVER 사용 */
 function defaultServerUrl() {
@@ -41,6 +45,11 @@ const Net = {
   queueInfo: null,
   wantQueue: false,
   serverUrl: null,
+  steerActive: false,
+  steerLast: null,
+  steerPending: null,
+  steerTimer: null,
+  steerLastSentAt: 0,
 
   on(type, fn) { (this.handlers[type] || (this.handlers[type] = [])).push(fn); return this; },
   emit(type, payload) { for (const fn of this.handlers[type] || []) { try { fn(payload); } catch (e) { console.error(e); } } },
@@ -83,6 +92,7 @@ const Net = {
       ws.onmessage = ev => this.receive(ev.data);
       ws.onclose = () => {
         this.connected = false;
+        this.resetSteerState();
         this.emit('close');
         if (!settled) { settled = true; reject(new Error('서버에 연결할 수 없습니다')); }
       };
@@ -92,6 +102,7 @@ const Net = {
 
   disconnect() {
     this.wantQueue = false;
+    this.clearSteer();
     if (this.ws) { try { this.ws.close(); } catch (e) { /* 무시 */ } }
     this.ws = null;
     this.connected = false;
@@ -105,6 +116,16 @@ const Net = {
     this.round = 0;
     this.buffer.length = 0;
     this.clearFx();
+    this.resetSteerState();
+  },
+
+  resetSteerState() {
+    if (this.steerTimer != null) clearTimeout(this.steerTimer);
+    this.steerTimer = null;
+    this.steerPending = null;
+    this.steerLast = null;
+    this.steerActive = false;
+    this.steerLastSentAt = 0;
   },
 
   clearFx() {
@@ -283,6 +304,67 @@ const Net = {
   leaveRoom() { this.send({ t: 'leaveRoom' }); },
   pickWeapon(id) { this.send({ t: 'weapon', id }); },
   aim(ang) { this.send({ t: 'aim', ang }); },
+  /* 포인터의 60Hz 입력을 그대로 보내지 않는다. 바뀐 최신 값만 최대 15Hz로
+   * 보내되, 손을 놓는 패킷은 즉시 보내 잔류 조향을 막는다. */
+  steer(angle, magnitude, active = true) {
+    if (active !== true) return this.clearSteer();
+    if (typeof angle !== 'number' || !Number.isFinite(angle)
+      || typeof magnitude !== 'number' || !Number.isFinite(magnitude)) return false;
+    const payload = {
+      active: true,
+      angle: Math.atan2(Math.sin(angle), Math.cos(angle)),
+      magnitude: Math.max(0, Math.min(1, magnitude)),
+    };
+    const basis = this.steerPending || this.steerLast;
+    const angleDiff = basis
+      ? Math.abs(Math.atan2(Math.sin(payload.angle - basis.angle), Math.cos(payload.angle - basis.angle)))
+      : Infinity;
+    if (basis && basis.active && angleDiff < STEER_ANGLE_EPS
+      && Math.abs(payload.magnitude - basis.magnitude) < STEER_MAG_EPS) return false;
+
+    this.steerActive = true;
+    const wait = STEER_SEND_INTERVAL - (Date.now() - this.steerLastSentAt);
+    if (wait <= 0 || !this.steerLast) {
+      if (this.steerTimer != null) clearTimeout(this.steerTimer);
+      this.steerTimer = null;
+      this.steerPending = null;
+      return this.sendSteerPayload(payload);
+    }
+
+    this.steerPending = payload;
+    if (this.steerTimer == null) {
+      this.steerTimer = setTimeout(() => {
+        this.steerTimer = null;
+        const pending = this.steerPending;
+        this.steerPending = null;
+        if (pending && this.steerActive) this.sendSteerPayload(pending);
+      }, Math.max(0, wait));
+    }
+    return true;
+  },
+  sendSteerPayload(payload) {
+    const sent = this.send({
+      t: 'steer', active: !!payload.active,
+      angle: payload.angle, magnitude: payload.magnitude,
+    });
+    if (sent) {
+      this.steerLast = payload;
+      this.steerLastSentAt = Date.now();
+    }
+    return sent;
+  },
+  clearSteer() {
+    if (this.steerTimer != null) clearTimeout(this.steerTimer);
+    this.steerTimer = null;
+    this.steerPending = null;
+    const shouldSend = this.steerActive || !!(this.steerLast && this.steerLast.active);
+    this.steerActive = false;
+    if (!shouldSend) return false;
+    const sent = this.send({ t: 'steer', active: false });
+    this.steerLast = { active: false, angle: 0, magnitude: 0 };
+    this.steerLastSentAt = Date.now();
+    return sent;
+  },
   skill(slot) { this.send({ t: 'skill', slot }); },
   spectate(i) { this.send({ t: 'spectate', i }); },
   pickAugment(id) { this.send({ t: 'augment', id }); },

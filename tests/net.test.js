@@ -204,6 +204,50 @@ test('순번이 없는 스냅샷은 그대로 받아들인다', () => {
   Net.buffer.length = 0; Net.lastSeq = 0; Net.clearFx();
 });
 
+/* ---- 조향 패킷 전송 ---- */
+function withFakeSocket(fn) {
+  const old = Net.ws;
+  const sent = [];
+  Net.resetSteerState();
+  Net.ws = { readyState: 1, send(raw) { sent.push(JSON.parse(raw)); } };
+  try { fn(sent); } finally { Net.resetSteerState(); Net.ws = old; }
+}
+
+test('조향 입력은 정상화되어 전송되고 같은 값은 중복 전송하지 않는다', () => {
+  withFakeSocket(sent => {
+    assert.equal(Net.steer(Math.PI * 4 + 0.3, 4), true);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].t, 'steer');
+    assert.equal(sent[0].active, true);
+    assert.ok(Math.abs(sent[0].angle - 0.3) < 1e-9);
+    assert.equal(sent[0].magnitude, 1);
+    assert.equal(Net.steer(Math.PI * 4 + 0.3, 4), false);
+    assert.equal(sent.length, 1, '같은 입력을 매 프레임 다시 보내면 안 된다');
+  });
+});
+
+test('빠른 조향 변화는 예약하지만 release는 즉시 보내고 예약값을 취소한다', () => {
+  withFakeSocket(sent => {
+    Net.steer(0, 1);
+    Net.steer(1, 1);                 // 15Hz 제한 안이라 마지막 값만 예약
+    assert.equal(sent.length, 1);
+    assert.ok(Net.steerTimer != null, '최신 입력을 버리지 않고 예약해야 한다');
+    assert.equal(Net.clearSteer(), true);
+    assert.equal(sent.length, 2, 'release는 전송 주기를 기다리면 안 된다');
+    assert.deepEqual(sent[1], { t: 'steer', active: false });
+    assert.equal(Net.steerTimer, null, 'release 뒤 옛 입력이 뒤늦게 전송되면 안 된다');
+  });
+});
+
+test('클라이언트도 NaN·Infinity 조향 입력을 전송하지 않는다', () => {
+  withFakeSocket(sent => {
+    assert.equal(Net.steer(NaN, 1), false);
+    assert.equal(Net.steer(0, Infinity), false);
+    assert.equal(Net.steer('0', 1), false);
+    assert.equal(sent.length, 0);
+  });
+});
+
 
 /* ---- 벽 튕김·스킬 소리 ----
  * sim.js가 직접 내는 소리라 서버에서 돌면 아무도 못 듣는다.

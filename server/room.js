@@ -160,7 +160,10 @@ class Room {
     this.battles = groups.map(group => {
       const battle = new core.Battle(ACTIVE_MAP, group, options);
       // 서버가 조준을 통제한다. AI는 기존 로직이 알아서 잠근다.
-      for (const f of battle.fighters) if (!f.player.isAI) f.isAI = false;
+      for (const f of battle.fighters) {
+        if (!f.player.isAI) f.isAI = false;
+        core.setSteerInput(f, 0, 0);
+      }
       return battle;
     });
     this.setPhase('battle', 0);
@@ -184,13 +187,33 @@ class Room {
     const b = this.battleOf(player), f = this.fighterOf(player);
     if (!b || !f || typeof ang !== 'number' || !isFinite(ang)) return;
     if (b.phase === 'aim' && !f.aimLocked) { b.setDir(f, ang); f.aimLocked = true; }
-    else if (b.phase === 'fight') core.applyCommonAim(b, f, ang);
+  }
+  /* 위치와 속도는 서버가 계속 계산한다. 클라이언트가 보낸 희망 방향과 입력
+   * 세기만 검증·정규화해 전투 시뮬레이션에 전달한다. */
+  onSteer(player, angle, magnitude, active) {
+    const b = this.battleOf(player), f = this.fighterOf(player);
+    const alive = f && !f.dead && (!f.mainDead
+      || (f.splitBalls || []).some(split => !split.dead));
+    if (!b || !f || this.phase !== 'battle' || b.phase !== 'fight' || b.result
+      || player.isAI || !alive) return false;
+    if (active === false) {
+      core.setSteerInput(f, 0, 0);
+      return true;
+    }
+    if (active !== true || typeof angle !== 'number' || !Number.isFinite(angle)
+      || typeof magnitude !== 'number' || !Number.isFinite(magnitude)) return false;
+    const normalized = Math.atan2(Math.sin(angle), Math.cos(angle));
+    const strength = Math.max(0, Math.min(1, magnitude));
+    core.setSteerInput(f, normalized, strength);
+    return true;
   }
   /* 다른 전투 관전. 내 전투가 끝났을 때만 받아준다. */
   onSpectate(player, idx) {
     if (this.phase !== 'battle' || !this.battles) return;
     const own = this.battleOf(player);
     if (!own || !own.result) return;
+    const fighter = this.fighterOf(player);
+    if (fighter) core.setSteerInput(fighter, 0, 0);
     if (idx == null) { player.spectate = null; return; }
     const target = this.battles[idx];
     if (!target || target === own) return;
@@ -205,6 +228,9 @@ class Room {
 
   /* ---------------- 라운드 정산 ---------------- */
   resolveRound() {
+    for (const b of this.battles || []) {
+      for (const f of b.fighters) core.setSteerInput(f, 0, 0);
+    }
     const lines = [];
     for (const p of this.players) p.eventLostLastRound = false;
     for (const b of this.battles) {
@@ -445,7 +471,7 @@ class Room {
     player.conn = null;
     player.droppedAt = Date.now();
     const f = this.fighterOf(player);
-    if (f) f.isAI = true;
+    if (f) { core.setSteerInput(f, 0, 0); f.isAI = true; }
     this.broadcast({ t: 'left', id: player.id, players: this.publicPlayers() });
   }
 
@@ -458,7 +484,7 @@ class Room {
     player.droppedAt = 0;
     conn.room = this;
     const f = this.fighterOf(player);
-    if (f) f.isAI = false;
+    if (f) { core.setSteerInput(f, 0, 0); f.isAI = false; }
     this.send(player, {
       t: 'resumed', id: player.id, phase: this.phase, round: this.round,
       seconds: this.timeLeft(), players: this.publicPlayers(),

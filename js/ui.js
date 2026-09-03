@@ -18,7 +18,10 @@ function showScreen(id) {
   closePlayerDetail();
   hideHoldTooltip();
 }
-function hudVisible(visible) { $('hud')?.classList.toggle('hidden', !visible); }
+function hudVisible(visible) {
+  $('hud')?.classList.toggle('hidden', !visible);
+  if (!visible && typeof window.BounceRoyalClearSteerInput === 'function') window.BounceRoyalClearSteerInput();
+}
 
 /* ---------------- 배너 ---------------- */
 let bannerTimer = null;
@@ -870,26 +873,62 @@ function skillSlotInfo(fighter, slot) {
     max += fighter.flags?.weaponMastery ? 1 : 0;
   } else {
     const copied = fighter.player?.copiedSkill;
-    name = copied ? CHARACTERS[copied]?.skillName : '방향 전환'; icon = copied ? SKILL_ICONS[copied] : SKILL_ICONS.direction;
+    if (!copied) return null;
+    name = CHARACTERS[copied]?.skillName || '복사 스킬'; icon = SKILL_ICONS[copied];
     max += fighter.flags?.battery ? 1 : 0;
   }
   return { name, icon:icon || '◆', uses, max };
 }
+function updateSteerControl(battle, fighter) {
+  const control = $('steer-control'), label = $('steer-label');
+  if (!control) return;
+  if (!fighter) {
+    if (typeof window.BounceRoyalClearSteerInput === 'function') window.BounceRoyalClearSteerInput();
+    control.style.display = 'none';
+    control.classList.add('disabled');
+    control.classList.remove('aiming');
+    control.setAttribute('aria-disabled', 'true');
+    return;
+  }
+  control.style.display = '';
+  const hasControllableBody = !fighter.dead && (!fighter.mainDead || fighter.splitBalls?.some(body => !body.dead));
+  const usable = hasControllableBody && !(fighter.timers?.stun > 0);
+  const forced = !!fighter.rocketActive || fighter.timers?.dashPrep > 0 || fighter.timers?.dashT > 0 || fighter.timers?.bind > 0;
+  const aiming = usable && battle?.phase === 'aim' && !fighter.aimLocked;
+  const steering = usable && !forced && !battle?.result && battle?.phase === 'fight';
+  if (!(aiming || steering) && typeof window.BounceRoyalClearSteerInput === 'function') window.BounceRoyalClearSteerInput();
+  control.classList.toggle('aiming', !!aiming);
+  control.classList.toggle('disabled', !(aiming || steering));
+  control.setAttribute('aria-disabled', String(!(aiming || steering)));
+  if (label) {
+    if (aiming) label.textContent = '끌었다 놓아 시작 방향';
+    else if (steering) label.textContent = '꾹 눌러 천천히 조향';
+    else if (fighter.timers?.stun > 0) label.textContent = '기절 · 조향 불가';
+    else if (forced) label.textContent = '강제 이동 · 조향 불가';
+    else if (battle?.phase === 'aim' && fighter.aimLocked) label.textContent = '시작 방향 확정';
+    else label.textContent = '출발 준비 중';
+  }
+}
 function updateSkillbar(battle) {
   const fighter = battle?.human?.() || null;
-  const usable = fighter && !fighter.dead && !fighter.mainDead && !(fighter.timers?.stun > 0);
+  const hasControllableBody = fighter && !fighter.dead && (!fighter.mainDead || fighter.splitBalls?.some(body => !body.dead));
+  const usable = hasControllableBody && !(fighter.timers?.stun > 0);
   const canAct = usable && battle.phase === 'fight';
-  // 공용 스킬 버튼은 라운드 시작 조준에도 쓰이므로 조준 단계에서도 활성으로 보인다.
-  const canAim = usable && battle.phase === 'aim' && !fighter.aimLocked;
+  updateSteerControl(battle, fighter);
   [['char','sk-char'],['weapon','sk-weapon'],['common','sk-common']].forEach(([slot,id]) => {
     const el = $(id); if (!el) return;
     if (!fighter) { el.style.display = 'none'; return; }
+    // 방향 전환 버튼은 제거됐다. 공용 슬롯은 캐릭터 스킬을 복사한 경우에만 보인다.
+    if (slot === 'common' && !fighter.player?.copiedSkill) {
+      el.style.display = 'none'; el.hidden = true; return;
+    }
     el.style.display = '';
+    el.hidden = false;
     const info = skillSlotInfo(fighter, slot), charging = slot === 'weapon' && fighter.charging;
     el.querySelector('.lbl').textContent = info.name; el.querySelector('.ico').textContent = info.icon;
     el.querySelector('.uses').textContent = '●'.repeat(Math.max(0, info.uses)) + '○'.repeat(Math.max(0, info.max - info.uses));
-    const slotReady = slot === 'common' ? (canAim || (canAct && info.uses > 0)) : (canAct && info.uses > 0);
-    el.classList.toggle('charging', !!charging); el.classList.toggle('used', info.uses <= 0 && !canAim); el.classList.toggle('ready', !!(slotReady && !charging));
+    const slotReady = canAct && info.uses > 0;
+    el.classList.toggle('charging', !!charging); el.classList.toggle('used', info.uses <= 0); el.classList.toggle('ready', !!(slotReady && !charging));
     if (charging) el.querySelector('.cdoverlay').textContent = fighter.charging.t >= 1 ? '발사 준비!' : '충전 중…';
   });
 }

@@ -1092,6 +1092,110 @@ test('전투원의 st는 만들어진 순간부터 모양이 완전하다', () =
   assert.deepEqual(before, after, '초기 st와 계산된 st의 키가 달라지면 안 된다');
 });
 
+test('조향은 0.25초 램프업 후 초당 50도 이하로 방향만 휘고 속도는 보존한다', () => {
+  const b = makeBattle({ weaponId: 'sword' });
+  const f = b.fighters[0];
+  f.vx = 0.37; f.vy = 0;
+  const originalLen = Math.hypot(f.vx, f.vy);
+  assert.equal(setSteerInput(f, Math.PI / 2, 1), true);
+
+  for (let i = 0; i < 15; i++) applySteering(f, 1 / 60);
+  const rampAngle = Math.atan2(f.vy, f.vx);
+  assert.ok(rampAngle > 5 * Math.PI / 180 && rampAngle < 9 * Math.PI / 180,
+    '첫 0.25초는 최대 조향력보다 약해야 한다: ' + rampAngle * 180 / Math.PI);
+
+  for (let i = 0; i < 45; i++) applySteering(f, 1 / 60);
+  const oneSecondAngle = Math.atan2(f.vy, f.vx);
+  assert.ok(oneSecondAngle < STEER_MAX_RAD + 1e-9,
+    '1초 동안 최대 50도를 넘어 즉시 방향을 덮어쓰면 안 된다');
+  assert.ok(oneSecondAngle > 40 * Math.PI / 180,
+    '램프업 뒤에는 실제로 강한 조향력이 나와야 한다');
+  assert.ok(Math.abs(Math.hypot(f.vx, f.vy) - originalLen) < 1e-12,
+    '조향은 속도 벡터의 길이를 바꾸면 안 된다');
+
+  clearSteerInput(f);
+  const released = Math.atan2(f.vy, f.vx);
+  applySteering(f, 1);
+  assert.ok(Math.abs(angleDelta(released, Math.atan2(f.vy, f.vx))) < 1e-12,
+    '손을 놓으면 마지막 진행 방향을 그대로 유지해야 한다');
+});
+
+test('스틱 세기와 벽 반사 잠금이 조향에 정확히 반영된다', () => {
+  const weak = makeBattle().fighters[0];
+  weak.vx = 1; weak.vy = 0;
+  setSteerInput(weak, Math.PI / 2, 0.5);
+  weak.steer.power = 1;
+  applySteering(weak, 1);
+  assert.ok(Math.abs(Math.atan2(weak.vy, weak.vx) - 25 * Math.PI / 180) < 1e-9,
+    '스틱 절반 입력은 조향속도도 정확히 절반이어야 한다');
+
+  const b = makeBattle();
+  const f = b.fighters[0];
+  computeStats(f);
+  f.x = b.arena.H - f.radius - 0.1; f.y = 0; f.vx = 1; f.vy = 0;
+  setSteerInput(f, Math.PI / 2, 1);
+  f.steer.power = 1;
+  moveFighter(b, f, 1 / 60);
+  assert.ok(f.vx < 0, '조향 중에도 벽의 물리 반사가 우선되어야 한다');
+  assert.ok(f.steer.lock >= STEER_BOUNCE_LOCK - 1e-9, '반사 직후 조향 잠금이 걸려야 한다');
+  const reflected = Math.atan2(f.vy, f.vx);
+  for (let i = 0; i < 8; i++) moveFighter(b, f, 1 / 60);
+  assert.ok(Math.abs(angleDelta(reflected, Math.atan2(f.vy, f.vx))) < 1e-9,
+    '반사 직후 0.15초 동안 진행 방향을 다시 휘면 안 된다');
+  for (let i = 0; i < 3; i++) moveFighter(b, f, 1 / 60);
+  assert.ok(Math.abs(angleDelta(reflected, Math.atan2(f.vy, f.vx))) > 1e-5,
+    '잠금이 끝난 뒤에는 누르고 있던 조향이 다시 적용되어야 한다');
+});
+
+test('로켓·돌진·스턴·속박 중에는 조향이 진행 방향에 개입하지 않는다', () => {
+  const b = makeBattle();
+  const f = b.fighters[0];
+  setSteerInput(f, Math.PI / 2, 1);
+  f.steer.power = 1;
+  const blockedCases = [
+    () => { f.rocketActive = true; },
+    () => { f.timers.dashPrep = 1; },
+    () => { f.timers.dashT = 1; f.dash = { dx: 1, dy: 0, spd: 690, kind: 'rush' }; },
+    () => { f.timers.stun = 1; },
+    () => { f.timers.bind = 1; },
+  ];
+  for (const setup of blockedCases) {
+    f.rocketActive = false;
+    f.timers.dashPrep = f.timers.dashT = f.timers.stun = f.timers.bind = 0;
+    f.dash = null; f.vx = 1; f.vy = 0;
+    setup();
+    applySteering(f, 0.2);
+    assert.ok(Math.abs(f.vy) < 1e-12, '강제 이동 또는 행동 불가 상태에서 방향이 바뀌었다');
+  }
+});
+
+test('AI도 순간 방향전환 없이 0.4~0.7초마다 불완전한 조향 목표만 갱신한다', () => {
+  const b = makeBattle({}, { weaponId: 'sword', isAI: true });
+  const ai = b.fighters[1];
+  assert.equal(ai.skillUses.common, 0, '카피 없는 AI에게 삭제된 방향전환 횟수가 남으면 안 된다');
+  ai.vx = -1; ai.vy = 0; ai.aiSteerT = 0;
+  const beforeX = ai.vx, beforeY = ai.vy;
+  aiUpdate(b, ai, 1 / 60);
+  assert.equal(ai.vx, beforeX);
+  assert.equal(ai.vy, beforeY);
+  assert.equal(ai.steer.active, true, 'AI가 조향 목표를 잡아야 한다');
+  assert.ok(ai.steer.magnitude >= 0.72 && ai.steer.magnitude <= 0.96,
+    'AI 조향은 항상 완벽한 최대 입력이면 안 된다');
+  assert.ok(ai.aiSteerT >= 0.4 && ai.aiSteerT <= 0.7,
+    'AI 조향 판단 간격은 0.4~0.7초여야 한다');
+});
+
+test('추가 배터리와 공용 스킬 횟수는 카피 스킬이 있을 때만 생긴다', () => {
+  const noCopy = makePlayer({ augments: ['battery'] });
+  assert.equal(augEligible(AUG_BY_ID.battery, noCopy), false);
+  const copiedCandidate = makePlayer({ copiedSkill: 'cat' });
+  assert.equal(augEligible(AUG_BY_ID.battery, copiedCandidate), true);
+  const copied = makePlayer({ copiedSkill: 'cat', augments: ['battery'] });
+  const b = new Battle('square', [noCopy, copied]);
+  assert.equal(b.fighters[0].skillUses.common, 0);
+  assert.equal(b.fighters[1].skillUses.common, 2);
+});
+
 
 test('AI 증강 선택은 실측 성향과 그 판의 사정을 함께 본다', () => {
   const pick = (ids, player) => {

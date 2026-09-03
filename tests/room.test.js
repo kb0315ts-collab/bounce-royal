@@ -136,6 +136,81 @@ test('라운드가 새로 시작하면 관전이 풀린다', () => {
   } finally { clearInterval(room.tickTimer); }
 });
 
+/* ---- 서버 권위 조향 입력 ---- */
+function steerRoom() {
+  const room = roomInBattle();
+  const player = room.players[0];
+  const battle = room.battleOf(player);
+  battle.phase = 'fight';
+  return { room, player, battle, fighter: room.fighterOf(player) };
+}
+
+test('정상 조향 입력은 각도를 정규화하고 세기를 0..1로 제한한다', () => {
+  const { room, player, fighter } = steerRoom();
+  try {
+    assert.equal(room.onSteer(player, Math.PI * 4 + 0.4, 7, true), true);
+    assert.equal(fighter.steer.active, true);
+    assert.ok(Math.abs(fighter.steer.angle - 0.4) < 1e-9,
+      '각도는 -π..π로 정규화되어야 한다 (실제 ' + fighter.steer.angle + ')');
+    assert.equal(fighter.steer.magnitude, 1, '1보다 큰 입력은 1로 제한해야 한다');
+
+    assert.equal(room.onSteer(player, -0.2, -3, true), true);
+    assert.equal(fighter.steer.active, false, '0보다 작은 입력은 0으로 제한되어 조향을 해제한다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('NaN·Infinity·잘못된 타입의 조향 패킷은 상태를 바꾸지 않는다', () => {
+  const { room, player, fighter } = steerRoom();
+  try {
+    room.onSteer(player, 0.75, 0.6, true);
+    const before = { angle: fighter.steer.angle, magnitude: fighter.steer.magnitude, active: fighter.steer.active };
+    assert.equal(room.onSteer(player, NaN, 1, true), false);
+    assert.equal(room.onSteer(player, Infinity, 1, true), false);
+    assert.equal(room.onSteer(player, 0, NaN, true), false);
+    assert.equal(room.onSteer(player, '0', 1, true), false);
+    assert.equal(room.onSteer(player, 0, 1, 'true'), false);
+    assert.deepEqual(
+      { angle: fighter.steer.angle, magnitude: fighter.steer.magnitude, active: fighter.steer.active },
+      before,
+      '악성 입력 뒤에도 마지막 정상 상태가 유지되어야 한다',
+    );
+    assert.equal(room.onSteer(player, NaN, Infinity, false), true,
+      'release는 좌표 없이도 즉시 받아야 한다');
+    assert.equal(fighter.steer.active, false);
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('aim 패킷은 전투 시작 조준에만 쓰이고 fight 중 즉시 방향전환을 만들지 않는다', () => {
+  const { room, player, fighter } = steerRoom();
+  try {
+    fighter.vx = 1; fighter.vy = 0;
+    room.onAim(player, Math.PI / 2);
+    assert.equal(fighter.vx, 1);
+    assert.equal(fighter.vy, 0);
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('조향 패킷은 fight 전에 미리 예약할 수 없다', () => {
+  const room = roomInBattle();
+  try {
+    const player = room.players[0], fighter = room.fighterOf(player);
+    assert.equal(room.battleOf(player).phase, 'aim');
+    assert.equal(room.onSteer(player, 1, 1, true), false);
+    assert.equal(fighter.steer.active, false);
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('접속 종료 시 사람의 잔류 조향을 지우고 AI에게 넘긴다', () => {
+  const { room, player, fighter } = steerRoom();
+  try {
+    room.onSteer(player, 1.2, 1, true);
+    assert.equal(fighter.steer.active, true);
+    room.onDisconnect(player);
+    assert.equal(fighter.steer.active, false);
+    assert.equal(fighter.isAI, true);
+  } finally { clearInterval(room.tickTimer); }
+});
+
 
 /* ---- 이벤트 당첨 효과 ----
  * 투표에서 당첨된 이벤트가 실제로 다음 라운드에 반영되는지 본다.

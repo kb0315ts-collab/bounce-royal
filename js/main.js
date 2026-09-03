@@ -703,7 +703,7 @@ const Game = {
     updatePlayersPanel(this);
     setWatchOtherButton(false);
     banner(`ROUND ${this.round}`, MAPS[mapId].name + (ffa ? ' · 전원 집결!' : ''), 1500);
-    setTimeout(() => { if (this.state === 'battle') banner('방향을 설정하세요', `${AIM_TIME}초 안에 조준`, 1400); }, 1500);
+    setTimeout(() => { if (this.state === 'battle') banner('시작 방향을 정하세요', `${AIM_TIME}초 안에 조이스틱을 끌었다 놓기`, 1400); }, 1500);
     SFX.coin();
   },
 
@@ -803,7 +803,7 @@ const Game = {
     specTag(this.spectating ? `관전 중 · ${fb.fighters.map(f => f.name).join(' vs ')}` : null);
     const h = fb.human();
     // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 방향을 설정하세요 · 버튼을 끌었다 떼면 전투 시작');
+    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 이동 조이스틱을 끌었다 놓아 시작 방향을 정하세요');
     else setHint(null);
   },
 
@@ -1046,15 +1046,20 @@ const Game = {
   },
 
   /* ---------------- 입력 ----------------
-   * 조준과 방향 전환은 공용 스킬 버튼 조이스틱(bindAimJoystick)이 전담한다.
-   * 캔버스 드래그 조준은 제거했다. */
+   * 이동 조이스틱은 아래 입력 바인딩에서 조향만 맡는다.
+   * 공용 슬롯은 캐릭터 스킬을 복사한 경우에만 일반 스킬 버튼으로 남는다. */
   pressSkill(slot) {
+    if (slot === 'common') {
+      const fighter = this.mode === 'multi'
+        ? BounceRoyalMulti?.view?.human?.()
+        : this.focus?.human?.();
+      if (!fighter?.player?.copiedSkill) return;
+    }
     if (this.mode === 'multi') { BounceRoyalMulti.sendSkill(slot); SFX.ui(); return; }
     if (this.state !== 'battle' || !this.focus) return;
     const b = this.focus, h = b.human();
     if (!h) return;
-    const r = useSkill(b, h, slot);
-    if (r === 'aim') { setHint('🧭 버튼을 끌어 방향을 정하세요'); SFX.ui(); }
+    useSkill(b, h, slot);
   },
 };
 
@@ -1123,108 +1128,184 @@ function bindClick(ids, handler) {
 bindClick('sk-char', () => Game.pressSkill('char'));
 bindClick('sk-weapon', () => Game.pressSkill('weapon'));
 
+bindClick('sk-common', () => Game.pressSkill('common'));
+
 /* ============================================================
- * 공용 스킬 버튼 = 진행 방향 조이스틱
- * 라운드 시작 조준과 전투 중 방향 전환이 같은 조작을 쓴다.
- * 버튼을 누른 채 끌면 끈 방향이 진행 방향이 되고, 떼면 확정된다.
- * 방향성이 없는 카피 스킬일 때는 기존의 일반 버튼으로 동작한다.
+ * 이동 조이스틱
+ * 속도는 자동으로 유지되고, 누르는 동안 현재 진행 방향만 서서히 휜다.
+ * 조준 단계에서는 같은 조이스틱을 놓는 순간 시작 방향을 확정한다.
  * ============================================================ */
-const JOY_DEAD_ZONE = 10;    // 이보다 짧게 끌면 취소
-const JOY_KNOB_MAX = 22;     // 버튼이 손가락을 따라가는 최대 거리(px)
-const JOY_FULL_PULL = 70;    // 이만큼 끌면 손잡이가 최대로 밀린다
+const STEER_DEAD_RATIO = 0.14;
+const STEER_HEARTBEAT_MS = 80;
 
-function bindAimJoystick(id) {
-  const el = $(id);
-  if (!el) return;
+function bindSteerJoystick(controlId, baseId, knobId) {
+  const control = $(controlId), base = $(baseId), knob = $(knobId);
+  if (!control || !base || !knob) return null;
   let active = null;
-  let suppressClick = false;
+  let pulseFrame = 0;
 
-  // 조이스틱으로 다룰 상황인지 판정한다. null이면 일반 버튼으로 넘긴다.
+  const currentTarget = () => {
+    if (Game.mode === 'multi') {
+      const battle = BounceRoyalMulti?.view, fighter = battle?.human?.();
+      return { battle, fighter };
+    }
+    const battle = Game.state === 'battle' ? Game.focus : null;
+    return { battle, fighter:battle?.human?.() || null };
+  };
+
   const modeFor = () => {
-    if (Game.mode === 'multi') return BounceRoyalMulti.canAim();
-    if (Game.state !== 'battle' || !Game.focus) return null;
-    const b = Game.focus, h = b.human();
-    if (!h || h.dead || h.mainDead || h.timers.stun > 0) return null;
-    if (b.phase === 'aim' && !h.aimLocked) return 'aim';
-    if (b.phase === 'fight' && !h.player.copiedSkill && h.skillUses.common > 0) return 'common';
+    const { battle, fighter } = currentTarget();
+    const hasControllableBody = fighter && !fighter.dead && (!fighter.mainDead || fighter.splitBalls?.some(body => !body.dead));
+    if (!battle || !hasControllableBody || fighter.timers?.stun > 0) return null;
+    if (battle.phase === 'aim' && !fighter.aimLocked) return 'aim';
+    const forced = !!fighter.rocketActive || fighter.timers?.dashPrep > 0 || fighter.timers?.dashT > 0 || fighter.timers?.bind > 0;
+    if (battle.phase === 'fight' && !battle.result && !forced) return 'steer';
     return null;
   };
 
-  el.addEventListener('pointerdown', event => {
-    SFX.ensure();
-    const mode = modeFor();
-    if (!mode) return;
-    event.preventDefault();
-    suppressClick = true;
-    const rect = el.getBoundingClientRect();
-    active = {
-      id: event.pointerId, mode, ang: null, len: 0,
-      cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2,
-    };
-    el.classList.add('joy');
-    try { el.setPointerCapture(event.pointerId); } catch (err) { /* 일부 WebView 미지원 */ }
-  });
+  const clearPreview = (targetBattle = active?.battle) => {
+    if (Game.mode === 'multi') BounceRoyalMulti.humanAim = null;
+    else if (targetBattle) targetBattle.humanAim = null;
+  };
 
-  el.addEventListener('pointermove', event => {
+  const sendSteer = (ang, mag, targetFighter = active?.fighter) => {
+    const fighter = targetFighter || currentTarget().fighter;
+    if (!fighter || !Number.isFinite(ang) || !(mag > 0)) return;
+    if (Game.mode === 'multi') {
+      if (typeof BounceRoyalMulti?.sendSteer === 'function') BounceRoyalMulti.sendSteer(ang, mag);
+    } else if (typeof setSteerInput === 'function') {
+      setSteerInput(fighter, ang, mag);
+    }
+  };
+
+  const clearSteer = (targetFighter = active?.fighter) => {
+    const fighter = targetFighter || currentTarget().fighter;
+    if (Game.mode === 'multi') {
+      if (typeof BounceRoyalMulti?.clearSteer === 'function') BounceRoyalMulti.clearSteer();
+    } else if (fighter && typeof setSteerInput === 'function') {
+      setSteerInput(fighter, 0, 0);
+    }
+  };
+
+  const resetVisual = () => {
+    knob.style.transform = '';
+    const arrow = knob.querySelector('.steer-arrow');
+    if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    control.classList.remove('active');
+  };
+
+  const pulse = time => {
+    pulseFrame = 0;
+    if (!active) return;
+    const target = currentTarget();
+    // 멀티 뷰는 새 스냅샷마다 객체가 재생성되므로 객체 동일성이 아니라
+    // 서버가 부여한 플레이어 ID로 같은 조작 대상을 확인한다.
+    const sameTarget = Game.mode === 'multi'
+      ? target.fighter?.player?.id === active.fighter?.player?.id
+      : target.battle === active.battle && target.fighter === active.fighter;
+    if (modeFor() !== active.mode || !sameTarget) {
+      finish(null, false);
+      return;
+    }
+    if (active.mode === 'steer' && active.mag > 0 && time - active.lastSent >= STEER_HEARTBEAT_MS) {
+      sendSteer(active.ang, active.mag, active.fighter);
+      active.lastSent = time;
+    }
+    pulseFrame = requestAnimationFrame(pulse);
+  };
+
+  const updatePointer = event => {
     if (!active || event.pointerId !== active.id) return;
     const dx = event.clientX - active.cx, dy = event.clientY - active.cy;
     const len = Math.hypot(dx, dy);
-    active.len = len;
-    if (len >= 1) {
-      active.ang = Math.atan2(dy, dx);
-      const knob = Math.min(1, len / JOY_FULL_PULL) * JOY_KNOB_MAX;
-      el.style.transform = `translate(${dx / len * knob}px, ${dy / len * knob}px)`;
-    } else {
-      el.style.transform = '';
-    }
-    // 손잡이를 제자리로 되돌리면 취소 상태다. 조준선을 감춰서 바로 알 수 있게 한다.
-    const cancelling = len < JOY_DEAD_ZONE;
-    el.classList.toggle('joy-cancel', cancelling);
-    const aimView = cancelling || active.ang === null ? null : { active: true, ang: active.ang };
-    if (Game.mode === 'multi') BounceRoyalMulti.humanAim = aimView;
-    else if (Game.focus) Game.focus.humanAim = aimView;
-  });
+    const dead = active.radius * STEER_DEAD_RATIO;
+    active.ang = len > 0.5 ? Math.atan2(dy, dx) : null;
+    active.mag = Math.max(0, Math.min(1, (len - dead) / Math.max(1, active.radius - dead)));
+    const travel = Math.min(active.radius, len);
+    if (active.ang !== null) {
+      knob.style.transform = `translate(${Math.cos(active.ang) * travel}px, ${Math.sin(active.ang) * travel}px)`;
+      const arrow = knob.querySelector('.steer-arrow');
+      if (arrow) arrow.style.transform = `rotate(${active.ang}rad)`;
+    } else knob.style.transform = '';
 
-  const finish = event => {
-    if (!active || event.pointerId !== active.id) return;
-    const { mode, ang, len } = active;
+    if (active.mode === 'aim') {
+      const preview = active.mag > 0 && active.ang !== null ? { active:true, ang:active.ang } : null;
+      if (Game.mode === 'multi') BounceRoyalMulti.humanAim = preview;
+      else if (active.battle) active.battle.humanAim = preview;
+    } else if (active.mag > 0 && active.ang !== null) {
+      sendSteer(active.ang, active.mag, active.fighter);
+      active.lastSent = performance.now();
+    } else clearSteer(active.fighter);
+  };
+
+  const finish = (event, commitAim) => {
+    if (!active || (event && event.pointerId != null && event.pointerId !== active.id)) return;
+    const ending = active;
     active = null;
-    el.style.transform = '';
-    el.classList.remove('joy', 'joy-cancel');
-    try {
-      if (el.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
-    } catch (err) { /* 일부 WebView 미지원 */ }
+    if (pulseFrame) cancelAnimationFrame(pulseFrame);
+    pulseFrame = 0;
+    resetVisual();
+    clearPreview(ending.battle);
+    clearSteer(ending.fighter);
+    if (event) {
+      try {
+        if (control.hasPointerCapture(event.pointerId)) control.releasePointerCapture(event.pointerId);
+      } catch (err) { /* 일부 WebView 미지원 */ }
+    }
+    if (!commitAim || ending.mode !== 'aim' || ending.ang === null || !(ending.mag > 0)) return;
     if (Game.mode === 'multi') {
-      BounceRoyalMulti.humanAim = null;
-      // 멀티에서는 방향을 서버로만 보낸다. 적용 여부는 서버가 판단한다.
-      if (ang !== null && len >= JOY_DEAD_ZONE) { BounceRoyalMulti.sendAim(ang); SFX.skill(); }
+      if (typeof BounceRoyalMulti?.sendAim === 'function') BounceRoyalMulti.sendAim(ending.ang);
+      SFX.skill();
       return;
     }
-    const b = Game.focus, h = b ? b.human() : null;
-    if (b) b.humanAim = null;
-    // 뗄 때 손잡이가 중앙 근처면 취소한다 (끌어냈다가 제자리로 되돌리는 조작)
-    if (!h || ang === null || len < JOY_DEAD_ZONE) return;
-    if (mode === 'aim' && b.phase === 'aim' && !h.aimLocked) {
-      b.setDir(h, ang); h.aimLocked = true; SFX.bounce();
-    } else if (mode === 'common' && b.phase === 'fight') {
-      if (applyCommonAim(b, h, ang)) SFX.skill();
+    const battle = ending.battle, fighter = ending.fighter;
+    if (Game.focus === battle && battle?.phase === 'aim' && fighter && !fighter.aimLocked) {
+      battle.setDir(fighter, ending.ang);
+      fighter.aimLocked = true;
+      SFX.bounce();
     }
   };
-  el.addEventListener('pointerup', finish);
-  el.addEventListener('pointercancel', finish);
-  el.addEventListener('lostpointercapture', finish);
 
-  // 조이스틱이 처리한 입력은 클릭으로 두 번 발동하지 않게 막는다.
-  el.addEventListener('click', () => {
-    if (suppressClick) { suppressClick = false; return; }
-    Game.pressSkill('common');
+  control.addEventListener('pointerdown', event => {
+    if (active) return;
+    const mode = modeFor();
+    if (!mode) return;
+    event.preventDefault();
+    SFX.ensure();
+    const target = currentTarget();
+    const rect = base.getBoundingClientRect();
+    const knobRect = knob.getBoundingClientRect();
+    active = {
+      id:event.pointerId, mode, battle:target.battle, fighter:target.fighter, ang:null, mag:0,
+      cx:rect.left + rect.width / 2, cy:rect.top + rect.height / 2,
+      radius:Math.max(1, (rect.width - knobRect.width) / 2), lastSent:0,
+    };
+    control.classList.add('active');
+    try { control.setPointerCapture(event.pointerId); } catch (err) { /* 일부 WebView 미지원 */ }
+    updatePointer(event);
+    pulseFrame = requestAnimationFrame(pulse);
   });
+  control.addEventListener('pointermove', event => {
+    if (!active || event.pointerId !== active.id) return;
+    event.preventDefault();
+    updatePointer(event);
+  });
+  control.addEventListener('pointerup', event => finish(event, true));
+  control.addEventListener('pointercancel', event => finish(event, false));
+  control.addEventListener('lostpointercapture', event => finish(event, false));
+  window.addEventListener('blur', () => finish(null, false));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) finish(null, false); });
+  return { cancel:() => finish(null, false) };
 }
-bindAimJoystick('sk-common');
+const SteeringJoystick = bindSteerJoystick('steer-control', 'steer-base', 'steer-knob');
+window.BounceRoyalClearSteerInput = () => SteeringJoystick?.cancel();
 window.addEventListener('keydown', e => {
   if (e.key === '1') Game.pressSkill('char');
   if (e.key === '2') Game.pressSkill('weapon');
-  if (e.key === '3') Game.pressSkill('common');
+  if (e.key === '3') {
+    const fighter = Game.mode === 'multi' ? BounceRoyalMulti?.view?.human?.() : Game.focus?.human?.();
+    if (fighter?.player?.copiedSkill) Game.pressSkill('common');
+  }
 });
 
 function syncSoundUI() {
