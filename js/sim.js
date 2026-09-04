@@ -647,7 +647,6 @@ class Battle {
     this.fx = []; this.popups = []; this.particles = [];
     this.shake = 0; this.result = null; this.finished = false; this.endT = 0;
     this.inStep = false;
-    this.humanAim = null;         // {active, ang} 렌더용
     this.flameTick = 0;
     // 소환수 배치
     for (const f of this.fighters) {
@@ -681,17 +680,16 @@ class Battle {
   }
   setDir(f, ang) { f.vx = Math.cos(ang); f.vy = Math.sin(ang); }
   /* 출발 방향을 잡는다.
-   * aim 단계: 확정(lock) 전까지 방향을 갱신한다. 확정하지 않아도 제한시간이
-   *   끝나면 마지막으로 잡아 둔 방향으로 나간다.
-   * count 단계: 이미 확정됐더라도 손가락을 대고 있으면 계속 따라간다.
-   *   카운트다운이 끝나는 순간 가리키던 방향 그대로 출발해야 자연스럽다. */
-  aimDir(f, ang, lock) {
+   * '확정'이라는 단계는 없앴다. 상시 조향이 되는 지금은 미리 방향을 정해
+   * 두고 그대로 나가는 게 아니라, 조이스틱을 당긴 채로 출발해 그대로
+   * 조향으로 이어지는 것이다. 손가락이 가리키는 쪽이 곧 방향이고,
+   * aim이든 count든 마지막으로 가리킨 방향이 살아 있는다. */
+  aimDir(f, ang) {
     if (!f || !Number.isFinite(ang)) return false;
-    if (this.phase === 'count') { this.setDir(f, ang); f.aimTouched = true; return true; }
-    if (this.phase !== 'aim' || f.aimLocked) return false;
+    if (this.phase !== 'aim' && this.phase !== 'count') return false;
+    if (this.phase === 'aim' && f.aimLocked) return false;   // AI는 한 번 정하면 끝이다
     this.setDir(f, ang);
     f.aimTouched = true;
-    if (lock) f.aimLocked = true;
     return true;
   }
   setSteerInput(f, ang, magnitude = 1) { return setSteerInput(f, ang, magnitude); }
@@ -816,7 +814,9 @@ class Battle {
           f.aimLocked = true;
         }
       }
-      if (this.fighters.every(f => f.aimLocked)) { this.phase = 'count'; this.countT = 1.8; }
+      // 조이스틱에 손을 얹어 방향이 잡혔으면 그것으로 준비가 된 것이다.
+      // 따로 확정할 필요 없이 당긴 채로 카운트다운에 들어간다.
+      if (this.fighters.every(f => f.aimLocked || f.aimTouched)) { this.phase = 'count'; this.countT = 1.8; }
     } else if (this.phase === 'count') {
       this.countT -= rdt;
       if (this.countT <= 0) { this.phase = 'fight'; this.simT = 0; }

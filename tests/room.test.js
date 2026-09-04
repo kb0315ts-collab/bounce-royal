@@ -342,9 +342,9 @@ test('표가 하나로 모이면 룰렛을 건너뛰므로 더 짧다', () => {
 });
 
 
-/* ---- 조준 단계 방향 ----
- * 조이스틱을 끄는 동안 방향만 잡아 두고, 손을 놓거나 제한시간이 끝날 때 나간다.
- * 누른 채로 시간이 지나도 마지막 방향이 살아 있어야 한다. */
+/* ---- 출발 방향 ----
+ * 확정이라는 단계는 없앴다. 조이스틱이 가리키는 쪽이 곧 출발 방향이고,
+ * 당긴 채로 두면 그 방향 그대로 나가 조향으로 이어진다. */
 function aimRoom() {
   const { room } = makeRoom();
   room.start();
@@ -354,37 +354,47 @@ function aimRoom() {
   return { room, player, battle: room.battleOf(player), fighter: room.fighterOf(player) };
 }
 
-test('조준 중에는 방향만 잡히고 확정되지 않는다', () => {
+test('방향을 잡아도 굳지 않는다', () => {
   const { room, player, fighter } = aimRoom();
   try {
-    assert.equal(room.onAim(player, Math.PI / 2, false), true);
+    assert.equal(room.onAim(player, Math.PI / 2), true);
     assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - Math.PI / 2) < 1e-9, '방향은 즉시 반영되어야 한다');
-    assert.equal(fighter.aimLocked, false, '손을 놓기 전에는 확정되면 안 된다');
+    assert.equal(fighter.aimLocked, false, '한 번 잡았다고 굳어 버리면 안 된다');
     assert.equal(fighter.aimTouched, true);
   } finally { clearInterval(room.tickTimer); }
 });
 
-test('누른 채로 제한시간이 끝나면 마지막 방향으로 나간다', () => {
+test('당긴 채로 두면 마지막 방향으로 나간다', () => {
   const { room, player, battle, fighter } = aimRoom();
   try {
-    room.onAim(player, 0.3, false);
-    room.onAim(player, 2.1, false);          // 손은 계속 누르고 있다
+    room.onAim(player, 0.3);
+    room.onAim(player, 2.1);                 // 손은 계속 당기고 있다
     for (let i = 0; i < 60 * 8 && battle.phase === 'aim'; i++) battle.update(1 / 60);
-    assert.notEqual(battle.phase, 'aim', '제한시간이 끝나면 출발해야 한다');
+    assert.notEqual(battle.phase, 'aim', '방향이 잡혔으면 출발해야 한다');
     assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - 2.1) < 1e-9,
       '마지막으로 향하던 방향이어야 한다 (실제 ' + Math.atan2(fighter.vy, fighter.vx) + ')');
   } finally { clearInterval(room.tickTimer); }
 });
 
-test('손을 놓으면 놓기 전 마지막 방향으로 확정된다', () => {
+test('놓았다 다시 잡아도 방향을 바꿀 수 있다', () => {
   const { room, player, fighter } = aimRoom();
   try {
-    room.onAim(player, 0.4, false);
-    room.onAim(player, -1.2, true);
-    assert.equal(fighter.aimLocked, true);
+    room.onAim(player, 0.4);
+    assert.equal(room.onAim(player, -1.2), true, '다시 잡으면 또 바꿀 수 있어야 한다');
     assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - (-1.2)) < 1e-9);
-    assert.equal(room.onAim(player, 3.0, true), false, '확정 뒤에는 더 못 바꾼다');
-    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - (-1.2)) < 1e-9);
+    assert.equal(fighter.aimLocked, false, '확정이라는 상태 자체가 없어야 한다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('카운트다운 중에도 방향이 손가락을 따라온다', () => {
+  const { room, player, battle, fighter } = aimRoom();
+  try {
+    room.onAim(player, 0.5);                 // 당긴 채로 둔다
+    for (let i = 0; i < 60 * 8 && battle.phase === 'aim'; i++) battle.update(1 / 60);
+    assert.equal(battle.phase, 'count', '방향이 잡혔으면 카운트다운으로 넘어가야 한다');
+    assert.equal(room.onAim(player, 2.4), true, '카운트다운 중에도 받아야 한다');
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - 2.4) < 1e-9,
+      '카운트다운이 끝나는 순간 가리키던 방향으로 나가야 한다');
   } finally { clearInterval(room.tickTimer); }
 });
 

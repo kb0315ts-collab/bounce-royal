@@ -268,7 +268,7 @@ wss.on('connection', ws => {
         conn.send({ t: 'queueLeft' });
         break;
       case 'weapon':   if (player) room.onWeapon(player, msg.id); break;
-      case 'aim':      if (player) room.onAim(player, msg.ang, msg.lock); break;
+      case 'aim':      if (player) room.onAim(player, msg.ang); break;
       case 'steer':    if (player) room.onSteer(player, msg.angle, msg.magnitude, msg.active); break;
       case 'skill':    if (player) room.onSkill(player, msg.slot); break;
       case 'spectate': if (player) room.onSpectate(player, typeof msg.i === 'number' ? msg.i : null); break;

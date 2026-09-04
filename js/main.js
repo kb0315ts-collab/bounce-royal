@@ -703,7 +703,7 @@ const Game = {
     updatePlayersPanel(this);
     setWatchOtherButton(false);
     banner(`ROUND ${this.round}`, MAPS[mapId].name + (ffa ? ' · 전원 집결!' : ''), 1500);
-    setTimeout(() => { if (this.state === 'battle') banner('시작 방향을 정하세요', `${AIM_TIME}초 안에 조이스틱을 끌었다 놓기`, 1400); }, 1500);
+    setTimeout(() => { if (this.state === 'battle') banner('조이스틱을 당기세요', '당긴 방향 그대로 출발합니다', 1400); }, 1500);
     SFX.coin();
   },
 
@@ -803,7 +803,7 @@ const Game = {
     specTag(this.spectating ? `관전 중 · ${fb.fighters.map(f => f.name).join(' vs ')}` : null);
     const h = fb.human();
     // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 이동 조이스틱을 끌었다 놓아 시작 방향을 정하세요');
+    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
     else setHint(null);
   },
 
@@ -1155,7 +1155,8 @@ bindPress('sk-common', () => Game.pressSkill('common'));
 /* ============================================================
  * 이동 조이스틱
  * 속도는 자동으로 유지되고, 누르는 동안 현재 진행 방향만 서서히 휜다.
- * 조준 단계에서는 같은 조이스틱을 놓는 순간 시작 방향을 확정한다.
+ * 라운드 시작 전에도 같은 조이스틱을 쓴다. 당긴 채로 카운트다운이 끝나면
+ * 손을 떼지 않고 그대로 조향으로 이어진다.
  * ============================================================ */
 const STEER_DEAD_RATIO = 0.14;
 const STEER_HEARTBEAT_MS = 80;
@@ -1187,11 +1188,6 @@ function bindSteerJoystick(controlId, baseId, knobId) {
     return null;
   };
 
-  const clearPreview = (targetBattle = active?.battle) => {
-    if (Game.mode === 'multi') BounceRoyalMulti.humanAim = null;
-    else if (targetBattle) targetBattle.humanAim = null;
-  };
-
   const sendSteer = (ang, mag, targetFighter = active?.fighter) => {
     const fighter = targetFighter || currentTarget().fighter;
     if (!fighter || !Number.isFinite(ang) || !(mag > 0)) return;
@@ -1202,16 +1198,18 @@ function bindSteerJoystick(controlId, baseId, knobId) {
     }
   };
 
-  /* 조준 단계에서 방향을 잡아 둔다. lock=true면 그 자리에서 확정한다. */
-  const sendAimDir = (ang, lock, targetBattle = active?.battle, targetFighter = active?.fighter) => {
+  /* 출발 방향을 잡아 둔다. 확정이라는 단계는 없다 — 마지막으로
+   * 가리킨 방향이 그대로 출발 방향이 되고, 손을 떼지 않으면 그대로
+   * 조향으로 이어진다. */
+  const sendAimDir = (ang, targetBattle = active?.battle, targetFighter = active?.fighter) => {
     if (!Number.isFinite(ang)) return;
     if (Game.mode === 'multi') {
-      if (typeof BounceRoyalMulti?.sendAim === 'function') BounceRoyalMulti.sendAim(ang, lock);
+      if (typeof BounceRoyalMulti?.sendAim === 'function') BounceRoyalMulti.sendAim(ang);
       return;
     }
     const battle = targetBattle, fighter = targetFighter;
     if (Game.focus !== battle || !battle || !fighter) return;
-    battle.aimDir(fighter, ang, lock);
+    battle.aimDir(fighter, ang);
   };
 
   const clearSteer = (targetFighter = active?.fighter) => {
@@ -1239,12 +1237,19 @@ function bindSteerJoystick(controlId, baseId, knobId) {
     const sameTarget = Game.mode === 'multi'
       ? target.fighter?.player?.id === active.fighter?.player?.id
       : target.battle === active.battle && target.fighter === active.fighter;
-    if (modeFor() !== active.mode || !sameTarget) {
-      finish(null, false);
-      return;
+    const mode = modeFor();
+    if (!sameTarget || mode === null) { finish(null); return; }
+    // 카운트다운이 끝나 조준에서 조향으로 넘어가는 순간이다. 여기서 세션을
+    // 끊으면 손가락은 그대로인데 조이스틱이 저 혼자 놓아진 것처럼 느껴진다.
+    // 잡고 있던 방향 그대로 역할만 바꿔 끼우고 곧장 조향을 시작한다.
+    if (mode !== active.mode) {
+      if (active.mode !== 'aim' || mode !== 'steer') { finish(null); return; }
+      active.mode = 'steer';
+      active.lastSent = 0;
     }
-    if (active.mode === 'steer' && active.mag > 0 && time - active.lastSent >= STEER_HEARTBEAT_MS) {
-      sendSteer(active.ang, active.mag, active.fighter);
+    if (active.mag > 0 && active.ang !== null && time - active.lastSent >= STEER_HEARTBEAT_MS) {
+      if (active.mode === 'steer') sendSteer(active.ang, active.mag, active.fighter);
+      else sendAimDir(active.ang, active.battle, active.fighter);
       active.lastSent = time;
     }
     pulseFrame = requestAnimationFrame(pulse);
@@ -1264,37 +1269,28 @@ function bindSteerJoystick(controlId, baseId, knobId) {
       if (arrow) arrow.style.transform = `rotate(${active.ang}rad)`;
     } else knob.style.transform = '';
 
-    if (active.mode === 'aim') {
-      const preview = active.mag > 0 && active.ang !== null ? { active:true, ang:active.ang } : null;
-      if (Game.mode === 'multi') BounceRoyalMulti.humanAim = preview;
-      else if (active.battle) active.battle.humanAim = preview;
-      // 끄는 동안 방향을 미리 잡아 둔다. 손을 놓지 않고 제한시간이 끝나도
-      // 마지막으로 향하던 방향으로 나가야 한다.
-      if (preview) sendAimDir(active.ang, false, active.battle, active.fighter);
-    } else if (active.mag > 0 && active.ang !== null) {
-      sendSteer(active.ang, active.mag, active.fighter);
+    if (active.mag > 0 && active.ang !== null) {
+      // 조준이든 조향이든 당긴 방향을 그대로 흘려보낸다. 카운트다운이
+      // 끝나는 순간 가리키던 방향으로 출발해 그대로 조향에 들어간다.
+      if (active.mode === 'aim') sendAimDir(active.ang, active.battle, active.fighter);
+      else sendSteer(active.ang, active.mag, active.fighter);
       active.lastSent = performance.now();
-    } else clearSteer(active.fighter);
+    } else if (active.mode !== 'aim') clearSteer(active.fighter);
   };
 
-  const finish = (event, commitAim) => {
+  const finish = event => {
     if (!active || (event && event.pointerId != null && event.pointerId !== active.id)) return;
     const ending = active;
     active = null;
     if (pulseFrame) cancelAnimationFrame(pulseFrame);
     pulseFrame = 0;
     resetVisual();
-    clearPreview(ending.battle);
     clearSteer(ending.fighter);
     if (event) {
       try {
         if (control.hasPointerCapture(event.pointerId)) control.releasePointerCapture(event.pointerId);
       } catch (err) { /* 일부 WebView 미지원 */ }
     }
-    if (!commitAim || ending.mode !== 'aim' || ending.ang === null || !(ending.mag > 0)) return;
-    // 놓기 전 마지막 방향으로 확정한다
-    sendAimDir(ending.ang, true, ending.battle, ending.fighter);
-    SFX.bounce();
   };
 
   control.addEventListener('pointerdown', event => {
@@ -1321,12 +1317,12 @@ function bindSteerJoystick(controlId, baseId, knobId) {
     event.preventDefault();
     updatePointer(event);
   });
-  control.addEventListener('pointerup', event => finish(event, true));
-  control.addEventListener('pointercancel', event => finish(event, false));
-  control.addEventListener('lostpointercapture', event => finish(event, false));
-  window.addEventListener('blur', () => finish(null, false));
-  document.addEventListener('visibilitychange', () => { if (document.hidden) finish(null, false); });
-  return { cancel:() => finish(null, false) };
+  control.addEventListener('pointerup', event => finish(event));
+  control.addEventListener('pointercancel', event => finish(event));
+  control.addEventListener('lostpointercapture', event => finish(event));
+  window.addEventListener('blur', () => finish(null));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) finish(null); });
+  return { cancel:() => finish(null) };
 }
 const SteeringJoystick = bindSteerJoystick('steer-control', 'steer-base', 'steer-knob');
 window.BounceRoyalClearSteerInput = () => SteeringJoystick?.cancel();

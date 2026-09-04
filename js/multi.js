@@ -16,7 +16,6 @@ const Multi = {
   phase: null,
   lastRound: 0,
   view: null,          // 이번 프레임에 그릴 전투 뷰
-  humanAim: null,      // 조이스틱 드래그 중 표시용
   spectating: false,
   myGroup: null,       // 내가 속한 전투의 자리 번호들
   groups: [],
@@ -48,7 +47,6 @@ const Multi = {
     this.clearSteer();
     this.active = false;
     this.view = null;
-    this.humanAim = null;
     Game.mode = 'single';
     BounceRoyalNet.disconnect();
     if (typeof stopPhaseTimer === 'function') stopPhaseTimer();
@@ -110,7 +108,7 @@ const Multi = {
       this.myGroup = this.groups.find(g => g.includes(net.seat)) || this.groups[0] || [];
       this.spectating = false;
       Game.state = 'battle';
-      banner('시작 방향을 정하세요', `${m.aimSeconds || 5}초 안에 조이스틱을 끌었다 놓기`, 1400);
+      banner('조이스틱을 당기세요', '당긴 방향 그대로 출발합니다', 1400);
       showScreen(null);
       hudVisible(true);
       updatePlayersPanel(this.panelState());
@@ -265,13 +263,7 @@ const Multi = {
   },
 
   /* ---------------- 입력 ---------------- */
-  canAim() {
-    const v = this.view, me = v && v.human();
-    if (!v || !me || me.dead || (me.mainDead && !(me.splitBalls || []).some(split => !split.dead))) return null;
-    if (v.phase === 'aim' && !me.aimLocked) return 'aim';
-    return null;
-  },
-  sendAim(ang, lock = true) { BounceRoyalNet.aim(ang, lock); },
+  sendAim(ang) { BounceRoyalNet.aim(ang); },
   canSteer() {
     const v = this.view, me = v && v.human();
     const alive = me && !me.dead && (!me.mainDead
@@ -292,7 +284,7 @@ const Multi = {
     BounceRoyalNet.advanceFx(dt || 1 / 60);
     const snap = BounceRoyalNet.viewState();
     if (!snap) { renderBattle(null); return; }
-    this.view = netBattleView(snap, BounceRoyalNet.players, BounceRoyalNet.seat, this.humanAim);
+    this.view = netBattleView(snap, BounceRoyalNet.players, BounceRoyalNet.seat);
     renderBattle(this.view);
     if (Game.state === 'battle') this.updateHUD();
   },
@@ -319,7 +311,7 @@ const Multi = {
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this.panelState());
     const me = v.human();
     // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 이동 조이스틱을 끌었다 놓아 시작 방향을 정하세요');
+    if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
     else setHint(null);
     // 다른 전투 관전 전환
     this.offerSpectate();

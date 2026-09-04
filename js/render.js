@@ -173,7 +173,6 @@ class BattleScene extends Phaser.Scene {
       drawProjectiles(this.gProj, this.gProjGlow, b);
       drawFx(this.gFx, this.gFxGlow, b, this);
       drawUnitUI(this.gUI, b, this);
-      drawAimUI(this.gUI, b);
       drawStatPanel(this.gUI, b, this);
     }
     // 남는 텍스트는 숨긴다
@@ -741,29 +740,8 @@ function drawStatPanel(g, b, sc) {
   });
 }
 
-function drawArrowG(g, x, y, ang, len, color, width, alpha = 1) {
-  const ex = x + Math.cos(ang) * len, ey = y + Math.sin(ang) * len;
-  g.lineStyle(width, toInt(color), alpha);
-  g.beginPath(); g.moveTo(x, y); g.lineTo(ex, ey); g.strokePath();
-  const a1 = ang + Math.PI * 0.82, a2 = ang - Math.PI * 0.82;
-  g.fillStyle(toInt(color), alpha);
-  g.fillTriangle(ex, ey, ex + Math.cos(a1) * 12, ey + Math.sin(a1) * 12, ex + Math.cos(a2) * 12, ey + Math.sin(a2) * 12);
-}
-
-function drawAimUI(g, b) {
-  const t = performance.now() / 1000;
-  if (b.phase === 'aim' || b.phase === 'count') {
-    for (const f of b.fighters) {
-      if (f.aimLocked) drawArrowG(g, f.x, f.y, Math.atan2(f.vy, f.vx), 52, f.color, 3, 0.55);
-      else drawArrowG(g, f.x, f.y, Math.atan2(f.vy, f.vx), 44 + Math.sin(t * 5) * 8, f.color, 3, 0.9);
-    }
-  }
-  // 조준 방향만 화살표로 보여준다. 벽 반사까지 그리던 궤적 예측선은 없앴다.
-  const human = b.human();
-  if (human && b.humanAim && b.humanAim.active) {
-    drawArrowG(g, human.x, human.y, b.humanAim.ang, 80, '#4da6ff', 4.5);
-  }
-}
+/* 출발 방향 화살표는 없앴다. 방향을 미리 정해 두는 단계가 사라졌으니
+ * 가리킬 것도 없다. 지금 어디를 향하는지는 조이스틱 손잡이가 보여준다. */
 
 /* ============================================================
  * DOM 캔버스용 초상화 (Canvas 2D 유지)

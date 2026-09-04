@@ -903,11 +903,10 @@ function updateSteerControl(battle, fighter) {
   control.classList.toggle('disabled', !(aiming || steering));
   control.setAttribute('aria-disabled', String(!(aiming || steering)));
   if (label) {
-    if (aiming) label.textContent = '끌었다 놓아 시작 방향';
+    if (aiming) label.textContent = '당긴 방향으로 출발';
     else if (steering) label.textContent = '꾹 눌러 천천히 조향';
     else if (fighter.timers?.stun > 0) label.textContent = '기절 · 조향 불가';
     else if (forced) label.textContent = '강제 이동 · 조향 불가';
-    else if (battle?.phase === 'aim' && fighter.aimLocked) label.textContent = '시작 방향 확정';
     else label.textContent = '출발 준비 중';
   }
 }

@@ -305,19 +305,14 @@ const Net = {
   startRoom() { this.send({ t: 'startRoom' }); },
   leaveRoom() { this.send({ t: 'leaveRoom' }); },
   pickWeapon(id) { this.send({ t: 'weapon', id }); },
-  /* 조준 방향. 끄는 동안은 조향과 같은 상한(15Hz)으로 흘려보내고,
-   * 손을 놓을 때는 lock을 붙여 즉시 확정한다. */
-  aim(ang, lock = true) {
+  /* 출발 방향. 조향과 같은 상한(15Hz)으로 흘려보낸다. 확정 패킷은
+   * 없앴다 — 마지막으로 가리킨 방향이 곧 출발 방향이다. */
+  aim(ang) {
     if (typeof ang !== 'number' || !Number.isFinite(ang)) return false;
-    const norm = Math.atan2(Math.sin(ang), Math.cos(ang));
-    if (!lock) {
-      const now = Date.now();
-      if (now - this.aimLastSentAt < STEER_SEND_INTERVAL) return false;
-      this.aimLastSentAt = now;
-      return this.send({ t: 'aim', ang: norm, lock: false });
-    }
-    this.aimLastSentAt = 0;
-    return this.send({ t: 'aim', ang: norm, lock: true });
+    const now = Date.now();
+    if (now - this.aimLastSentAt < STEER_SEND_INTERVAL) return false;
+    this.aimLastSentAt = now;
+    return this.send({ t: 'aim', ang: Math.atan2(Math.sin(ang), Math.cos(ang)) });
   },
   /* 포인터의 60Hz 입력을 그대로 보내지 않는다. 바뀐 최신 값만 최대 15Hz로
    * 보내되, 손을 놓는 패킷은 즉시 보내 잔류 조향을 막는다. */
@@ -546,7 +541,7 @@ function netFighter(view, meta, seat) {
 }
 
 /* 서버 스냅샷을 renderBattle이 받을 수 있는 객체로 감싼다 */
-function netBattleView(snap, players, seat, humanAim) {
+function netBattleView(snap, players, seat) {
   if (!snap) return null;
   const byId = new Map((players || []).map(p => [p.id, p]));
   const fighters = snap.f.map(v => netFighter(v, byId.get(v.p), seat));
@@ -567,7 +562,6 @@ function netBattleView(snap, players, seat, humanAim) {
     flames: (snap.fm || NET_EMPTY).map(f => ({ x: f.x, y: f.y, r: f.r, life: f.l })),
     stickies: (snap.sk || NET_EMPTY).map(s => ({ x: s.x, y: s.y, r: s.r, life: s.l })),
     fx: Net.localFx, particles: Net.localParticles, popups: Net.localPopups,
-    humanAim: humanAim || null,
     human() { return fighters.find(f => f.isMe) || null; },
   };
 }
