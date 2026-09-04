@@ -276,11 +276,12 @@ test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활�
 /* ============================================================
  * HUD 바닥 배치
  *
- * 이동 조이스틱이 있는 좌하단은 위로 스탯판, 오른쪽으로 스킬 버튼,
- * 그 위로 경기장 아래 꼭짓점에 둘러싸여 있다. 크기나 위치를 손볼 때
- * 어느 하나를 덮으면 그 버튼이 통째로 안 눌린다. 실제로 두 번 그랬다.
- * index.html의 수치를 읽어 겹침을 직접 계산한다.
+ * 조이스틱 쪽은 위로 스탯판, 반대편으로 스킬 버튼, 그 위로 경기장
+ * 아래 꼭짓점에 둘러싸여 있다. 크기나 좌우를 손볼 때 어느 하나를
+ * 덮으면 그 버튼이 통째로 안 눌린다. 실제로 두 번 그랬다.
  *
+ * 좌우가 바뀔 수 있으므로 자리를 박아 두지 않고 index.html에 적힌
+ * left/right·padding·justify-content를 그대로 읽어 상자를 세운다.
  * 좌표는 모두 cqw, 원점은 화면 왼쪽 아래.
  * ============================================================ */
 {
@@ -290,15 +291,18 @@ test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활�
     if (at < 0) throw new Error(sel + ' 규칙을 찾지 못했다');
     return html.slice(at + sel.length + 1, html.indexOf('}', at));
   };
-  const num = (sel, prop, unit) => {
+  const pick = (sel, prop) => {
     for (const decl of rule(sel).split(';')) {
       const c = decl.indexOf(':');
-      if (decl.slice(0, c).trim() !== prop) continue;
-      const v = decl.slice(c + 1).trim();
-      if (!v.endsWith(unit || 'cqw')) throw new Error(sel + ' 의 ' + prop + ' 단위가 바뀌었다: ' + v);
-      return parseFloat(v);
+      if (decl.slice(0, c).trim() === prop) return decl.slice(c + 1).trim();
     }
-    throw new Error(sel + ' 의 ' + prop + '을 찾지 못했다');
+    return null;
+  };
+  const num = (sel, prop, unit) => {
+    const v = pick(sel, prop);
+    if (v === null) throw new Error(sel + ' 의 ' + prop + '을 찾지 못했다');
+    if (!v.endsWith(unit || 'cqw')) throw new Error(sel + ' 의 ' + prop + ' 단위가 바뀌었다: ' + v);
+    return parseFloat(v);
   };
 
   const APP_H = 1280 / 7.2;                    // 720×1280 화면의 세로 = 177.78cqw
@@ -307,36 +311,51 @@ test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활�
   const HALF = L * WORLD;                      // 마름모 반대각선의 절반
 
   // 조이스틱 — 세로 flex(flex-start)라 원판이 상자 위쪽에 붙는다
-  const jx = num('#steer-control', 'left'), jw = num('#steer-control', 'width');
-  const jb = num('#steer-control', 'bottom'), jh = num('#steer-control', 'height');
-  const D = num('#steer-base', 'width');
+  const jw = num('#steer-control', 'width'), jh = num('#steer-control', 'height');
+  const jb = num('#steer-control', 'bottom'), D = num('#steer-base', 'width');
+  const jLeft = pick('#steer-control', 'left');
+  const jx = jLeft !== null ? parseFloat(jLeft) : 100 - num('#steer-control', 'right') - jw;
   const box = { x0: jx, x1: jx + jw, y0: jb, y1: jb + jh };
   const disc = { x: jx + jw / 2, y: jb + jh - D / 2, r: D / 2 };
 
-  // 스킬 버튼 — 오른쪽 정렬. 복사 스킬을 먹어 셋이 되는 때가 가장 빠듯하다
-  const pad = rule('#skillbar').split('padding:')[1].split(';')[0].trim().split(/ +/);
-  const barPr = parseFloat(pad[1]), barPb = parseFloat(pad[2]);
+  // 스킬 버튼 — 복사 스킬을 먹어 셋이 되는 때가 가장 빠듯하다
+  const pad = pick('#skillbar', 'padding').split(/ +/).map(parseFloat);   // 위 오른 아래 왼
   const gap = num('#skillbar', 'gap'), size = num('.skillbtn', 'width');
-  const btn3 = { x0: 100 - barPr - (size * 3 + gap * 2), y0: barPb, y1: barPb + size };
+  const span3 = size * 3 + gap * 2;
+  const toRight = pick('#skillbar', 'justify-content') === 'flex-end';
+  const btn3 = toRight
+    ? { x0: 100 - pad[1] - span3, x1: 100 - pad[1] }
+    : { x0: pad[3], x1: pad[3] + span3 };
+  btn3.y0 = pad[2]; btn3.y1 = pad[2] + size;
 
   // 좌하단 스탯판 — render.js drawStatPanel과 같은 식으로 다시 센다
   const padY = L * 0.022;
   const panel = {
     x0: CX + (-L) * WORLD,
     x1: CX + (-L + L * 0.532 + L * 0.024 * 2) * WORLD,
-    y0: CY - (L * 0.62 + L * 0.062 * 5 + padY * 2) * WORLD,       // 아래끝
+    y0: CY - (L * 0.62 + L * 0.062 * 5 + padY * 2) * WORLD,   // 아래끝
   };
+  const covers = (a, b) => a.x1 > b.x0 && a.x0 < b.x1 && a.y1 > b.y0 && a.y0 < b.y1;
 
-  test('조이스틱이 스킬 버튼을 덮지 않는다 (버튼 3개일 때)', () => {
-    const hit = box.x1 > btn3.x0 && box.y0 < btn3.y1 && box.y1 > btn3.y0;
-    assert.ok(!hit, '조이스틱 상자(x ' + box.x0.toFixed(1) + '~' + box.x1.toFixed(1)
-      + ')가 스킬 버튼(x ' + btn3.x0.toFixed(1) + '부터)을 덮는다 — 그 버튼은 눌리지 않는다');
+  test('조이스틱과 스킬 버튼이 서로 반대편에 있다', () => {
+    const joyRight = disc.x > CX;
+    assert.equal(toRight, !joyRight,
+      '둘이 같은 쪽으로 몰렸다 (조이스틱 중심 ' + disc.x.toFixed(1) + 'cqw, 스킬 버튼 '
+      + (toRight ? '오른쪽' : '왼쪽') + ') — 한 손으로 둘 다 눌러야 한다');
   });
 
-  test('조이스틱이 좌하단 스탯판을 가리지 않는다', () => {
-    const hit = box.x1 > panel.x0 && box.x0 < panel.x1 && box.y1 > panel.y0;
-    assert.ok(!hit, '조이스틱 위끝 ' + box.y1.toFixed(1) + 'cqw 가 스탯판 아래끝 '
-      + panel.y0.toFixed(1) + 'cqw 를 넘었다');
+  test('조이스틱이 스킬 버튼을 덮지 않는다 (버튼 3개일 때)', () => {
+    assert.ok(!covers(box, btn3), '조이스틱 상자(x ' + box.x0.toFixed(1) + '~' + box.x1.toFixed(1)
+      + ')가 스킬 버튼(x ' + btn3.x0.toFixed(1) + '~' + btn3.x1.toFixed(1)
+      + ')을 덮는다 — 그 버튼은 눌리지 않는다');
+  });
+
+  test('조이스틱도 스킬 버튼도 좌하단 스탯판을 가리지 않는다', () => {
+    const p = { x0: panel.x0, x1: panel.x1, y0: panel.y0, y1: Infinity };
+    assert.ok(!covers(box, p), '조이스틱 위끝 ' + box.y1.toFixed(1)
+      + 'cqw 가 스탯판 아래끝 ' + panel.y0.toFixed(1) + 'cqw 를 넘었다');
+    assert.ok(!covers(btn3, p), '스킬 버튼 위끝 ' + btn3.y1.toFixed(1)
+      + 'cqw 가 스탯판 아래끝 ' + panel.y0.toFixed(1) + 'cqw 를 넘었다');
   });
 
   test('조이스틱 원판이 경기장 안으로 들어오지 않는다', () => {
@@ -351,7 +370,7 @@ test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활�
 
   test('시작 방향 문구 띠가 조이스틱·라운드 정보와 겹치지 않는다', () => {
     const hintRight = 100 - num('#hud-hint', 'right');
-    const top = parseFloat(rule('#hud-hint').split('top:')[1]) / 100 * APP_H;   // 화면 위에서
+    const top = parseFloat(pick('#hud-hint', 'top')) / 100 * APP_H;   // 화면 위에서
     const HINT_H = 7;                          // 한 줄 + 여백을 넉넉히 잡은 값
     const roundBox = 100 - 2.5 - 21;           // #hud-top: right 2.5cqw, min-width 21cqw
     assert.ok(hintRight <= roundBox, '문구 오른끝 ' + hintRight.toFixed(1)
