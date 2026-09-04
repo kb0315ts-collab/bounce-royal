@@ -1125,10 +1125,32 @@ function bindClick(ids, handler) {
   }
 }
 
-bindClick('sk-char', () => Game.pressSkill('char'));
-bindClick('sk-weapon', () => Game.pressSkill('weapon'));
+/* 전투 중 버튼(스킬)은 click이 아니라 pointerdown으로 받는다.
+ * 조이스틱이 포인터를 잡고 preventDefault를 부르는 동안에는 브라우저가
+ * 다른 손가락의 click 합성을 건너뛰기도 한다. 그러면 조향하면서 스킬을
+ * 아예 못 누른다. pointerdown은 그와 무관하게 들어오고 반응도 빠르다.
+ * 메뉴 버튼은 끌어서 취소할 수 있어야 하므로 그대로 click을 쓴다. */
+const HAS_POINTER_EVENTS = typeof window !== 'undefined' && 'onpointerdown' in window;
+function bindPress(ids, handler) {
+  const list = Array.isArray(ids) ? ids : [ids];
+  for (const id of list) {
+    const el = $(id);
+    if (!el) continue;
+    if (!HAS_POINTER_EVENTS) { el.onclick = handler; continue; }
+    el.addEventListener('pointerdown', event => {
+      if (event.button > 0) return;            // 오른쪽·가운데 버튼은 무시
+      event.preventDefault();
+      handler(event);
+    });
+    // 키보드 접근성: Enter/Space는 detail 0인 click으로 들어온다
+    el.addEventListener('click', event => { if (event.detail === 0) handler(event); });
+  }
+}
 
-bindClick('sk-common', () => Game.pressSkill('common'));
+bindPress('sk-char', () => Game.pressSkill('char'));
+bindPress('sk-weapon', () => Game.pressSkill('weapon'));
+
+bindPress('sk-common', () => Game.pressSkill('common'));
 
 /* ============================================================
  * 이동 조이스틱

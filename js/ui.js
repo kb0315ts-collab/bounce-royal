@@ -894,7 +894,9 @@ function updateSteerControl(battle, fighter) {
   const hasControllableBody = !fighter.dead && (!fighter.mainDead || fighter.splitBalls?.some(body => !body.dead));
   const usable = hasControllableBody && !(fighter.timers?.stun > 0);
   const forced = !!fighter.rocketActive || fighter.timers?.dashPrep > 0 || fighter.timers?.dashT > 0 || fighter.timers?.bind > 0;
-  const aiming = usable && battle?.phase === 'aim' && !fighter.aimLocked;
+  // 카운트다운 중에도 방향을 잡을 수 있으므로 같은 '조준' 상태로 본다
+  const aiming = usable && (battle?.phase === 'count'
+    || (battle?.phase === 'aim' && !fighter.aimLocked));
   const steering = usable && !forced && !battle?.result && battle?.phase === 'fight';
   if (!(aiming || steering) && typeof window.BounceRoyalClearSteerInput === 'function') window.BounceRoyalClearSteerInput();
   control.classList.toggle('aiming', !!aiming);
