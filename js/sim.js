@@ -680,11 +680,15 @@ class Battle {
     f.vx = Math.cos(ang); f.vy = Math.sin(ang);
   }
   setDir(f, ang) { f.vx = Math.cos(ang); f.vy = Math.sin(ang); }
-  /* 조준 단계에서 조이스틱을 끄는 동안 방향만 갱신한다. lock=true면 그 자리에서 확정한다.
-   * 확정하지 않아도 제한시간이 끝나면 마지막으로 잡아 둔 방향으로 나간다. */
+  /* 출발 방향을 잡는다.
+   * aim 단계: 확정(lock) 전까지 방향을 갱신한다. 확정하지 않아도 제한시간이
+   *   끝나면 마지막으로 잡아 둔 방향으로 나간다.
+   * count 단계: 이미 확정됐더라도 손가락을 대고 있으면 계속 따라간다.
+   *   카운트다운이 끝나는 순간 가리키던 방향 그대로 출발해야 자연스럽다. */
   aimDir(f, ang, lock) {
-    if (!f || f.aimLocked || this.phase !== 'aim') return false;
-    if (!Number.isFinite(ang)) return false;
+    if (!f || !Number.isFinite(ang)) return false;
+    if (this.phase === 'count') { this.setDir(f, ang); f.aimTouched = true; return true; }
+    if (this.phase !== 'aim' || f.aimLocked) return false;
     this.setDir(f, ang);
     f.aimTouched = true;
     if (lock) f.aimLocked = true;

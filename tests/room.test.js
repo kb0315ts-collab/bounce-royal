@@ -401,4 +401,43 @@ test('아무것도 안 건드리면 예전처럼 아무 방향으로 나간다',
   assert.ok(dirs.size > 1, '건드리지 않았으면 방향이 무작위여야 한다');
 });
 
+
+test('카운트다운 중에도 손가락을 따라가고, 끝나는 순간 그 방향으로 나간다', () => {
+  const { room, player, battle, fighter } = aimRoom();
+  try {
+    room.onAim(player, 0.5, false);
+    for (let i = 0; i < 60 * 8 && battle.phase === 'aim'; i++) battle.update(1 / 60);
+    assert.equal(battle.phase, 'count', '조준이 끝나면 카운트다운으로 넘어간다');
+
+    // 카운트다운 동안 손가락을 옮긴다
+    assert.equal(room.onAim(player, 2.6, false), true, '카운트다운 중에도 받아야 한다');
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - 2.6) < 1e-9, '즉시 반영되어야 한다');
+
+    for (let i = 0; i < 60 * 4 && battle.phase !== 'fight'; i++) battle.update(1 / 60);
+    assert.equal(battle.phase, 'fight');
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - 2.6) < 1e-9,
+      '누르던 방향 그대로 출발해야 한다 (실제 ' + Math.atan2(fighter.vy, fighter.vx) + ')');
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('카운트다운에 손을 대지 않으면 확정한 방향을 지킨다', () => {
+  const { room, player, battle, fighter } = aimRoom();
+  try {
+    room.onAim(player, -1.1, true);
+    for (let i = 0; i < 60 * 8 && battle.phase !== 'fight'; i++) battle.update(1 / 60);
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - (-1.1)) < 1e-9);
+  } finally { clearInterval(room.tickTimer); }
+});
+
+test('전투가 시작된 뒤에는 조준 패킷을 받지 않는다', () => {
+  const { room, player, battle, fighter } = aimRoom();
+  try {
+    room.onAim(player, 0.7, true);
+    for (let i = 0; i < 60 * 8 && battle.phase !== 'fight'; i++) battle.update(1 / 60);
+    assert.equal(battle.phase, 'fight');
+    assert.equal(room.onAim(player, 3.0, true), false, '전투 중에는 조향만 쓴다');
+    assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - 0.7) < 1e-9);
+  } finally { clearInterval(room.tickTimer); }
+});
+
 console.log('\n' + passed + '개 방 진행 테스트 통과');

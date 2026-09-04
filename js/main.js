@@ -1158,6 +1158,8 @@ function bindSteerJoystick(controlId, baseId, knobId) {
     const hasControllableBody = fighter && !fighter.dead && (!fighter.mainDead || fighter.splitBalls?.some(body => !body.dead));
     if (!battle || !hasControllableBody || fighter.timers?.stun > 0) return null;
     if (battle.phase === 'aim' && !fighter.aimLocked) return 'aim';
+    // 카운트다운 중에도 손가락을 따라간다. 끝나는 순간 그 방향으로 출발한다.
+    if (battle.phase === 'count') return 'aim';
     const forced = !!fighter.rocketActive || fighter.timers?.dashPrep > 0 || fighter.timers?.dashT > 0 || fighter.timers?.bind > 0;
     if (battle.phase === 'fight' && !battle.result && !forced) return 'steer';
     return null;
@@ -1186,7 +1188,7 @@ function bindSteerJoystick(controlId, baseId, knobId) {
       return;
     }
     const battle = targetBattle, fighter = targetFighter;
-    if (Game.focus !== battle || !battle || battle.phase !== 'aim' || !fighter || fighter.aimLocked) return;
+    if (Game.focus !== battle || !battle || !fighter) return;
     battle.aimDir(fighter, ang, lock);
   };
 
