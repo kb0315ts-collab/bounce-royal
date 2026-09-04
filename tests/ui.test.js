@@ -272,4 +272,96 @@ test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활�
   assert.equal($('steer-label').textContent, '강제 이동 · 조향 불가');
 });
 
-console.log('\n' + passed + '개 선택 화면 테스트 통과');
+
+/* ============================================================
+ * HUD 바닥 배치
+ *
+ * 이동 조이스틱이 있는 좌하단은 위로 스탯판, 오른쪽으로 스킬 버튼,
+ * 그 위로 경기장 아래 꼭짓점에 둘러싸여 있다. 크기나 위치를 손볼 때
+ * 어느 하나를 덮으면 그 버튼이 통째로 안 눌린다. 실제로 두 번 그랬다.
+ * index.html의 수치를 읽어 겹침을 직접 계산한다.
+ *
+ * 좌표는 모두 cqw, 원점은 화면 왼쪽 아래.
+ * ============================================================ */
+{
+  const html = read('index.html');
+  const rule = sel => {
+    const at = html.indexOf(sel + '{');
+    if (at < 0) throw new Error(sel + ' 규칙을 찾지 못했다');
+    return html.slice(at + sel.length + 1, html.indexOf('}', at));
+  };
+  const num = (sel, prop, unit) => {
+    for (const decl of rule(sel).split(';')) {
+      const c = decl.indexOf(':');
+      if (decl.slice(0, c).trim() !== prop) continue;
+      const v = decl.slice(c + 1).trim();
+      if (!v.endsWith(unit || 'cqw')) throw new Error(sel + ' 의 ' + prop + ' 단위가 바뀌었다: ' + v);
+      return parseFloat(v);
+    }
+    throw new Error(sel + ' 의 ' + prop + '을 찾지 못했다');
+  };
+
+  const APP_H = 1280 / 7.2;                    // 720×1280 화면의 세로 = 177.78cqw
+  const WORLD = (720 / 840) / 7.2;             // 월드 1유닛이 몇 cqw인가
+  const L = 405, CX = 50, CY = APP_H / 2;      // 경기장 중심
+  const HALF = L * WORLD;                      // 마름모 반대각선의 절반
+
+  // 조이스틱 — 세로 flex(flex-start)라 원판이 상자 위쪽에 붙는다
+  const jx = num('#steer-control', 'left'), jw = num('#steer-control', 'width');
+  const jb = num('#steer-control', 'bottom'), jh = num('#steer-control', 'height');
+  const D = num('#steer-base', 'width');
+  const box = { x0: jx, x1: jx + jw, y0: jb, y1: jb + jh };
+  const disc = { x: jx + jw / 2, y: jb + jh - D / 2, r: D / 2 };
+
+  // 스킬 버튼 — 오른쪽 정렬. 복사 스킬을 먹어 셋이 되는 때가 가장 빠듯하다
+  const pad = rule('#skillbar').split('padding:')[1].split(';')[0].trim().split(/ +/);
+  const barPr = parseFloat(pad[1]), barPb = parseFloat(pad[2]);
+  const gap = num('#skillbar', 'gap'), size = num('.skillbtn', 'width');
+  const btn3 = { x0: 100 - barPr - (size * 3 + gap * 2), y0: barPb, y1: barPb + size };
+
+  // 좌하단 스탯판 — render.js drawStatPanel과 같은 식으로 다시 센다
+  const padY = L * 0.022;
+  const panel = {
+    x0: CX + (-L) * WORLD,
+    x1: CX + (-L + L * 0.532 + L * 0.024 * 2) * WORLD,
+    y0: CY - (L * 0.62 + L * 0.062 * 5 + padY * 2) * WORLD,       // 아래끝
+  };
+
+  test('조이스틱이 스킬 버튼을 덮지 않는다 (버튼 3개일 때)', () => {
+    const hit = box.x1 > btn3.x0 && box.y0 < btn3.y1 && box.y1 > btn3.y0;
+    assert.ok(!hit, '조이스틱 상자(x ' + box.x0.toFixed(1) + '~' + box.x1.toFixed(1)
+      + ')가 스킬 버튼(x ' + btn3.x0.toFixed(1) + '부터)을 덮는다 — 그 버튼은 눌리지 않는다');
+  });
+
+  test('조이스틱이 좌하단 스탯판을 가리지 않는다', () => {
+    const hit = box.x1 > panel.x0 && box.x0 < panel.x1 && box.y1 > panel.y0;
+    assert.ok(!hit, '조이스틱 위끝 ' + box.y1.toFixed(1) + 'cqw 가 스탯판 아래끝 '
+      + panel.y0.toFixed(1) + 'cqw 를 넘었다');
+  });
+
+  test('조이스틱 원판이 경기장 안으로 들어오지 않는다', () => {
+    let worst = -Infinity;
+    for (let a = 0; a < 360; a += 2) {
+      const px = disc.x + Math.cos(a * Math.PI / 180) * disc.r;
+      const py = disc.y + Math.sin(a * Math.PI / 180) * disc.r;
+      worst = Math.max(worst, HALF - (Math.abs(px - CX) + Math.abs(py - CY)));
+    }
+    assert.ok(worst < 0, '조이스틱이 경기장을 ' + worst.toFixed(1) + 'cqw 파고든다');
+  });
+
+  test('시작 방향 문구 띠가 조이스틱·라운드 정보와 겹치지 않는다', () => {
+    const hintRight = 100 - num('#hud-hint', 'right');
+    const top = parseFloat(rule('#hud-hint').split('top:')[1]) / 100 * APP_H;   // 화면 위에서
+    const HINT_H = 7;                          // 한 줄 + 여백을 넉넉히 잡은 값
+    const roundBox = 100 - 2.5 - 21;           // #hud-top: right 2.5cqw, min-width 21cqw
+    assert.ok(hintRight <= roundBox, '문구 오른끝 ' + hintRight.toFixed(1)
+      + 'cqw 가 라운드 정보 ' + roundBox.toFixed(1) + 'cqw 를 침범한다');
+    assert.ok(top >= 0.152 * APP_H, '문구가 참가자 패널 밑으로 내려와야 한다');
+    assert.ok(top + HINT_H <= CY - HALF, '문구가 경기장 위 꼭짓점을 덮는다');
+    assert.ok(box.y1 <= APP_H - (top + HINT_H),
+      '문구가 조이스틱과 겹친다 — 조향 중에 손가락 자리를 가린다');
+  });
+}
+
+console.log('');
+console.log(passed + '개 선택 화면 테스트 통과');
