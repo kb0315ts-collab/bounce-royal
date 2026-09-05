@@ -759,7 +759,7 @@ test('조준 예측선은 이벤트로 생긴 기둥을 실제 반사와 동일�
   assert.ok(Math.hypot(body.vx - rx, body.vy - ry) < 1e-6, '예측 반사 방향이 실제와 일치해야 한다');
 });
 
-test('본전투 30초 뒤 연장전 10초는 1배속에서 5초에 걸쳐 2배속까지 가속한다', () => {
+test('본전투 30초 뒤 연장전 10초는 1배속에서 5초에 걸쳐 1.5배속까지 가속한다', () => {
   assert.equal(BATTLE_TIME, 30, '본전투는 30초여야 한다');
   assert.equal(OVERTIME, 10, '연장전은 10초여야 한다');
   const b = makeBattle({ isAI: true }, { isAI: true });
@@ -783,9 +783,9 @@ test('본전투 30초 뒤 연장전 10초는 1배속에서 5초에 걸쳐 2배�
   assert.ok(Math.abs(mainTicks * RDT - BATTLE_TIME) < 0.1, '본전투는 실시간 30초여야 한다');
   assert.ok(Math.abs(otTicks * RDT - OVERTIME) < 0.1, '연장전은 실시간 10초여야 한다');
   assert.ok(Math.abs(samples.get(0) - 1) < 0.02, '연장 진입 순간에는 아직 1배속이어야 한다');
-  assert.ok(Math.abs(samples.get(2.5) - 1.5) < 0.02, '절반 지점에서는 1.5배속이어야 한다');
-  assert.equal(samples.get(5), 2, '5초째에 정확히 2배속에 도달해야 한다');
-  assert.equal(samples.get(7.5), 2, '5초 이후로는 2배속을 유지해야 한다');
+  assert.ok(Math.abs(samples.get(2.5) - 1.25) < 0.02, '절반 지점에서는 1.25배속이어야 한다');
+  assert.equal(samples.get(5), 1.5, '5초째에 정확히 1.5배속에 도달해야 한다');
+  assert.equal(samples.get(7.5), 1.5, '5초 이후로는 1.5배속을 유지해야 한다');
 });
 
 // 표적을 칼날 앞에 고정한 채 공격자만 회전시켜 타격 횟수를 센다

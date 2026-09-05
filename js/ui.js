@@ -59,8 +59,10 @@ function paintPortrait(canvasEl, charId, weaponId, color = '#4da6ff') {
     }
     const c = canvasEl.getContext('2d');
     const dpr = window.BounceRoyalDisplay?.pixelRatio?.() || Math.min(2, window.devicePixelRatio || 1);
-    const w = Math.max(96, canvasEl.clientWidth || 150);
-    const h = Math.max(72, canvasEl.clientHeight || 100);
+    // 실제 크기를 그대로 쓴다. 하한을 두면 그보다 납작한 칸에서 캔버스가
+    // 눌려 들어가 공이 찌그러져 보인다 (상단 참가자 탭이 그랬다).
+    const w = canvasEl.clientWidth || 150;
+    const h = canvasEl.clientHeight || 100;
     canvasEl.width = Math.round(w * dpr); canvasEl.height = Math.round(h * dpr);
     c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
     const glow = c.createRadialGradient(w * .5, h * .53, 2, w * .5, h * .53, Math.max(w, h) * .55);
@@ -176,7 +178,7 @@ function selectionPlayers(players) {
     if (!screen || !head) continue;
     const roster = document.createElement('div');
     roster.className = 'selection-roster';
-    roster.style.cssText = 'height:13cqw;min-height:13cqw;display:grid;grid-template-columns:repeat(4,1fr);gap:1cqw;padding:0 2cqw 1cqw;background:#070c18;';
+    roster.style.cssText = 'height:16cqw;min-height:16cqw;display:grid;grid-template-columns:repeat(4,1fr);gap:1cqw;padding:0 2cqw 1cqw;background:#070c18;';
     list.forEach((raw, rank) => {
       const p = playerSource(raw), ch = CHARACTERS[p.charId];
       const el = document.createElement('button');

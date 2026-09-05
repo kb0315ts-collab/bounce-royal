@@ -114,10 +114,10 @@ const context = vm.createContext(sandbox);
 vm.runInContext([
   read('js/data.js'),
   read('js/ui.js'),
-  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers, updateSkillbar, updateCountdown };',
+  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers, updateSkillbar, updateCountdown, paintPortrait };',
 ].join('\n'), context, { filename: 'bounce-royal-ui.test.bundle.js' });
 
-const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, updateSkillbar, updateCountdown } = context.__uiApi;
+const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, updateSkillbar, updateCountdown, paintPortrait } = context.__uiApi;
 const $ = id => byId.get(id);
 
 let passed = 0;
@@ -287,6 +287,34 @@ test('라운드 시작 카운트다운은 3 · 2 · 1을 한가운데에 띄운�
   updateCountdown({ phase: 'fight', countT: 0, result: null });
   assert.equal(el.classList.contains('on'), false, '전투가 시작되면 숫자를 치워야 한다');
   assert.equal(el.textContent, '');
+});
+
+/* 초상화 캔버스가 칸보다 큰 크기로 그려지면, 브라우저가 칸에 맞춰
+ * 눌러 넣으면서 공이 찌그러진다. 상단 참가자 탭이 실제로 그랬다 —
+ * 칸은 8cqw(약 32px)인데 하한 72로 그려 세로가 44%로 눌렸다. */
+test('초상화는 칸 비율 그대로 그려진다 (눌리지 않는다)', () => {
+  const fakeCtx = () => ({
+    setTransform() {}, clearRect() {}, fillRect() {}, fillText() {},
+    createRadialGradient() { return { addColorStop() {} }; },
+  });
+  const measure = (w, h) => {
+    const el = makeEl('canvas');
+    el.isConnected = true;
+    el.clientWidth = w; el.clientHeight = h;
+    el.getContext = fakeCtx;
+    paintPortrait(el, 'cat', null, '#4da6ff');
+    return el;
+  };
+  for (const [w, h] of [[91, 32], [91, 52], [167, 58], [200, 200]]) {
+    const el = measure(w, h);
+    const want = w / h, got = el.width / el.height;
+    assert.ok(Math.abs(got - want) < 0.02,
+      w + 'x' + h + ' 칸인데 캔버스는 ' + el.width + 'x' + el.height
+      + ' — 화면에서 ' + (got < want ? '위아래로' : '좌우로') + ' 눌린다');
+  }
+  // 아직 화면에 없어 크기를 모를 때만 기본값으로 그린다
+  const hidden = measure(0, 0);
+  assert.ok(hidden.width > 0 && hidden.height > 0, '크기를 모를 때도 그리긴 해야 한다');
 });
 
 /* ============================================================

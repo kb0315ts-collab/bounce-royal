@@ -802,8 +802,9 @@ function drawLoadoutPortrait(target, charId, weaponId, color = '#4da6ff') {
   if (!target || !CHARACTERS[charId] || !WEAPONS[weaponId]) return;
   const c = target.getContext('2d');
   const dpr = getRenderPixelRatio();
-  const w = Math.max(96, target.clientWidth || 180);
-  const h = Math.max(72, target.clientHeight || 130);
+  // 하한을 두면 그보다 납작한 칸에서 캔버스가 눌려 그림이 찌그러진다
+  const w = target.clientWidth || 180;
+  const h = target.clientHeight || 130;
   target.width = Math.round(w * dpr);
   target.height = Math.round(h * dpr);
   c.setTransform(dpr, 0, 0, dpr, 0, 0);

@@ -635,6 +635,7 @@ function boltFx(b, x1, y1, x2, y2) {
  * 전투
  * ============================================================ */
 const BATTLE_TIME = 30, OVERTIME = 10, OVERTIME_RAMP = 5;
+const OVERTIME_SPEED = 1.5;   // 연장전이 끝까지 올라가는 배속
 
 class Battle {
   constructor(mapId, players, opts = {}) {
@@ -839,9 +840,9 @@ class Battle {
       } else if (this.overtime) {
         this.otT -= rdt;
         if (this.otT <= 0) { this.timeoutResolve(); return; }
-        // 연장전은 1배속에서 시작해 OVERTIME_RAMP초에 걸쳐 2배속까지 서서히 오르고,
-        // 그 이후 남은 시간은 2배속을 유지한다.
-        this.timeScale = 1 + Math.min(1, (OVERTIME - this.otT) / OVERTIME_RAMP);
+        // 연장전은 1배속에서 시작해 OVERTIME_RAMP초에 걸쳐 OVERTIME_SPEED까지
+        // 서서히 오르고, 그 이후 남은 시간은 그 배속을 유지한다.
+        this.timeScale = 1 + (OVERTIME_SPEED - 1) * Math.min(1, (OVERTIME - this.otT) / OVERTIME_RAMP);
       }
       this.step(dt);
     } else if (this.phase === 'ending') {

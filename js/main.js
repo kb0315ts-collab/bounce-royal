@@ -737,7 +737,7 @@ const Game = {
           if (fb.phase === 'fight') { banner('FIGHT!', '', 650); SFX.shoot(); }
           fb._lastPhase = fb.phase;
         }
-        if (fb.overtime && !fb._otShown) { fb._otShown = true; banner('연장전!', '5초에 걸쳐 2배속까지 가속', 900); }
+        if (fb.overtime && !fb._otShown) { fb._otShown = true; banner('연장전!', '5초에 걸쳐 1.5배속까지 가속', 900); }
         if (fb.result && !fb._endShown) {
           fb._endShown = true;
           const h = fb.human();
