@@ -49,7 +49,6 @@ function diffFighter(f, v, tag) {
   D('gunFlash', near(f.gunFlash || 0, v.gunFlash || 0, POS));
   D('charging', !!f.charging === !!v.charging);
   D('reloading', !!(f.gun && f.gun.reloadT > 0) === !!(v.gun && v.gun.reloadT > 0));
-  D('aimLocked', !!f.aimLocked === !!v.aimLocked);
   D('vx', near(f.vx, v.vx, 0.011));
   D('vy', near(f.vy, v.vy, 0.011));
   for (const k of ['immune', 'untouchable', 'freeze', 'actingDead', 'stun', 'balloon', 'rampage', 'gunBarrage']) {
@@ -128,7 +127,7 @@ function runParity(opt) {
   const players = opt.players.map(mkPlayer);
   const b = new core.Battle(opt.arena || 'diamond', players);
   b.phase = 'fight'; b.simT = 0;
-  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimTouched = true; });
   const meta = players.map(p => ({
     id: p.id, name: p.name, color: p.color, charId: p.charId,
     weaponId: p.weaponId, isAI: p.isAI, coins: p.coins, eliminated: false, augments: p.augments,
@@ -219,7 +218,7 @@ test('벽 튕김과 스킬 발동 횟수가 스냅샷에 실린다', () => {
   ];
   const b = new core.Battle('diamond', players);
   b.phase = 'fight'; b.simT = 0;
-  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimTouched = true; });
   const first = snapshot(b);
   assert.equal(first.f[0].bc, 0, '시작 시 튕김 횟수는 0');
   assert.equal(first.f[0].sc, 0, '시작 시 스킬 횟수는 0');
@@ -240,7 +239,7 @@ test('폭발 고리에는 폭발음 표시가 붙는다', () => {
   ];
   const b = new core.Battle('diamond', players);
   b.phase = 'fight'; b.simT = 0;
-  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+  b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimTouched = true; });
   // 일반 고리 발생을 우연한 충돌에 맡기면 AI 이동 변화에 따라 테스트가 흔들린다.
   // 직렬화하려는 입력을 직접 하나 넣어 m=0 경로를 결정적으로 확인한다.
   b.fx.push({ type:'ring', x:0, y:0, r0:4, r1:24, color:'#ffffff', t:0, dur:0.5 });
@@ -268,7 +267,7 @@ test('조준 예측선이 로컬 경기장과 같은 결과를 낸다', () => {
     ];
     const b = new core.Battle('diamond', players, opt);
     b.phase = 'fight'; b.simT = 0;
-    b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimLocked = true; });
+    b.fighters.forEach((f, i) => { b.setDir(f, i * 1.1 + 0.3); f.aimTouched = true; });
     for (let i = 0; i < 90; i++) b.update(1 / 60);
     const meta = players.map(p => ({ id: p.id, name: p.name, color: p.color, charId: p.charId, weaponId: p.weaponId, isAI: p.isAI }));
     const view = netBattleView(JSON.parse(JSON.stringify(snapshot(b))), meta, players[0].id);
@@ -296,7 +295,7 @@ test('조준 단계부터 스냅샷에 숫자 아닌 값이 섞이지 않는다'
     mkPlayer({ charId: 'wak', weaponId: 'bow', isAI: true, color: '#ff6b6b' }),
   ];
   const b = new core.Battle('diamond', players);
-  assert.equal(b.phase, 'aim');
+  assert.equal(b.phase, 'count');
   // 비어 있는 것이 정상인 자리 (복사한 스킬, 결과, 연장 시간, 큐브)
   const NULLABLE = new Set(['cp', 'res', 'ot', 'cube']);
   const bad = [];

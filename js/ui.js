@@ -895,8 +895,7 @@ function updateSteerControl(battle, fighter) {
   const usable = hasControllableBody && !(fighter.timers?.stun > 0);
   const forced = !!fighter.rocketActive || fighter.timers?.dashPrep > 0 || fighter.timers?.dashT > 0 || fighter.timers?.bind > 0;
   // 카운트다운 중에도 방향을 잡을 수 있으므로 같은 '조준' 상태로 본다
-  const aiming = usable && (battle?.phase === 'count'
-    || (battle?.phase === 'aim' && !fighter.aimLocked));
+  const aiming = usable && battle?.phase === 'count';
   const steering = usable && !forced && !battle?.result && battle?.phase === 'fight';
   if (!(aiming || steering) && typeof window.BounceRoyalClearSteerInput === 'function') window.BounceRoyalClearSteerInput();
   control.classList.toggle('aiming', !!aiming);
@@ -910,6 +909,25 @@ function updateSteerControl(battle, fighter) {
     else label.textContent = '출발 준비 중';
   }
 }
+/* 라운드 시작 카운트다운. 화면 한가운데에 3 · 2 · 1을 띄운다.
+ * 세는 동안 조이스틱이 가리키는 쪽이 그대로 출발 방향이 된다. */
+let countShown = 0;
+function updateCountdown(battle) {
+  const el = $('hud-count');
+  if (!el) return;
+  const counting = !!battle && battle.phase === 'count' && !battle.result;
+  const n = counting ? Math.max(1, Math.ceil(battle.countT || 0)) : 0;
+  if (n === countShown) return;
+  countShown = n;
+  if (!n) { el.classList.remove('on'); el.textContent = ''; return; }
+  el.textContent = String(n);
+  // 숫자가 바뀔 때마다 튀어나오는 연출을 다시 튼다
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+  if (typeof SFX !== 'undefined' && SFX.ui) SFX.ui();
+}
+
 function updateSkillbar(battle) {
   const fighter = battle?.human?.() || null;
   const hasControllableBody = fighter && !fighter.dead && (!fighter.mainDead || fighter.splitBalls?.some(body => !body.dead));
@@ -973,7 +991,7 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape') { cl
 // classic script 전역 API를 명시해 테스트와 게임 흐름 양쪽에서 안정적으로 사용한다.
 Object.assign(window, {
   showScreen, hudVisible, banner, buildCharSelect, buildWeaponSelect, buildAugmentSelect,
-  showResult, showGameOver, updatePlayersPanel, setHint, specTag, updateSkillbar,
+  showResult, showGameOver, updatePlayersPanel, setHint, specTag, updateSkillbar, updateCountdown,
   startPhaseTimer, stopPhaseTimer,
   updatePlayerStatuses,
   setRankedSearchState, buildFriendlySlots, buildBag, buildCodex, showMatchIntro,

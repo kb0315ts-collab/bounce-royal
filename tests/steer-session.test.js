@@ -2,7 +2,8 @@
 /* ============================================================
  * 이동 조이스틱 세션
  *
- * 라운드가 시작되는 순간 조작이 '조준'에서 '조향'으로 바뀐다. 예전에는
+ * 라운드는 3초 카운트다운으로 시작하고, 끝나는 순간 조작이 '조준'에서
+ * '조향'으로 바뀐다. 예전에는
  * 그때 포인터 세션을 통째로 끊었다. 손가락은 그대로 조이스틱을 당기고
  * 있는데 저 혼자 놓아진 것처럼 보였다. 손을 떼기 전에는 세션이 살아
  * 있어야 하고, 당기고 있던 방향 그대로 조향이 이어져야 한다.
@@ -125,7 +126,7 @@ function runToFight(battle, from = 2000) {
 
 test('당긴 채로 라운드가 시작돼도 조이스틱이 놓아지지 않는다', () => {
   const { battle, fighter } = fresh();
-  assert.equal(battle.phase, 'aim', '전투는 조준 단계에서 시작한다');
+  assert.equal(battle.phase, 'count', '전투는 카운트다운에서 시작한다');
 
   control.fire('pointerdown', pointer(CENTER, CENTER));
   control.fire('pointermove', pointer(CENTER + 25, CENTER));    // 오른쪽으로 당긴다
@@ -156,7 +157,7 @@ test('손을 떼면 그때 조향이 풀린다', () => {
   assert.equal(control.classList.contains('active'), false);
 });
 
-test('조준 중에 마음을 바꾸면 마지막 방향으로 출발한다', () => {
+test('세는 동안 마음을 바꾸면 마지막 방향으로 출발한다', () => {
   const { battle, fighter } = fresh();
   control.fire('pointerdown', pointer(CENTER, CENTER));
   control.fire('pointermove', pointer(CENTER + 25, CENTER));         // 오른쪽
@@ -170,18 +171,47 @@ test('조준 중에 마음을 바꾸면 마지막 방향으로 출발한다', ()
   control.fire('pointerup', pointer(CENTER - 25, CENTER));
 });
 
-test('당긴 채로 두면 조준 제한시간을 다 기다리지 않는다', () => {
-  const { battle } = fresh();
-  control.fire('pointerdown', pointer(CENTER, CENTER));
-  control.fire('pointermove', pointer(CENTER + 25, CENTER));
-  let secs = 0;
-  for (let i = 0; i < 60 * 12 && battle.phase === 'aim'; i++) {
-    battle.update(1 / 60); step(2000 + i * 16); secs += 1 / 60;
+test('카운트다운은 건드리든 말든 딱 3초다', () => {
+  for (const 건드린다 of [false, true]) {
+    const { battle } = fresh();
+    if (건드린다) {
+      control.fire('pointerdown', pointer(CENTER, CENTER));
+      control.fire('pointermove', pointer(CENTER + 25, CENTER));
+    }
+    let secs = 0;
+    for (let i = 0; i < 60 * 12 && battle.phase === 'count'; i++) {
+      battle.update(1 / 60); step(2000 + i * 16); secs += 1 / 60;
+    }
+    assert.equal(battle.phase, 'fight');
+    assert.ok(Math.abs(secs - 3) < 0.05,
+      (건드린다 ? '당긴 채로' : '안 건드리고') + ' 두면 3초여야 한다 (실제 ' + secs.toFixed(2) + '초)');
+    if (건드린다) control.fire('pointerup', pointer(CENTER + 25, CENTER));
   }
-  assert.notEqual(battle.phase, 'aim');
-  assert.ok(secs < 3,
-    '방향이 잡혔는데도 제한시간을 다 기다린다 (' + secs.toFixed(2) + '초) — 따로 확정해야만 넘어가는 셈이다');
-  control.fire('pointerup', pointer(CENTER + 25, CENTER));
+});
+
+test('건드렸다 떼면 마지막으로 잡았던 방향으로 출발한다', () => {
+  const { battle, fighter } = fresh();
+  control.fire('pointerdown', pointer(CENTER, CENTER));
+  control.fire('pointermove', pointer(CENTER, CENTER - 25));      // 위쪽으로 당겼다가
+  control.fire('pointerup', pointer(CENTER, CENTER - 25));        // 손을 뗀다
+  const 잡은방향 = Math.atan2(fighter.vy, fighter.vx);
+  assert.ok(Math.abs(잡은방향 - (-Math.PI / 2)) < 1e-9, '뗀 자리의 방향이 남아야 한다');
+
+  runToFight(battle);
+  assert.ok(Math.abs(Math.atan2(fighter.vy, fighter.vx) - 잡은방향) < 1e-9,
+    '떼기 전 마지막 방향 그대로 나가야 한다 (실제 ' + Math.atan2(fighter.vy, fighter.vx) + ')');
+  assert.equal(fighter.steer.active, false, '손을 뗐으니 조향은 걸려 있지 않아야 한다');
+});
+
+test('한 번도 안 건드리면 아무 방향으로나 출발한다', () => {
+  const dirs = new Set();
+  for (let n = 0; n < 6; n++) {
+    const { battle, fighter } = fresh();
+    runToFight(battle);
+    assert.equal(fighter.aimTouched, false);
+    dirs.add(Math.atan2(fighter.vy, fighter.vx).toFixed(3));
+  }
+  assert.ok(dirs.size > 1, '매번 같은 쪽이면 무작위가 아니다 (' + [...dirs].join(', ') + ')');
 });
 
 console.log('');

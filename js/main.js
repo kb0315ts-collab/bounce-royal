@@ -734,7 +734,6 @@ const Game = {
       const fb = this.focus;
       if (fb) {
         if (fb._lastPhase !== fb.phase) {
-          if (fb.phase === 'count') banner('READY…', '', 500);
           if (fb.phase === 'fight') { banner('FIGHT!', '', 650); SFX.shoot(); }
           fb._lastPhase = fb.phase;
         }
@@ -788,22 +787,17 @@ const Game = {
         timerEl.textContent = Math.max(0, BATTLE_TIME - fb.simT).toFixed(1);
         timerEl.classList.remove('ot'); tag.classList.remove('on');
       }
-    } else if (fb.phase === 'aim') {
-      // 조준 제한시간을 그대로 보여준다
-      timerEl.textContent = Math.max(0, fb.aimTimeout).toFixed(1);
-      timerEl.classList.remove('ot');
-      timerEl.classList.toggle('urgent', fb.aimTimeout <= 1.5);
-      tag.classList.remove('on');
     } else {
       timerEl.textContent = BATTLE_TIME.toFixed(1);
       timerEl.classList.remove('ot', 'urgent'); tag.classList.remove('on');
     }
     updateSkillbar(fb);
+    updateCountdown(fb);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this);
     specTag(this.spectating ? `관전 중 · ${fb.fighters.map(f => f.name).join(' vs ')}` : null);
     const h = fb.human();
-    // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (fb.phase === 'aim' && h && !h.aimLocked) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
+    // 안내는 라운드 시작 카운트다운에만 띄운다. 전투 중에는 띄우지 않는다.
+    if (fb.phase === 'count' && h) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
     else setHint(null);
   },
 
@@ -1180,8 +1174,7 @@ function bindSteerJoystick(controlId, baseId, knobId) {
     const { battle, fighter } = currentTarget();
     const hasControllableBody = fighter && !fighter.dead && (!fighter.mainDead || fighter.splitBalls?.some(body => !body.dead));
     if (!battle || !hasControllableBody || fighter.timers?.stun > 0) return null;
-    if (battle.phase === 'aim' && !fighter.aimLocked) return 'aim';
-    // 카운트다운 중에도 손가락을 따라간다. 끝나는 순간 그 방향으로 출발한다.
+    // 카운트다운 중에는 손가락을 따라간다. 끝나는 순간 그 방향으로 출발한다.
     if (battle.phase === 'count') return 'aim';
     const forced = !!fighter.rocketActive || fighter.timers?.dashPrep > 0 || fighter.timers?.dashT > 0 || fighter.timers?.bind > 0;
     if (battle.phase === 'fight' && !battle.result && !forced) return 'steer';

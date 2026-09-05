@@ -202,6 +202,9 @@ body{display:flex;align-items:center;justify-content:center}
 #steer-control.active #steer-base{border-color:#78d7ff;box-shadow:inset 0 0 3cqw rgba(73,183,255,.38),0 1cqw 0 #050911,0 0 3cqw rgba(73,183,255,.3)}#steer-control.active #steer-knob{filter:brightness(1.16);box-shadow:0 .8cqw 0 #08172d,0 0 3.5cqw rgba(96,209,255,.8)}#steer-control.active #steer-label{color:#d6f3ff}
 #steer-control.aiming #steer-base{border-color:#ffd65c}#steer-control.aiming #steer-knob{border-color:#ffe58c;background:radial-gradient(circle at 35% 28%,#fff3ad,#c68b25 62%,#53360a)}#steer-control.aiming #steer-label{color:#ffe695}
 #steer-control.disabled{opacity:.4;filter:grayscale(.55);pointer-events:none}
+#hud-count{position:absolute;z-index:12;left:0;right:0;top:52%;text-align:center;font:24cqw/1 'Jua',sans-serif;color:#fff;text-shadow:0 0 7cqw rgba(77,166,255,.9),0 1.4cqw 0 rgba(0,0,0,.5);pointer-events:none;display:none}
+#hud-count.on{display:block;animation:countPop .5s cubic-bezier(.2,1.8,.4,1)}
+@keyframes countPop{0%{transform:scale(1.8);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:.95}}
 #skillbar{position:absolute;z-index:3;left:0;right:0;bottom:0;height:15.8%;padding:2cqw 36cqw 4cqw 4.5cqw;display:flex;justify-content:flex-start;align-items:flex-end;gap:4cqw;pointer-events:auto;background:linear-gradient(0deg,rgba(5,9,18,.99),rgba(6,10,20,.88) 68%,transparent)}
 .skillbtn{width:17cqw;height:17cqw;border-radius:50%;border:.65cqw solid #37486f;color:var(--text);background:radial-gradient(circle at 38% 28%,#2c4779,#10192d 68%);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;box-shadow:0 1.2cqw 0 #060a12,0 0 0 1.2cqw rgba(42,57,89,.48)}.skillbtn .ico{font-size:6.3cqw;line-height:1}.skillbtn .lbl{max-width:14cqw;font-size:2.2cqw;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.skillbtn .uses{font-size:1.9cqw;color:var(--gold);letter-spacing:.3cqw}.skillbtn .key{display:none}.skillbtn.ready{border-color:#ffe06a;box-shadow:0 1.2cqw 0 #665012,0 0 3cqw rgba(255,210,77,.4)}.skillbtn.used{opacity:.35;filter:grayscale(1)}.skillbtn.charging{border-color:#ff9d4d;animation:chargeP .4s infinite alternate}.skillbtn .cdoverlay{position:absolute;inset:0;display:none;place-items:center;border-radius:50%;background:rgba(18,9,3,.74);font-size:2.2cqw;color:#ffd09a}.skillbtn.charging .cdoverlay{display:grid}
 #hud-hint{position:absolute;left:2cqw;right:25cqw;top:16.5%;text-align:center;word-break:keep-all;line-height:1.35;padding:1.3cqw 3cqw;border-radius:99px;border:1px solid rgba(255,210,77,.35);background:rgba(15,13,9,.82);color:var(--gold);font-size:2.7cqw;display:none}#hud-hint.on{display:block;animation:blink 1.2s infinite alternate}
@@ -243,6 +246,7 @@ body{display:flex;align-items:center;justify-content:center}
     </div>
     <div id="hud-spec">관전 중</div>
     <button id="btn-watch-other" class="midbtn ghostbtn" type="button">👁 다른 전투 보기</button>
+    <div id="hud-count" aria-hidden="true"></div>
     <div id="steer-control" class="disabled" role="application" aria-label="이동 조이스틱. 공은 자동으로 이동하며 누르는 동안 진행 방향이 천천히 휘어집니다." aria-disabled="true">
       <div id="steer-base"><span class="steer-ring" aria-hidden="true"></span><span id="steer-knob"><span class="steer-arrow" aria-hidden="true">➤</span></span></div>
       <div id="steer-label">꾹 눌러 조향</div>

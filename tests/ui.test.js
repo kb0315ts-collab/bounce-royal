@@ -67,7 +67,7 @@ function ensure(id) {
 for (const id of ['aug-cards', 'aug-sub', 'aug-round-label', 'aug-myinfo', 'aug-owned',
   'aug-timer', 'event-timer', 'weapon-timer', 'weapon-cards', 'btn-refresh', 'refresh-count',
   'event-cards', 'event-status', 'scr-weapon', 'scr-augment', 'scr-event',
-  'steer-control', 'steer-label', 'sk-char', 'sk-weapon', 'sk-common']) ensure(id);
+  'steer-control', 'steer-label', 'hud-count', 'sk-char', 'sk-weapon', 'sk-common']) ensure(id);
 for (const id of ['scr-weapon', 'scr-augment', 'scr-event']) {
   const head = makeEl('div'); head._classes.add('screen-head');
   ensure(id).appendChild(head);
@@ -114,10 +114,10 @@ const context = vm.createContext(sandbox);
 vm.runInContext([
   read('js/data.js'),
   read('js/ui.js'),
-  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers, updateSkillbar };',
+  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers, updateSkillbar, updateCountdown };',
 ].join('\n'), context, { filename: 'bounce-royal-ui.test.bundle.js' });
 
-const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, updateSkillbar } = context.__uiApi;
+const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, updateSkillbar, updateCountdown } = context.__uiApi;
 const $ = id => byId.get(id);
 
 let passed = 0;
@@ -272,6 +272,22 @@ test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활�
   assert.equal($('steer-label').textContent, '강제 이동 · 조향 불가');
 });
 
+
+test('라운드 시작 카운트다운은 3 · 2 · 1을 한가운데에 띄운다', () => {
+  const el = $('hud-count');
+  updateCountdown(null);
+  const seen = [];
+  for (const left of [3.0, 2.6, 2.0, 1.4, 1.0, 0.3]) {
+    updateCountdown({ phase: 'count', countT: left, result: null });
+    if (el.textContent !== seen[seen.length - 1]) seen.push(el.textContent);
+  }
+  assert.deepEqual(seen, ['3', '2', '1'], '3 · 2 · 1 순서여야 한다 (실제 ' + seen.join(',') + ')');
+  assert.ok(el.classList.contains('on'), '세는 동안에는 보여야 한다');
+
+  updateCountdown({ phase: 'fight', countT: 0, result: null });
+  assert.equal(el.classList.contains('on'), false, '전투가 시작되면 숫자를 치워야 한다');
+  assert.equal(el.textContent, '');
+});
 
 /* ============================================================
  * HUD 바닥 배치

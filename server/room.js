@@ -188,9 +188,9 @@ class Room {
     const b = this.battleOf(player), f = this.fighterOf(player);
     if (!b || !f || typeof ang !== 'number' || !isFinite(ang)) return false;
     if (this.phase !== 'battle') return false;
-    // aim·count 어느 쪽에서도 받는다. 카운트다운이 끝나는 순간 가리키던
-    // 방향 그대로 나가야 손을 놓지 않고 조향으로 이어진다.
-    if (b.phase !== 'aim' && b.phase !== 'count') return false;
+    // 카운트다운 동안만 받는다. 끝나는 순간 가리키던 방향 그대로 나가야
+    // 손을 놓지 않고 조향으로 이어진다.
+    if (b.phase !== 'count') return false;
     return b.aimDir(f, Math.atan2(Math.sin(ang), Math.cos(ang)));
   }
   /* 위치와 속도는 서버가 계속 계산한다. 클라이언트가 보낸 희망 방향과 입력

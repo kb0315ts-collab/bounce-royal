@@ -28,9 +28,7 @@ function fighterView(f) {
       | (f.flags.dualPistol ? 4 : 0) | (f.flags.bayonet ? 8 : 0),
     // 권총 재장전 상태(총검술 표시용)
     rl: f.gun && f.gun.reloadT > 0 ? 1 : 0,
-    // 시작 조준 방향 (aim 단계 화살표)
     vx: Math.round(f.vx * 100) / 100, vy: Math.round(f.vy * 100) / 100,
-    lk: f.aimLocked ? 1 : 0,
     // 스킬 잔여/최대 사용 횟수 (스킬바 표시용)
     su: [f.skillUses.char, f.skillUses.weapon, f.skillUses.common],
     sx: [1 + (f.flags.talent ? 1 : 0), 1 + (f.flags.weaponMastery ? 1 : 0), 1 + (f.flags.battery ? 1 : 0)],
@@ -53,6 +51,7 @@ function snapshot(battle) {
   return {
     ph: battle.phase,
     t: r1(battle.simT),
+    cd: battle.phase === 'count' ? r1(battle.countT) : 0,
     ot: battle.overtime ? r1(battle.otT) : null,
     sh: r1(battle.shake),
     L: battle.arena.L,

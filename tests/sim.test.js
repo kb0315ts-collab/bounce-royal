@@ -1078,10 +1078,10 @@ test('전투원의 st는 만들어진 순간부터 모양이 완전하다', () =
   const fresh = b.fighters[0];
   assert.equal(b.phase, 'fight', '이 헬퍼는 fight로 맞춰 준다');
   const raw = new Battle('diamond', [makePlayer({}), makePlayer({ isAI: true })]);
-  assert.equal(raw.phase, 'aim', '전투는 조준 단계에서 시작한다');
+  assert.equal(raw.phase, 'count', '전투는 카운트다운에서 시작한다');
   for (const f of raw.fighters) {
     for (const key of ['atk', 'dmg', 'move', 'rot', 'fr', 'aspd', 'size']) {
-      assert.equal(typeof f.st[key], 'number', 'st.' + key + '이 없으면 조준 단계에서 화면이 죽는다');
+      assert.equal(typeof f.st[key], 'number', 'st.' + key + '이 없으면 카운트다운에서 화면이 죽는다');
       assert.ok(isFinite(f.st[key]), 'st.' + key + '이 숫자가 아니다');
     }
   }

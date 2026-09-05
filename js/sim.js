@@ -12,7 +12,7 @@ const PISTOL_BARRAGE_ROT = TAU * 2;  // 회전 난사 중 초당 2바퀴
 const BOW_CHARGE_TURNS = 2;          // 차지 샷: 두 바퀴 돌 동안 조준한다
 const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 난이도를 여기서 조절한다
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
-const AIM_TIME = 5;         // 라운드 시작 조준 제한시간
+const COUNT_TIME = 3;       // 라운드 시작 카운트다운 (3 · 2 · 1)
 const MELEE_ASPD_GAIN = 2;  // 근접이 공격속도 증가분을 받는 배율
 const STEER_MAX_RAD = 50 * Math.PI / 180; // 최대 조향속도: 초당 50도
 const STEER_RAMP_TIME = 0.25;              // 입력이 최대 조향력에 도달하는 시간
@@ -381,9 +381,9 @@ function buildFighter(player, battle) {
     splitUsed: false, lastStandUsed: false,
     mainDead: false, dead: false, deathAt: 0, downPending: false,
     lastResistanceUsed: false, survivalInstinctUsed: false,
-    // aimTouched: 조준 단계에서 조이스틱으로 방향을 한 번이라도 잡았는가.
-    // 잡아 뒀다면 제한시간이 끝나도 그 방향으로 나간다 (누른 채로 시간이 지난 경우).
-    flash: 0, staticCd: 0, collisionCd: 0, onSticky: false, pendingAim: false, aimLocked: false, aimTouched: false,
+    // aimTouched: 카운트다운 동안 조이스틱으로 방향을 한 번이라도 잡았는가.
+    // 잡아 뒀다면 손을 떼도 그 방향으로 나가고, 끝까지 안 잡았으면 아무 방향으로나 나간다.
+    flash: 0, staticCd: 0, collisionCd: 0, onSticky: false, pendingAim: false, aimTouched: false,
     rocketActive: false, rocketHits: new Set(),
     steer: { active: false, angle: 0, magnitude: 0, power: 0, lock: 0 },
     aiT: rand(0.4, 1.4), aiSteerT: rand(0.4, 0.7), aiSteerSide: chance(0.5) ? 1 : -1,
@@ -639,10 +639,9 @@ class Battle {
     if (this.arena.type === 'diamond' && players.length <= 2) this.arena.L = DUEL_ARENA_L;
     this.fighters = players.map(p => buildFighter(p, this));
     this.placeFighters();
-    this.phase = 'aim';           // aim → count → fight → ending
-    this.countT = 0;
+    this.phase = 'count';         // count → fight → ending
+    this.countT = COUNT_TIME;
     this.simT = 0; this.overtime = false; this.otT = 0; this.timeScale = 1;
-    this.aimTimeout = AIM_TIME;
     this.projectiles = []; this.mines = []; this.flames = []; this.stickies = [];
     this.fx = []; this.popups = []; this.particles = [];
     this.shake = 0; this.result = null; this.finished = false; this.endT = 0;
@@ -679,15 +678,12 @@ class Battle {
     f.vx = Math.cos(ang); f.vy = Math.sin(ang);
   }
   setDir(f, ang) { f.vx = Math.cos(ang); f.vy = Math.sin(ang); }
-  /* 출발 방향을 잡는다.
-   * '확정'이라는 단계는 없앴다. 상시 조향이 되는 지금은 미리 방향을 정해
-   * 두고 그대로 나가는 게 아니라, 조이스틱을 당긴 채로 출발해 그대로
-   * 조향으로 이어지는 것이다. 손가락이 가리키는 쪽이 곧 방향이고,
-   * aim이든 count든 마지막으로 가리킨 방향이 살아 있는다. */
+  /* 출발 방향을 잡는다. 카운트다운 3초 동안만 받는다.
+   * 조이스틱이 가리키는 쪽이 곧 출발 방향이다. 확정이라는 단계는 없어서
+   * 놓았다 다시 잡아도 얼마든지 바뀌고, 마지막으로 가리킨 쪽으로 나간다. */
   aimDir(f, ang) {
     if (!f || !Number.isFinite(ang)) return false;
-    if (this.phase !== 'aim' && this.phase !== 'count') return false;
-    if (this.phase === 'aim' && f.aimLocked) return false;   // AI는 한 번 정하면 끝이다
+    if (this.phase !== 'count') return false;
     this.setDir(f, ang);
     f.aimTouched = true;
     return true;
@@ -802,24 +798,19 @@ class Battle {
   /* ================= 메인 루프 ================= */
   update(rdt) {
     this.shake = Math.max(0, this.shake - rdt * 26);
-    if (this.phase === 'aim') {
-      this.aimTimeout -= rdt;
-      for (const f of this.fighters) {
-        if (f.aimLocked) continue;
-        if (f.isAI) { f.aiT -= rdt; if (f.aiT <= 0) { const a = aiChooseStartDir(this, f); this.setDir(f, a); f.aimLocked = true; } }
-        // 제한시간이 끝나면 출발한다. 조이스틱으로 방향을 잡아 뒀다면(누른 채로
-        // 시간이 지난 경우 포함) 그 방향 그대로, 아예 안 건드렸으면 아무 방향으로나.
-        else if (this.aimTimeout <= 0) {
-          if (!f.aimTouched) this.setDir(f, rand(0, TAU));
-          f.aimLocked = true;
-        }
-      }
-      // 조이스틱에 손을 얹어 방향이 잡혔으면 그것으로 준비가 된 것이다.
-      // 따로 확정할 필요 없이 당긴 채로 카운트다운에 들어간다.
-      if (this.fighters.every(f => f.aimLocked || f.aimTouched)) { this.phase = 'count'; this.countT = 1.8; }
-    } else if (this.phase === 'count') {
+    if (this.phase === 'count') {
+      // 3 · 2 · 1. 세는 동안 조이스틱이 가리키는 쪽이 곧 출발 방향이다.
       this.countT -= rdt;
-      if (this.countT <= 0) { this.phase = 'fight'; this.simT = 0; }
+      for (const f of this.fighters) {
+        if (!f.isAI || f.aimTouched) continue;
+        f.aiT -= rdt;
+        if (f.aiT <= 0) { this.setDir(f, aiChooseStartDir(this, f)); f.aimTouched = true; }
+      }
+      if (this.countT <= 0) {
+        // 끝날 때까지 아무도 안 건드린 쪽은 아무 방향으로나 내보낸다.
+        for (const f of this.fighters) if (!f.aimTouched) this.setDir(f, rand(0, TAU));
+        this.phase = 'fight'; this.simT = 0;
+      }
     } else if (this.phase === 'fight') {
       const dt = rdt * this.timeScale;
       this.simT += dt;
@@ -2059,19 +2050,6 @@ function useSkill(b, f, slot) {
   return true;
 }
 
-function applyCommonAim(b, f, ang) {
-  if (f.mainDead && f.splitBalls && f.splitBalls.length) {
-    const active = f.splitBalls.find(s => !s.dead);
-    if (active) f = active;
-  }
-  if (f.skillUses.common <= 0 || f.timers.stun > 0) return false;
-  f.skillUses.common--;
-  b.setDir(f, ang);
-  f.pendingAim = false;
-  addFx(b, { type: 'ring', x: f.x, y: f.y, r0: f.radius, r1: f.radius + 40, color: '#ffd24d', dur: 0.3 });
-  popup(b, f.x, f.y - f.radius - 20, '방향 전환!', '#ffd24d');
-  return true;
-}
 
 /* ============================================================
  * 전투 AI

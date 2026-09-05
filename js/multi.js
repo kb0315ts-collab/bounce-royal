@@ -108,7 +108,6 @@ const Multi = {
       this.myGroup = this.groups.find(g => g.includes(net.seat)) || this.groups[0] || [];
       this.spectating = false;
       Game.state = 'battle';
-      banner('조이스틱을 당기세요', '당긴 방향 그대로 출발합니다', 1400);
       showScreen(null);
       hudVisible(true);
       updatePlayersPanel(this.panelState());
@@ -300,18 +299,16 @@ const Multi = {
       if (v.overtime) { timer.textContent = Math.max(0, v.otT).toFixed(1); timer.classList.add('ot'); tag.classList.add('on'); }
       else { timer.textContent = Math.max(0, BATTLE_TIME - v.simT).toFixed(1); timer.classList.remove('ot'); tag.classList.remove('on'); }
       timer.classList.remove('urgent');
-    } else if (v.phase === 'aim') {
-      timer.textContent = '조준';
-      timer.classList.remove('ot'); tag.classList.remove('on');
     } else {
       timer.textContent = BATTLE_TIME.toFixed(1);
       timer.classList.remove('ot', 'urgent'); tag.classList.remove('on');
     }
     updateSkillbar(v);
+    updateCountdown(v);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this.panelState());
     const me = v.human();
-    // 안내는 경기 시작 조준 단계에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (v.phase === 'aim' && me && !me.aimLocked) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
+    // 안내는 라운드 시작 카운트다운에만 띄운다. 전투 중에는 띄우지 않는다.
+    if (v.phase === 'count' && me) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
     else setHint(null);
     // 다른 전투 관전 전환
     this.offerSpectate();
