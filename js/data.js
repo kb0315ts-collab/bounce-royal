@@ -53,7 +53,7 @@ const CAT_TAGS = {
   streak:'승패 성장', coin:'코인', trade:'대가',
   physics:'물리 상호작용', cc:'이동 방해', auto:'자동 공격', summon:'소환수',
   death:'사망 관련', onhit:'타격/피격', skill:'스킬 강화', link:'빌드 연결',
-  weapon:'무기 전용', copy:'스킬 카피',
+  weapon:'무기 전용',
 };
 
 /* 증강 목록 — stackable:true 는 중복 획득 가능 */
@@ -87,7 +87,6 @@ const AUGMENTS = [
   // ---- 승패 기반 영구 성장 ----
   { id:'winMomentum',cat:'streak', name:'승자의 기세', desc:'승리할 때마다 공격력 +4% (게임 내 영구)' },
   { id:'bloodRush',  cat:'streak', name:'핏빛 질주', desc:'연승마다 공격력 +6%. 패배 시 연승 초기화' },
-  { id:'winAccel',   cat:'streak', name:'연승 가속', desc:'연승마다 이동속도 +5%. 패배 시 초기화' },
   { id:'vengeance',  cat:'streak', name:'복수심', desc:'패배할 때마다 공격력 +7%' },
   { id:'learnLoss',  cat:'streak', name:'패배에서 배운다', desc:'패배할 때마다 최대 체력 +8%' },
   { id:'survivor',   cat:'streak', name:'끈질긴 생존자', desc:'라운드 종료마다 최대 체력 +3%' },
@@ -104,7 +103,6 @@ const AUGMENTS = [
   { id:'brute',    cat:'trade', name:'괴력', desc:'공격력 +25% / 공격속도 -25%' },
   { id:'bloodWeapon',cat:'trade', name:'피의 무기', desc:'공격력 +30% / 전투 중 5초마다 현재 체력 5% 소모' },
   // ---- 물리 상호작용 ----
-  { id:'pinball',      cat:'physics', name:'핀볼', desc:'벽에 부딪힐 때마다 공격력 +4% (최대 10중첩). 무기 적중 시 초기화' },
   { id:'reflectCharge',cat:'physics', name:'반사 충전', desc:'벽 3회 접촉 후 다음 공격 피해 +30%' },
   { id:'wallClimb',    cat:'physics', name:'벽타기', desc:'벽 충돌 시 HP 1% 회복' },
   { id:'shockwave',    cat:'physics', name:'충격파', desc:'벽 충돌 시 주변에 피해 7의 충격파 발생' },
@@ -147,9 +145,6 @@ const AUGMENTS = [
   { id:'counter',    cat:'onhit', name:'반격', desc:'피해를 받은 뒤 다음 무기 공격 피해 +30%' },
   { id:'hitCharge',  cat:'onhit', name:'피격 충전', desc:'피해를 받을 때마다 모든 피해량 +3% (최대 5중첩)' },
   // ---- 스킬 강화 ----
-  { id:'battery',         cat:'skill', name:'추가 배터리', desc:'카피 스킬 사용 횟수 +1 (카피 스킬 보유 시에만 등장)' },
-  { id:'weaponMastery',   cat:'skill', name:'무기 숙련', desc:'무기 전용 스킬 사용 횟수 +1' },
-  { id:'talent',          cat:'skill', name:'타고난 재능', desc:'캐릭터 전용 스킬 사용 횟수 +1' },
   // ---- 빌드 연결 ----
   { id:'autoExpert', cat:'link', name:'자동화 전문가', desc:'쿨타임형 증강(미사일·표창·수면 가스·중력장) 쿨타임 -30%' },
   { id:'speedPower', cat:'link', name:'속도는 힘', desc:'추가 이동속도 +3%마다 모든 피해량 +1%' },
@@ -160,25 +155,19 @@ const AUGMENTS = [
   { id:'d_dual',  cat:'weapon', weapon:'dagger', name:'쌍단검', desc:'단검을 양손에 장착한다' },
   { id:'d_phase', cat:'weapon', weapon:'dagger', name:'유체화', desc:'공격 성공 후 1초간 공격받지 않는 상태가 된다' },
   { id:'d_bleed', cat:'weapon', weapon:'dagger', name:'출혈', desc:'적중할 때마다 영구 중첩. 1초마다 중첩 수만큼 고정 피해' },
-  { id:'b_triple',cat:'weapon', weapon:'bow', name:'트리플 샷', desc:'한 번의 공격에 화살 세 갈래' },
+  { id:'b_triple',cat:'weapon', weapon:'bow', name:'트리플 샷', desc:'화살이 세 갈래. 대신 발당 피해가 절반' },
   { id:'b_homing',cat:'weapon', weapon:'bow', name:'유도 화살', desc:'화살에 약한 유도 효과' },
   { id:'b_kb',    cat:'weapon', weapon:'bow', name:'넉백 화살', desc:'적중 시 상대를 살짝 밀어낸다 (진행 방향 유지)' },
-  { id:'p_dual',  cat:'weapon', weapon:'pistol', name:'쌍권총', desc:'권총을 양손에 장착해 서로 반대 방향으로 발사한다' },
+  { id:'p_shotgun',cat:'weapon', weapon:'pistol', name:'샷건', desc:'한 발씩 쏘지 않고 탄창을 모아 산탄으로 한 번에 뿌린다' },
   { id:'p_mag',   cat:'weapon', weapon:'pistol', name:'확장 탄창', desc:'한 번에 발사 가능한 탄환 수 증가 (+4)' },
   { id:'p_bayonet',cat:'weapon',weapon:'pistol', name:'총검술', desc:'재장전 동안 피해 15의 단검을 들고 근접 공격한다' },
-  { id:'s_triple',cat:'weapon', weapon:'staff', name:'삼중 마법', desc:'마법 투사체가 세 갈래로 발사된다' },
+  { id:'s_double',cat:'weapon', weapon:'staff', name:'이중 마법', desc:'마법 투사체가 양옆 두 갈래로 갈라져 나간다. 정면이 비어 똑바로 오는 상대는 놓칠 수 있다' },
   { id:'s_steal', cat:'weapon', weapon:'staff', name:'무기 강탈', desc:'마법 적중 시 상대 무기를 1초간 사용 불가' },
   { id:'s_bounce',cat:'weapon', weapon:'staff', name:'이중 반사', desc:'마법 투사체 벽 반사 +1회' },
   { id:'m_big',   cat:'weapon', weapon:'mine', name:'대형 지뢰', desc:'지뢰를 밟는 판정 범위와 폭발 피해 판정 범위 증가' },
   { id:'m_heal',  cat:'weapon', weapon:'mine', name:'회복 지뢰', desc:'자신이 지뢰를 밟으면 체력 8% 회복' },
   { id:'m_freeze',cat:'weapon', weapon:'mine', name:'빙결 지뢰', desc:'상대가 밟으면 2초간 이동속도·공격속도 대폭 감소' },
   // ---- 캐릭터 스킬 카피 ----
-  { id:'copy_cat', cat:'copy', charId:'cat', name:'고양이 발바닥의 기술', desc:'카피 스킬로 1초 후 경기장 중앙에 피해 24의 고양이 발바닥 낙하' },
-  { id:'copy_wak', cat:'copy', charId:'wak', name:'왁뿌볼의 기술', desc:'카피 스킬로 파괴 폭주 사용' },
-  { id:'copy_soft',cat:'copy', charId:'soft', name:'말랑이의 기술', desc:'카피 스킬로 2초간 모든 피해 무시' },
-  { id:'copy_bomb',cat:'copy', charId:'bomb', name:'폭탄의 기술', desc:'카피 스킬로 시한폭발 사용' },
-  { id:'copy_bball',cat:'copy',charId:'bball', name:'농구공의 기술', desc:'카피 스킬로 3바운드 사용' },
-  { id:'copy_balloon',cat:'copy',charId:'balloon', name:'풍선의 기술', desc:'카피 스킬로 팽창 사용' },
 ];
 
 const AUG_BY_ID = {};

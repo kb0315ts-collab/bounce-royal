@@ -355,8 +355,6 @@ function makePlayer(spec, index, weaponId) {
     coins: 5,
     coinsLost: 0,
     augments: [],
-    augmentBaselines: {},
-    copiedSkill: null,
     gamble: false,
     trollCondition: false,
     damageRewardMult: 1,
@@ -547,7 +545,7 @@ const Game = {
       players.push({
         id: 100 + i, name: pick(AI_NAMES), isAI: true, color: colors[i],
         charId: pick(Object.keys(CHARACTERS)), weaponId: pick(Object.keys(WEAPONS)),
-        coins: 5, coinsLost: 0, augments: [], augmentBaselines: {}, copiedSkill: null,
+        coins: 5, coinsLost: 0, augments: [],
         wins: 0, losses: 0, streak: 0, rounds: 0, totalDmg: 0,
       });
     }
@@ -1041,19 +1039,24 @@ const Game = {
 
   /* ---------------- 입력 ----------------
    * 이동 조이스틱은 아래 입력 바인딩에서 조향만 맡는다.
-   * 공용 슬롯은 캐릭터 스킬을 복사한 경우에만 일반 스킬 버튼으로 남는다. */
+   * 스킬은 캐릭터·무기 두 칸으로 고정이다. */
   pressSkill(slot) {
-    if (slot === 'common') {
-      const fighter = this.mode === 'multi'
-        ? BounceRoyalMulti?.view?.human?.()
-        : this.focus?.human?.();
-      if (!fighter?.player?.copiedSkill) return;
-    }
     if (this.mode === 'multi') { BounceRoyalMulti.sendSkill(slot); SFX.ui(); return; }
     if (this.state !== 'battle' || !this.focus) return;
     const b = this.focus, h = b.human();
     if (!h) return;
     useSkill(b, h, slot);
+  },
+
+  /* 활 차지 샷만은 누르는 동안 모으고 떼는 순간 나간다.
+   * 다른 무기는 뗄 때 할 일이 없다 — 여기서 걸러야 사용 횟수가 헛되이 나간다. */
+  releaseSkill(slot) {
+    if (slot !== 'weapon') return;
+    const fighter = this.mode === 'multi'
+      ? BounceRoyalMulti?.view?.human?.()
+      : this.focus?.human?.();
+    if (!fighter || fighter.weaponId !== 'bow' || !fighter.charging) return;
+    this.pressSkill(slot);
   },
 };
 
@@ -1063,12 +1066,12 @@ const Game = {
  * ============================================================ */
 const TITLE_RECORDING_MODE = new URLSearchParams(location.search).get('recordTitle') === '1';
 const TITLE_RECORDING_SCENARIOS = [
-  [['cat','sword',['s_beam','s_giant']],['wak','dagger',['d_dual','d_bleed']],['soft','pistol',['p_dual','p_mag']],['bomb','staff',['s_triple','s_bounce']]],
-  [['balloon','bow',['b_triple','b_homing']],['bball','mine',['m_big','m_freeze']],['cat','staff',['s_triple','s_steal']],['wak','pistol',['p_dual','p_bayonet']]],
-  [['bomb','mine',['m_big','missile','missilePlus']],['soft','bow',['b_triple','shuriken']],['balloon','sword',['s_beam','satellite']],['bball','staff',['s_triple','lightning']]],
-  [['wak','pistol',['p_dual','p_mag','flame']],['cat','bow',['b_triple','b_homing']],['bomb','dagger',['d_dual','d_phase']],['soft','mine',['m_big','m_heal']]],
-  [['bball','sword',['s_beam','desperateSpin']],['balloon','staff',['s_triple','s_bounce']],['wak','mine',['m_big','missile']],['cat','pistol',['p_dual','satellite']]],
-  [['soft','dagger',['d_dual','d_bleed']],['bomb','bow',['b_triple','b_kb']],['bball','pistol',['p_dual','p_bayonet']],['balloon','mine',['m_big','flame']]],
+  [['cat','sword',['s_beam','s_giant']],['wak','dagger',['d_dual','d_bleed']],['soft','pistol',['p_shotgun','p_mag']],['bomb','staff',['s_double','s_bounce']]],
+  [['balloon','bow',['b_triple','b_homing']],['bball','mine',['m_big','m_freeze']],['cat','staff',['s_double','s_steal']],['wak','pistol',['p_shotgun','p_bayonet']]],
+  [['bomb','mine',['m_big','missile','missilePlus']],['soft','bow',['b_triple','shuriken']],['balloon','sword',['s_beam','satellite']],['bball','staff',['s_double','lightning']]],
+  [['wak','pistol',['p_shotgun','p_mag','flame']],['cat','bow',['b_triple','b_homing']],['bomb','dagger',['d_dual','d_phase']],['soft','mine',['m_big','m_heal']]],
+  [['bball','sword',['s_beam','desperateSpin']],['balloon','staff',['s_double','s_bounce']],['wak','mine',['m_big','missile']],['cat','pistol',['p_shotgun','satellite']]],
+  [['soft','dagger',['d_dual','d_bleed']],['bomb','bow',['b_triple','b_kb']],['bball','pistol',['p_shotgun','p_bayonet']],['balloon','mine',['m_big','flame']]],
 ];
 
 function setupTitleRecording() {
@@ -1088,7 +1091,7 @@ function setupTitleRecording() {
     const scenario = TITLE_RECORDING_SCENARIOS[scenarioIndex++ % TITLE_RECORDING_SCENARIOS.length];
     const players = scenario.map(([charId, weaponId, augments], i) => ({
       id: 900 + i, name: `DEMO ${i + 1}`, isAI: true, color: colors[i], charId, weaponId,
-      coins: 5, coinsLost: 0, augments: augments.slice(), augmentBaselines: {}, copiedSkill: null,
+      coins: 5, coinsLost: 0, augments: augments.slice(),
       gamble: false, trollCondition: false, damageRewardMult: 1,
       wins: 0, losses: 0, streak: 0, rounds: 0, totalDmg: 0,
     }));
@@ -1142,9 +1145,22 @@ function bindPress(ids, handler) {
 }
 
 bindPress('sk-char', () => Game.pressSkill('char'));
-bindPress('sk-weapon', () => Game.pressSkill('weapon'));
 
-bindPress('sk-common', () => Game.pressSkill('common'));
+/* 차지를 시작한 그 손가락만 발사한다. 창 전체에서 듣지 않으면 버튼 밖에서
+ * 손을 떼었을 때 영영 안 나가고, 아무 포인터나 들으면 조이스틱을 놓을 때
+ * 엉뚱하게 발사된다. */
+let chargePointer = null;
+bindPress('sk-weapon', event => {
+  Game.pressSkill('weapon');
+  chargePointer = event && event.pointerId != null ? event.pointerId : null;
+});
+const endCharge = event => {
+  if (chargePointer === null || event.pointerId !== chargePointer) return;
+  chargePointer = null;
+  Game.releaseSkill('weapon');
+};
+window.addEventListener('pointerup', endCharge);
+window.addEventListener('pointercancel', endCharge);
 
 /* ============================================================
  * 이동 조이스틱
@@ -1322,10 +1338,6 @@ window.BounceRoyalClearSteerInput = () => SteeringJoystick?.cancel();
 window.addEventListener('keydown', e => {
   if (e.key === '1') Game.pressSkill('char');
   if (e.key === '2') Game.pressSkill('weapon');
-  if (e.key === '3') {
-    const fighter = Game.mode === 'multi' ? BounceRoyalMulti?.view?.human?.() : Game.focus?.human?.();
-    if (fighter?.player?.copiedSkill) Game.pressSkill('common');
-  }
 });
 
 function syncSoundUI() {
@@ -1670,7 +1682,7 @@ window.__autotest = function (n = 10) {
         state.players.push({
           id: i, name: names[i], isAI: true, color: AI_COLORS[i % 3],
           charId: pick(Object.keys(CHARACTERS)), weaponId: pick(Object.keys(WEAPONS)),
-          coins: 5, coinsLost: 0, augments: [], augmentBaselines: {}, copiedSkill: null,
+          coins: 5, coinsLost: 0, augments: [],
           gamble: false, trollCondition: false, damageRewardMult: 1,
           wins: 0, losses: 0, streak: 0, rounds: 0, eliminated: false, totalDmg: 0,
         });

@@ -67,9 +67,9 @@ class Room {
       charId: core.CHARACTERS[seat.charId] ? seat.charId : core.pick(Object.keys(core.CHARACTERS)),
       weaponId: null,
       coins: 5, coinsLost: 0,
-      augments: [], augmentBaselines: {}, copiedSkill: null,
+      augments: [],
       gamble: false, trollCondition: false, damageRewardMult: 1,
-      wins: 0, losses: 0, streak: 0, rounds: 0,
+      wins: 0, losses: 0, streak: 0, lossStreak: 0, rounds: 0,
       eliminated: false, elimOrder: 0, rank: 0, totalDmg: 0,
       spectate: null,                              // 관전 중인 전투 번호 (내 전투가 끝난 뒤에만)
     }));
@@ -100,6 +100,7 @@ class Room {
       id: p.id, name: p.name, isAI: p.isAI, color: p.color,
       charId: p.charId, weaponId: p.weaponId, coins: p.coins,
       eliminated: p.eliminated, augments: p.augments.slice(),
+      streak: p.streak || 0, lossStreak: p.lossStreak || 0,
       human: p.human, disconnected: !!p.droppedAt,
     }));
   }
@@ -231,7 +232,7 @@ class Room {
   }
   onSkill(player, slot) {
     const b = this.battleOf(player), f = this.fighterOf(player);
-    if (!b || !f || !['char', 'weapon', 'common'].includes(slot)) return;
+    if (!b || !f || !['char', 'weapon'].includes(slot)) return;
     core.useSkill(b, f, slot);
   }
 

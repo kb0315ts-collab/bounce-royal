@@ -481,10 +481,9 @@ function drawWeaponG(g, f) {
         g.fillStyle(0xffdc6e, 0.9);
         g.fillCircle(R * 0.6 + 34, 0, 9);
       }
-      if (f.flags.dualPistol) {
-        g.save(); g.rotateCanvas(Math.PI);
-        g.fillStyle(0x3a4258, 1); g.fillRect(R * 0.6, -5, 30, 10);
-        g.restore();
+      if (f.flags.shotgun) {
+        g.fillStyle(0x3a4258, 1); g.fillRect(R * 0.6 + 12, -8, 22, 16);
+        g.fillStyle(0x8a94ad, 1); g.fillRect(R * 0.6 + 30, -7, 5, 14);
       }
       break;
     }
@@ -918,10 +917,11 @@ function drawWeapon(c, f) {
         c.beginPath();
         c.arc(R * 0.6 + 34, 0, 9, 0, TAU); c.fill();
       }
-      if (f.flags.dualPistol) {
-        c.rotate(Math.PI);
+      if (f.flags.shotgun) {
         c.fillStyle = '#3a4258';
-        c.fillRect(R * 0.6, -5, 30, 10);
+        c.fillRect(R * 0.6 + 12, -8, 22, 16);
+        c.fillStyle = '#8a94ad';
+        c.fillRect(R * 0.6 + 30, -7, 5, 14);
       }
       break;
     }

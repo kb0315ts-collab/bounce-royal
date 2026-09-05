@@ -827,10 +827,19 @@ function updatePlayersPanel(game) {
     el.type = 'button'; el.className = `prow${p === game.human ? ' me' : ''}${p.eliminated ? ' dead eliminated' : ''}`;
     el.dataset.playerId = String(p.id);
     el.title = status;
-    el.innerHTML = `<div class="portrait"><span class="coin-rank">${index + 1}</span><span class="hud-status">${playerStatusIcon(status)}</span><canvas aria-hidden="true"></canvas></div><div class="hud-name"><span>${esc(p.name)}${p === game.human ? ' · 나' : ''}</span><span class="hud-coins">🪙${Math.max(0,p.coins || 0)}</span></div>`;
+    el.innerHTML = `<div class="portrait"><span class="coin-rank">${index + 1}</span><span class="hud-status">${playerStatusIcon(status)}</span><span class="hud-streak">${streakLabel(p)}</span><canvas aria-hidden="true"></canvas></div><div class="hud-name"><span>${esc(p.name)}${p === game.human ? ' · 나' : ''}</span><span class="hud-coins">🪙${Math.max(0,p.coins || 0)}</span></div>`;
     el.onclick = () => showPlayerDetail(p); box.appendChild(el);
     paintPortrait(el.querySelector('canvas'), p.charId, p.weaponId, p.color);
   });
+}
+
+/* 몇 연승·연패 중인지. 핏빛 질주·승자의 기세가 지금 연승에 그대로 걸리므로
+ * 이 숫자가 곧 그 증강의 세기다. */
+function streakLabel(p) {
+  const win = Math.max(0, p?.streak || 0), lose = Math.max(0, p?.lossStreak || 0);
+  if (win > 0) return '<b class="win">' + win + '연승</b>';
+  if (lose > 0) return '<b class="lose">' + lose + '연패</b>';
+  return '';
 }
 
 function updatePlayerStatuses(game) {
@@ -841,6 +850,8 @@ function updatePlayerStatuses(game) {
     const status = playerStatus(p, game);
     const icon = el.querySelector('.hud-status');
     if (icon) icon.textContent = playerStatusIcon(status);
+    const streak = el.querySelector('.hud-streak');
+    if (streak) streak.innerHTML = streakLabel(p);
     el.title = status;
     el.classList.toggle('dead', status === '탈락' || status === '전투 종료');
     el.classList.toggle('eliminated', status === '탈락');
@@ -866,20 +877,12 @@ function showViewOtherBattle(visible, onClick, label = '👁 다른 전투 보�
 function skillSlotInfo(fighter, slot) {
   if (!fighter) return null;
   const weapon = WEAPONS[fighter.weaponId];
-  let name, icon, uses = fighter.skillUses?.[slot] || 0, max = 1;
-  if (slot === 'char') {
-    name = CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬'; icon = SKILL_ICONS[fighter.charId];
-    max += fighter.flags?.talent ? 1 : 0;
-  } else if (slot === 'weapon') {
-    name = weapon?.skillName || '무기 스킬'; icon = SKILL_ICONS[fighter.weaponId];
-    max += fighter.flags?.weaponMastery ? 1 : 0;
-  } else {
-    const copied = fighter.player?.copiedSkill;
-    if (!copied) return null;
-    name = CHARACTERS[copied]?.skillName || '복사 스킬'; icon = SKILL_ICONS[copied];
-    max += fighter.flags?.battery ? 1 : 0;
-  }
-  return { name, icon:icon || '◆', uses, max };
+  const uses = fighter.skillUses?.[slot] || 0;
+  const name = slot === 'char'
+    ? (CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬')
+    : (weapon?.skillName || '무기 스킬');
+  const icon = SKILL_ICONS[slot === 'char' ? fighter.charId : fighter.weaponId];
+  return { name, icon: icon || '◆', uses, max: 1 };
 }
 function updateSteerControl(battle, fighter) {
   const control = $('steer-control'), label = $('steer-label');
@@ -936,13 +939,9 @@ function updateSkillbar(battle) {
   const usable = hasControllableBody && !(fighter.timers?.stun > 0);
   const canAct = usable && battle.phase === 'fight';
   updateSteerControl(battle, fighter);
-  [['char','sk-char'],['weapon','sk-weapon'],['common','sk-common']].forEach(([slot,id]) => {
+  [['char','sk-char'],['weapon','sk-weapon']].forEach(([slot,id]) => {
     const el = $(id); if (!el) return;
     if (!fighter) { el.style.display = 'none'; return; }
-    // 방향 전환 버튼은 제거됐다. 공용 슬롯은 캐릭터 스킬을 복사한 경우에만 보인다.
-    if (slot === 'common' && !fighter.player?.copiedSkill) {
-      el.style.display = 'none'; el.hidden = true; return;
-    }
     el.style.display = '';
     el.hidden = false;
     const info = skillSlotInfo(fighter, slot), charging = slot === 'weapon' && fighter.charging;

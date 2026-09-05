@@ -60,12 +60,18 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval, WEAPONS.mine.maxMines], [10, 3, 5]);
 });
 
-test('정리된 기획 증강 104종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
-  assert.equal(AUGMENTS.length, 104);
-  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 104);
+test('정리된 기획 증강 93종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
+  assert.equal(AUGMENTS.length, 93);
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 93);
+  // 새로 들어온 것과 이름이 바뀐 것
+  for (const id of ['p_shotgun', 's_double']) assert.ok(AUG_BY_ID[id], id);
   for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas',
     'berserker', 'desperateSpin', 'brink', 'autoExpert']) assert.ok(AUG_BY_ID[id], id);
   for (const id of ['motionSickness',
+    // 스킬 슬롯을 둘로 고정하며 카피 계열과 사용 횟수 증강을 통째로 뺐다
+    'copy_cat', 'copy_wak', 'copy_soft', 'copy_bomb', 'copy_bball', 'copy_balloon',
+    'battery', 'weaponMastery', 'talent',
+    'p_dual', 's_triple', 'pinball', 'winAccel',
     'crit', 'lateFocus', 'slowStart', 'bloodThirst', 'coinHeal', 'phoenix', 'hastePact',
     'equalTrade', 'rotFreak', 'tank', 'berserkEngine', 'collisionGuard', 'cycler', 'pushAug', 'stickyTrail',
     'sacrifice', 'deathBoom', 'revengeSpeed', 'multiSystem', 'overHeal', 'rotPower', 'w_guard', 'powerReward']) {
@@ -96,13 +102,15 @@ test('투사체가 메인 공의 radius를 사용해 실제 피해를 준다', (
   assert.equal(b.projectiles.length, 0);
 });
 
-test('활 차지 샷은 1초 충전 후 두 번째 입력에만 횟수를 소비한다', () => {
+/* 누르면 모으고 떼면 나간다. 최소 0.2초는 모아야 발사된다 —
+ * 그 전에 떼면 아무 일도 없고 횟수도 그대로다. */
+test('활 차지 샷은 0.2초를 모아야 나가고 그때 횟수를 쓴다', () => {
   const b = makeBattle({ weaponId: 'bow' });
   const f = b.fighters[0];
-  assert.equal(useSkill(b, f, 'weapon'), true);
-  assert.equal(f.skillUses.weapon, 1);
-  updateTimers(b, f, 0.99);
-  assert.equal(useSkill(b, f, 'weapon'), false);
+  assert.equal(useSkill(b, f, 'weapon'), true, '누르면 충전이 시작된다');
+  assert.equal(f.skillUses.weapon, 1, '충전만으로는 횟수를 쓰지 않는다');
+  updateTimers(b, f, 0.19);
+  assert.equal(useSkill(b, f, 'weapon'), false, '0.2초를 못 모으고 떼면 안 나간다');
   assert.equal(f.skillUses.weapon, 1);
   updateTimers(b, f, 0.02);
   assert.equal(useSkill(b, f, 'weapon'), true);
@@ -214,7 +222,7 @@ test('믹서기는 정확히 두 바퀴 돌며 검기 시너지를 두 번 발�
     computeStats(f);
     updateWeapon(b, f, 1 / 60);
   }
-  assert.ok(guard >= 71 && guard <= 73, '두 바퀴는 약 1.2초여야 한다 (실제 ' + guard + '틱)');
+  assert.ok(guard >= 59 && guard <= 62, '두 바퀴는 약 1초여야 한다 (실제 ' + guard + '틱)');
   assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9,
     '두 바퀴를 돌면 제자리로 돌아와야 한다');
   const beams = b.projectiles.filter(p => p.kind === 'beam');
@@ -285,7 +293,8 @@ test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용�
   const archer = spreadBattle.fighters[0];
   fireBow(spreadBattle, archer);
   assert.equal(spreadBattle.projectiles.length, 3);
-  assert.ok(spreadBattle.projectiles.every(p => p.dmg === WEAPONS.bow.dmg));
+  assert.ok(spreadBattle.projectiles.every(p => p.dmg === WEAPONS.bow.dmg * 0.5),
+    '트리플 샷은 갈래가 셋인 대신 발당 피해가 절반이다');
 });
 
 test('팽창은 권총탄·검기·지뢰의 외형과 판정을 함께 키운다', () => {
@@ -309,26 +318,33 @@ test('팽창은 권총탄·검기·지뢰의 외형과 판정을 함께 키운�
   assert.equal(mine.dmg, WEAPONS.mine.dmg);
 });
 
-test('핏빛 질주는 기존 연승을 포함하고 다른 성장 증강은 획득 후 기록만 센다', () => {
+/* 누적형은 '먹은 뒤로 쌓은 것'만 세던 탓에, 늦게 집으면 아무 효과가 없었다.
+ * 이제 지금 들고 있는 전적을 그대로 본다 — 8라운드째 집어도 제값을 한다. */
+test('누적 성장 증강은 먹기 전 전적까지 그대로 센다', () => {
   const p = makePlayer({ wins: 3, losses: 2, streak: 3, rounds: 5, coinsLost: 2 });
-  applyAugmentPick(p, AUG_BY_ID.winMomentum);
-  applyAugmentPick(p, AUG_BY_ID.bloodRush);
-  applyAugmentPick(p, AUG_BY_ID.seasonedExp);
-  applyAugmentPick(p, AUG_BY_ID.fallenPower);
+  applyAugmentPick(p, AUG_BY_ID.winMomentum);   // 승리마다 공격력 +4%
+  applyAugmentPick(p, AUG_BY_ID.bloodRush);     // 연승마다 공격력 +6%
+  applyAugmentPick(p, AUG_BY_ID.seasonedExp);   // 라운드마다 공격력 +3%
+  applyAugmentPick(p, AUG_BY_ID.fallenPower);   // 코인을 잃을 때마다 피해량 +5%
   let b = new Battle('square', [p, makePlayer({ isAI: true })]);
   let f = b.fighters[0];
-  assert.ok(Math.abs(f.perm.atk - 1.18) < 1e-9, '기존 3연승을 즉시 포함해야 한다');
-  assert.equal(f.perm.dmg, 1);
+  assert.ok(Math.abs(f.perm.atk - 1.12 * 1.18 * 1.15) < 1e-9,
+    '3승 · 3연승 · 5라운드를 집는 순간부터 쳐야 한다 (실제 ' + f.perm.atk + ')');
+  assert.ok(Math.abs(f.perm.dmg - 1.10) < 1e-9, '이미 잃은 코인 2개도 센다');
+
   p.wins++; p.streak++; p.rounds++; p.coinsLost++;
   b = new Battle('square', [p, makePlayer({ isAI: true })]);
   f = b.fighters[0];
-  assert.ok(Math.abs(f.perm.atk - 1.04 * 1.24 * 1.03) < 1e-9);
-  assert.equal(f.perm.dmg, 1.05);
+  assert.ok(Math.abs(f.perm.atk - 1.16 * 1.24 * 1.18) < 1e-9);
+  assert.ok(Math.abs(f.perm.dmg - 1.15) < 1e-9);
+
+  // 패배하면 연승만 끊긴다. 총 승수와 라운드 수는 그대로 남는다.
   p.losses++; p.streak = 0;
   p.wins++; p.streak = 1;
   b = new Battle('square', [p, makePlayer({ isAI: true })]);
   f = b.fighters[0];
-  assert.ok(Math.abs(f.perm.atk - 1.08 * 1.06 * 1.03) < 1e-9);
+  assert.ok(Math.abs(f.perm.atk - 1.20 * 1.06 * 1.18) < 1e-9,
+    '연승은 1로 줄지만 5승 · 6라운드는 유지된다 (실제 ' + f.perm.atk + ')');
 });
 
 test('변경된 조건부 증강 수치와 코인 증강 상태가 정확히 적용된다', () => {
@@ -435,17 +451,6 @@ test('자동 공격·소환수·유체화·반사 충전의 변경 수치가 적
   assert.ok(Math.abs(before - reflectTarget.hp - 13) < 1e-9);
 });
 
-test('고양이 발바닥 카피는 1초 후 중앙에 피해 24를 준다', () => {
-  const b = makeBattle({ copiedSkill: 'cat' });
-  const [f, e] = b.fighters;
-  computeStats(f); computeStats(e); e.x = e.y = 0;
-  const before = e.hp;
-  assert.equal(useSkill(b, f, 'common'), true);
-  assert.equal(f.timers.pawDrop, 1);
-  updateTimers(b, f, 1.01);
-  assert.equal(before - e.hp, 24);
-});
-
 test('파괴 폭주의 5초 후 약화는 전투가 끝날 때까지 유지된다', () => {
   const b = makeBattle({ charId: 'wak' });
   const f = b.fighters[0];
@@ -518,7 +523,7 @@ test('꼬마볼은 적을 추적하지 않고 직진·벽 반사하며 우연히
 });
 
 test('분열은 같은 캐릭터·무기·증강 빌드의 공 둘을 10% 체력과 절반 공격력으로 만든다', () => {
-  const augments = ['split', 'atk15', 'p_dual', 'missile'];
+  const augments = ['split', 'atk15', 'p_shotgun', 'missile'];
   const b = makeBattle({ charId: 'balloon', weaponId: 'pistol', augments });
   const [f, e] = b.fighters;
   computeStats(f); computeStats(e);
@@ -551,9 +556,9 @@ test('분열은 같은 캐릭터·무기·증강 빌드의 공 둘을 10% 체력
   b.projectiles.length = 0;
   firstClone.gun.reloadT = 0;
   firstClone.gun.shotT = 0.001;
-  firstClone.gun.burst = Math.max(1, firstClone.gun.burst);
+  firstClone.gun.burst = 2;                     // 샷건은 남은 탄창을 한 번에 뿌린다
   updateWeapon(b, firstClone, 0.01);
-  assert.equal(b.projectiles.length, 2, '분열체도 실제 무기 업데이트로 쌍권총을 발사해야 한다');
+  assert.equal(b.projectiles.length, 2, '분열체도 실제 무기 업데이트로 샷건을 뿌려야 한다');
   assert.ok(b.projectiles.every(p => p.owner === firstClone), '분열체가 만든 탄환은 분열체를 소유자로 기록해야 한다');
 
   e.x = 300; e.y = 300;
@@ -585,19 +590,29 @@ test('분열은 같은 캐릭터·무기·증강 빌드의 공 둘을 10% 체력
   assert.equal(b.result.winner, e, '마지막 분열체 사망 시 상대 승리로 전투가 끝나야 한다');
 });
 
-test('쌍권총은 같은 방향의 두 발이 아니라 정확히 서로 반대 방향으로 한 발씩 쏜다', () => {
-  const b = makeBattle({ weaponId: 'pistol', augments: ['p_dual'] });
+/* 샷건 — 쫓아가며 한 발씩 맞히는 대신 남은 탄창을 한순간에 건다.
+ * 빗나가면 통째로 빗나간다. */
+test('샷건은 남은 탄창을 부채꼴로 한 번에 뿌리고 곧바로 재장전한다', () => {
+  const b = makeBattle({ weaponId: 'pistol', augments: ['p_shotgun'] });
   const f = b.fighters[0];
+  computeStats(f);
   f.weaponAngle = 0.37;
-  fireGun(b, f);
+  f.gun.reloadT = 0; f.gun.burst = 5; f.gun.shotT = 0.001;
+  updateWeapon(b, f, 0.01);
 
-  assert.equal(b.projectiles.length, 2);
-  assert.ok(b.projectiles.every(p => p.dmg === WEAPONS.pistol.dmg));
-  const [front, back] = b.projectiles;
-  const dot = front.vx * back.vx + front.vy * back.vy;
-  assert.ok(Math.abs(dot + 1) < 1e-9, '두 탄환의 진행 방향은 180도 반대여야 한다');
-  assert.ok(Math.abs((front.x - f.x) + (back.x - f.x)) < 1e-9);
-  assert.ok(Math.abs((front.y - f.y) + (back.y - f.y)) < 1e-9);
+  assert.equal(b.projectiles.length, 5, '남은 탄창 수만큼 한 번에 나가야 한다');
+  assert.equal(f.gun.burst, 0, '한 번에 다 썼으니 탄창이 비어야 한다');
+  assert.ok(f.gun.reloadT > 0, '쏘자마자 재장전에 들어가야 한다');
+  assert.ok(b.projectiles.every(p => p.dmg === WEAPONS.pistol.dmg), '발당 피해는 그대로다');
+
+  const offs = b.projectiles.map(p => {
+    let d = Math.atan2(p.vy, p.vx) - f.weaponAngle;
+    while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+    return d;
+  });
+  assert.ok(Math.min(...offs) < -0.15 && Math.max(...offs) > 0.15,
+    '겨눈 방향을 가운데 두고 좌우로 갈라져야 한다 (실제 ' + offs.map(o => o.toFixed(2)).join(', ') + ')');
+  assert.ok(offs.every(o => Math.abs(o) < 0.35), '부채꼴이 지나치게 벌어지면 안 된다');
 });
 
 test('지팡이 투사체와 지뢰는 같은 종류끼리도 소유자를 확실히 구분할 수 있다', () => {
@@ -1172,7 +1187,7 @@ test('로켓·돌진·스턴·속박 중에는 조향이 진행 방향에 개입
 test('AI도 순간 방향전환 없이 0.4~0.7초마다 불완전한 조향 목표만 갱신한다', () => {
   const b = makeBattle({}, { weaponId: 'sword', isAI: true });
   const ai = b.fighters[1];
-  assert.equal(ai.skillUses.common, 0, '카피 없는 AI에게 삭제된 방향전환 횟수가 남으면 안 된다');
+  assert.equal(ai.skillUses.common, undefined, '스킬 칸은 캐릭터·무기 둘뿐이다');
   ai.vx = -1; ai.vy = 0; ai.aiSteerT = 0;
   const beforeX = ai.vx, beforeY = ai.vy;
   aiUpdate(b, ai, 1 / 60);
@@ -1185,15 +1200,19 @@ test('AI도 순간 방향전환 없이 0.4~0.7초마다 불완전한 조향 목�
     'AI 조향 판단 간격은 0.4~0.7초여야 한다');
 });
 
-test('추가 배터리와 공용 스킬 횟수는 카피 스킬이 있을 때만 생긴다', () => {
-  const noCopy = makePlayer({ augments: ['battery'] });
-  assert.equal(augEligible(AUG_BY_ID.battery, noCopy), false);
-  const copiedCandidate = makePlayer({ copiedSkill: 'cat' });
-  assert.equal(augEligible(AUG_BY_ID.battery, copiedCandidate), true);
-  const copied = makePlayer({ copiedSkill: 'cat', augments: ['battery'] });
-  const b = new Battle('square', [noCopy, copied]);
-  assert.equal(b.fighters[0].skillUses.common, 0);
-  assert.equal(b.fighters[1].skillUses.common, 2);
+/* 카피 계열과 사용 횟수 증강을 통째로 걷어냈다.
+ * 스킬은 캐릭터·무기 두 칸에 한 번씩으로 고정이다. */
+test('스킬은 캐릭터·무기 두 칸에 한 번씩으로 고정이다', () => {
+  const p = makePlayer({ augments: ['hp15', 'atk15'] });
+  const b = new Battle('square', [p, makePlayer({ isAI: true })]);
+  b.phase = 'fight';
+  const f = b.fighters[0];
+  assert.deepEqual(Object.keys(f.skillUses).sort(), ['char', 'weapon']);
+  assert.equal(f.skillUses.char, 1);
+  assert.equal(f.skillUses.weapon, 1);
+  assert.equal(useSkill(b, f, 'common'), false, '없는 칸은 눌러도 아무 일이 없어야 한다');
+  assert.equal(f.skillUses.weapon, 1, '없는 칸이 무기 스킬을 대신 써 버리면 안 된다');
+  assert.equal(b.projectiles.length, 0);
 });
 
 
@@ -1210,7 +1229,7 @@ test('AI 증강 선택은 실측 성향과 그 판의 사정을 함께 본다', 
   const base = { augments: [], coins: 5, coinsLost: 0, rounds: 1 };
 
   // 무기 전용은 실측 승률이 압도적이다. 나오면 대부분 집어야 한다.
-  const w = pick(['w_giant', 'winMomentum', 'copy_cat'], { ...base, weaponId: 'sword' });
+  const w = pick(['w_giant', 'winMomentum', 'battleExp'], { ...base, weaponId: 'sword' });
   assert.ok(w.w_giant > w.winMomentum * 2, '무기 전용을 확실히 선호해야 한다 (실제 ' + JSON.stringify(w) + ')');
 
   // 코인이 곧 목숨이다. 여유가 없으면 코인을 거는 증강을 피한다.
@@ -1300,6 +1319,42 @@ test('맞을 때 진동은 피해량에 비례하고 스냅샷에 실릴 만큼 
   dealDamage(b, a, t, 3, {});
   assert.ok(b.shake >= 14,
     '작은 피격이 큰 흔들림을 깎으면 안 된다 (실제 ' + b.shake.toFixed(1) + ')');
+});
+
+/* 이중 마법 — 정면을 비우고 양옆으로 갈라진다. 똑바로 굴러오는 상대는
+ * 두 발 다 비껴갈 수 있다는 게 이 증강의 값이자 위험이다. */
+test('이중 마법은 정면을 비우고 양옆 두 갈래로 나간다', () => {
+  const b = makeBattle({ weaponId: 'staff', augments: ['s_double'] });
+  const f = b.fighters[0];
+  f.weaponAngle = 0.4;
+  fireStaff(b, f);
+  assert.equal(b.projectiles.length, 2, '두 갈래여야 한다');
+  const offs = b.projectiles.map(p => {
+    let d = Math.atan2(p.vy, p.vx) - f.weaponAngle;
+    while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+    return d;
+  }).sort((x, y) => x - y);
+  assert.ok(offs[0] < -0.1 && offs[1] > 0.1,
+    '좌우로 갈라져야 한다 (실제 ' + offs.map(o => o.toFixed(2)).join(', ') + ')');
+  assert.ok(!offs.some(o => Math.abs(o) < 1e-6), '정면으로 곧장 가는 발이 있으면 안 된다');
+  assert.ok(b.projectiles.every(p => p.dmg === WEAPONS.staff.dmg), '발당 피해는 그대로다');
+});
+
+/* 몇 연승·연패 중인지 화면에 띄우려면 셈이 있어야 한다.
+ * 핏빛 질주가 지금 연승에 그대로 걸리므로 이 숫자가 곧 그 증강의 세기다. */
+test('연승과 연패를 따로 센다', () => {
+  const p = makePlayer({});
+  winRound(p); winRound(p);
+  assert.equal(p.streak, 2);
+  assert.equal(p.lossStreak, 0);
+  loseCoin(p);
+  assert.equal(p.streak, 0, '지면 연승이 끊긴다');
+  assert.equal(p.lossStreak, 1);
+  loseCoin(p);
+  assert.equal(p.lossStreak, 2, '연패가 쌓여야 한다');
+  winRound(p);
+  assert.equal(p.streak, 1);
+  assert.equal(p.lossStreak, 0, '이기면 연패가 끊긴다');
 });
 
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');

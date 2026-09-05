@@ -275,12 +275,10 @@ class Arena {
  * ============================================================ */
 function applyAugmentBattle(f, id, player) {
   const P = f.perm, Fl = f.flags;
-  const baseline = player.augmentBaselines && player.augmentBaselines[id];
-  const gained = key => Math.max(0, (player[key] || 0) - (baseline ? baseline[key] || 0 : 0));
-  const streakGained = () => {
-    if (!baseline) return player.streak || 0;
-    return player.losses === baseline.losses ? Math.max(0, player.streak - baseline.streak) : player.streak;
-  };
+  /* 누적형은 '먹은 뒤로 쌓은 것'만 세던 탓에, 늦게 집으면 아무 효과가 없었다.
+   * 지금 들고 있는 연승·전적을 그대로 본다. */
+  const gained = key => Math.max(0, player[key] || 0);
+  const streakGained = () => Math.max(0, player.streak || 0);
   switch (id) {
     case 'hp15': P.hp *= 1.15; break;
     case 'atk15': P.atk *= 1.15; break;
@@ -298,7 +296,6 @@ function applyAugmentBattle(f, id, player) {
     case 'survivalInstinct': Fl[id] = 1; break;
     case 'winMomentum': P.atk *= 1 + 0.04 * gained('wins'); break;
     case 'bloodRush': P.atk *= 1 + 0.06 * streakGained(); break;
-    case 'winAccel': P.move *= 1 + 0.05 * streakGained(); break;
     case 'vengeance': P.atk *= 1 + 0.07 * gained('losses'); break;
     case 'learnLoss': P.hp *= 1 + 0.08 * gained('losses'); break;
     case 'survivor': P.hp *= 1 + 0.03 * gained('rounds'); break;
@@ -312,7 +309,7 @@ function applyAugmentBattle(f, id, player) {
     case 'glass': P.atk *= 1.2; P.hp *= 0.85; break;
     case 'brute': P.atk *= 1.25; P.aspd *= 0.75; break;
     case 'bloodWeapon': P.atk *= 1.3; Fl.bloodWeapon = 1; break;
-    case 'pinball': case 'reflectCharge': case 'wallClimb': case 'shockwave':
+    case 'reflectCharge': case 'wallClimb': case 'shockwave':
     case 'collisionMania':
     case 'staticShock': case 'staticUp': case 'staticFast':
     case 'sleepGas': case 'frost': case 'gravityWell':
@@ -325,7 +322,6 @@ function applyAugmentBattle(f, id, player) {
     case 'split': case 'lastStand':
     case 'warmonger': case 'rotMomentum': case 'chase': case 'vampiric':
     case 'mark': case 'counter': case 'hitCharge':
-    case 'battery': case 'weaponMastery': case 'talent':
     case 'autoExpert': case 'speedPower':
       Fl[id] = 1; break;
     case 'w_giant': Fl.giantBlade = 1; break;
@@ -336,10 +332,10 @@ function applyAugmentBattle(f, id, player) {
     case 'b_triple': Fl.triple = 1; break;
     case 'b_homing': Fl.homing = 1; break;
     case 'b_kb': Fl.kbArrow = 1; break;
-    case 'p_dual': Fl.dualPistol = 1; break;
+    case 'p_shotgun': Fl.shotgun = 1; break;
     case 'p_mag': Fl.extMag = 1; break;
     case 'p_bayonet': Fl.bayonet = 1; break;
-    case 's_triple': Fl.tripleMagic = 1; break;
+    case 's_double': Fl.doubleMagic = 1; break;
     case 's_steal': Fl.steal = 1; break;
     case 's_bounce': Fl.doubleReflect = 1; break;
     case 'm_big': Fl.bigMine = 1; break;
@@ -363,12 +359,12 @@ function buildFighter(player, battle) {
       immune: 0, untouchable: 0, freeze: 0, bind: 0, stun: 0, weaponLock: 0,
       chase: 0, revSpeed: 0, rampage: 0, balloon: 0, fuse: 0, det: 0, gunBarrage: 0,
       dashPrep: 0, dashT: 0, actingDead: 0, atkBuff: 0, spdBuff: 0, berserk: 0,
-      elastic: 0, pawDrop: 0,
+      elastic: 0,
     },
     // computeStats가 돌기 전(조준 단계)에도 읽히므로 모양을 완전히 맞춰 둔다.
     // aspd가 빠져 있어 스탯판이 첫 프레임에 터졌었다.
     st: { atk: 1, dmg: 1, move: ch.move * wp.moveMult, rot: wp.rot, fr: 1, aspd: 1, size: 1 },
-    pinStacks: 0, warmStacks: 0, rotStacks: 0, hitChargeStacks: 0, collisionStacks: 0,
+    warmStacks: 0, rotStacks: 0, hitChargeStacks: 0, collisionStacks: 0,
     cd: {}, meleeContact: new Set(), markHits: new Map(),
     gun: null, charging: null, tracking: null, dash: null, dashHit: null, dashPrepDir: null,
     berserkPhase: 0, bleed: { n: 0, stacks: [] }, frost: { n: 0, t: 0 },
@@ -377,7 +373,7 @@ function buildFighter(player, battle) {
     sfxSkill: 0,        // 스킬 효과음이 난 횟수. 멀티에서 클라이언트가 같은 소리를 재생하는 근거
 
     hist: [], histT: 0,
-    skillUses: { char: 1, weapon: 1, common: player.copiedSkill ? 1 : 0 },
+    skillUses: { char: 1, weapon: 1 },
     summons: [], splitBalls: [], satellites: [],
     splitUsed: false, lastStandUsed: false,
     mainDead: false, dead: false, deathAt: 0, downPending: false,
@@ -394,9 +390,6 @@ function buildFighter(player, battle) {
   f.rocketActive = !!f.flags.rocketStart;
   f.maxHp = Math.max(30, Math.round(ch.hp * f.perm.hp));
   f.hp = f.maxHp;
-  f.skillUses.char += f.flags.talent ? 1 : 0;
-  f.skillUses.weapon += f.flags.weaponMastery ? 1 : 0;
-  if (player.copiedSkill) f.skillUses.common += f.flags.battery ? 1 : 0;
   if (player.weaponId === 'pistol') {
     const mag = wp.burst + (f.flags.extMag ? 4 : 0);
     f.gun = { mag, burst: mag, shotT: 0.4, reloadT: 0, focus: false };
@@ -419,11 +412,9 @@ function buildFighter(player, battle) {
 function augEligible(a, player) {
   if (a.hidden) return false;
   if (a.weapon && a.weapon !== player.weaponId) return false;
-  if (a.charId && (player.charId === a.charId || player.copiedSkill)) return false;
   if (a.req && !player.augments.includes(a.req)) return false;
   if (!a.stackable && player.augments.includes(a.id)) return false;
   switch (a.id) {
-    case 'battery': return !!player.copiedSkill;
     case 'devilDeal': return player.coins >= 2;
     case 'gamble': return !player.gamble && !player.trollCondition;
     case 'trollCondition': return !player.trollCondition && !player.gamble;
@@ -455,13 +446,6 @@ function rollAugmentOffers(player, n = 3) {
   return offers;
 }
 function applyAugmentPick(player, aug) {
-  if (['winMomentum', 'winAccel', 'vengeance', 'learnLoss', 'survivor', 'battleExp', 'seasonedExp', 'fallenPower'].includes(aug.id)) {
-    player.augmentBaselines = player.augmentBaselines || {};
-    player.augmentBaselines[aug.id] = {
-      wins: player.wins || 0, losses: player.losses || 0, streak: player.streak || 0,
-      rounds: player.rounds || 0, coinsLost: player.coinsLost || 0,
-    };
-  }
   player.augments.push(aug.id);
   switch (aug.id) {
     case 'devilDeal':
@@ -471,7 +455,6 @@ function applyAugmentPick(player, aug) {
     case 'gamble': player.gamble = true; break;
     case 'trollCondition': player.trollCondition = true; break;
   }
-  if (aug.cat === 'copy') player.copiedSkill = aug.charId;
 }
 /* ---- AI 증강 선택 ----
  * 성향 값은 짐작이 아니라 실측이다. 무작위 빌드끼리 1497판을 붙여
@@ -492,9 +475,7 @@ const AI_CAT_WEIGHT = {
   hpcond: 0.86,   // 47.7%
   cc: 0.86,       // 47.6%
   link: 0.79,     // 46.5%
-  skill: 0.77,    // 46.2%
   streak: 0.76,   // 46.0%  누적형은 생각보다 약하다
-  copy: 0.72,     // 45.3%
 };
 /* 카테고리 평균에서 크게 벗어난 개별 증강 (표본 200판 이상) */
 const AI_AUG_WEIGHT = {
@@ -504,11 +485,9 @@ const AI_AUG_WEIGHT = {
   winMomentum: 0.85,    // 44%
   gravityWell: 0.8,     // 43%
   escapeInstinct: 0.8,  // 43%
-  winAccel: 0.8,        // 43%
   trollCondition: 0.8,  // 43%
   hitCharge: 0.8,       // 43%
   flame: 0.75,          // 42%
-  talent: 0.7,          // 40%
   bloodRush: 0.7,       // 40%
 };
 /* '자동화 전문가'가 쿨타임을 줄여 주는 대상 */
@@ -565,12 +544,12 @@ function loseCoin(p) {
     if (p.gamble) { p.coins--; p.gamble = false; p.gambleExtra = 1; lost++; }
     p.coinsLost = (p.coinsLost || 0) + lost;
   }
-  p.losses++; p.streak = 0;
+  p.losses++; p.streak = 0; p.lossStreak = (p.lossStreak || 0) + 1;
 }
 
 function winRound(p) {
   p.trollWinCost = false; p.gambleRewarded = false;
-  p.wins++; p.streak++;
+  p.wins++; p.streak++; p.lossStreak = 0;
   if (p.trollCondition) {
     p.trollCondition = false;
     p.trollWinCost = true;
@@ -756,7 +735,6 @@ class Battle {
       clone.gun = f.gun ? { ...f.gun, focus: false } : null;
       clone.charging = f.charging ? { ...f.charging } : null;
       clone.berserkPhase = f.berserkPhase;
-      clone.pinStacks = f.pinStacks;
       clone.warmStacks = f.warmStacks;
       clone.rotStacks = f.rotStacks;
       clone.hitChargeStacks = f.hitChargeStacks;
@@ -1176,7 +1154,6 @@ function computeStats(f) {
   if (Fl.escapeInstinct && hpRatio <= 0.3) move *= 1.4;
   atk *= 1 + 0.05 * f.warmStacks;
   aspd *= 1 + 0.06 * f.rotStacks;
-  atk *= 1 + 0.04 * f.pinStacks;
   atk *= 1 + 0.03 * f.collisionStacks;
   dmg *= 1 + 0.03 * f.hitChargeStacks;
   if (T.chase > 0) move *= 1.2;
@@ -1215,7 +1192,7 @@ function updateTimers(b, f, dt) {
   const T = f.timers;
   const prev = {
     actingDead: T.actingDead, fuse: T.fuse, det: T.det, dashPrep: T.dashPrep,
-    gunBarrage: T.gunBarrage, pawDrop: T.pawDrop,
+    gunBarrage: T.gunBarrage,
   };
   for (const k in T) if (T[k] > 0) T[k] = Math.max(0, T[k] - dt);
   if (T.gunBarrage < 1e-9) T.gunBarrage = 0;
@@ -1273,10 +1250,6 @@ function updateTimers(b, f, dt) {
     f.gun.burst = 0;
     f.gun.shotT = 0;
     f.gun.reloadT = WEAPONS.pistol.reload;
-  }
-  if (prev.pawDrop > 0 && T.pawDrop === 0 && !f.mainDead && !f.dead) {
-    popup(b, 0, -34, '🐾', '#ffb3d1', true);
-    explodeAt(b, f, 0, 0, 90, 24 * f.st.dmg, 'auto');
   }
   // 단검 돌진 준비
   if (prev.dashPrep > 0 && T.dashPrep === 0 && f.dashPrepDir && !f.mainDead && !f.dead) {
@@ -1387,7 +1360,6 @@ function onWallBounce(b, f, n) {
     f.rocketActive = false;
     popup(b, f.x, f.y - f.radius - 20, '로켓 종료', '#8ed8ff');
   }
-  if (f.flags.pinball) f.pinStacks = Math.min(10, f.pinStacks + n);
   if (f.flags.wallClimb) healFighter(b, f, f.maxHp * 0.01, true);
   if (f.flags.shockwave) explodeAt(b, f, f.x, f.y, 75, 7 * f.st.dmg, 'auto', true);
   if (f.flags.reflectCharge) {
@@ -1497,7 +1469,7 @@ function updateWeapon(b, f, dt) {
       applied = BOW_CHARGE_ROT * dt;
       f.charging.spin += applied;
     } else if (f.spinRemaining > 0) {
-      applied = Math.min(f.spinRemaining, TAU / 0.6 * dt);
+      applied = Math.min(f.spinRemaining, TAU / 0.5 * dt);
       f.spinRemaining = Math.max(0, f.spinRemaining - applied);
     } else {
       applied = f.st.rot * dt;
@@ -1551,10 +1523,16 @@ function updateWeapon(b, f, dt) {
     } else if (g.shotT > 0) {
       g.shotT -= dt * fr;
       if (g.shotT <= 0) {
-        fireGun(b, f);
-        g.burst--;
-        if (g.burst <= 0) { g.reloadT = wp.reload; g.focus = false; }
-        else g.shotT = wp.shotGap;
+        if (f.flags.shotgun) {
+          fireShotgun(b, f, g.burst);
+          g.burst = 0;
+          g.reloadT = wp.reload; g.focus = false;
+        } else {
+          fireGun(b, f);
+          g.burst--;
+          if (g.burst <= 0) { g.reloadT = wp.reload; g.focus = false; }
+          else g.shotT = wp.shotGap;
+        }
       }
     }
   } else if (f.weaponId === 'staff') {
@@ -1610,24 +1588,40 @@ function meleeHits(b, f, dt, override) {
 
 function fireBow(b, f) {
   const wp = WEAPONS.bow;
+  // 세 갈래로 뿌리는 대신 발당 피해가 절반이다. 다 맞혀야 이득이 된다.
   const angs = f.flags.triple ? [f.weaponAngle - 0.21, f.weaponAngle, f.weaponAngle + 0.21] : [f.weaponAngle];
+  const dmg = f.flags.triple ? wp.dmg * 0.5 : wp.dmg;
   for (const a of angs) {
-    spawnProj(b, f, { kind: 'arrow', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg: wp.dmg, r: 5, life: 4, homing: f.flags.homing ? 1.6 : 0, weapon: true });
+    spawnProj(b, f, { kind: 'arrow', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg, r: 5, life: 4, homing: f.flags.homing ? 1.6 : 0, weapon: true });
   }
 }
 
 function fireGun(b, f) {
   const wp = WEAPONS.pistol;
-  const angs = f.flags.dualPistol ? [f.weaponAngle, f.weaponAngle + Math.PI] : [f.weaponAngle];
-  for (const a of angs) {
-    spawnProj(b, f, { kind: 'bullet', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg: wp.dmg, r: 4, life: 2.5, weapon: true });
-  }
+  const a = f.weaponAngle;
+  spawnProj(b, f, { kind: 'bullet', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg: wp.dmg, r: 4, life: 2.5, weapon: true });
   f.gunFlash = 0.08;
+}
+
+/* 샷건 — 남은 탄창을 부채꼴로 한 번에 뿌린다. 쫓아가며 한 발씩 맞히는 대신
+ * 한순간에 걸고, 빗나가면 통째로 빗나간다. */
+function fireShotgun(b, f, n) {
+  const wp = WEAPONS.pistol;
+  const count = Math.max(1, n);
+  const SPREAD = 0.5;
+  for (let i = 0; i < count; i++) {
+    const t = count === 1 ? 0 : i / (count - 1) - 0.5;
+    const a = f.weaponAngle + t * SPREAD + rand(-0.03, 0.03);
+    spawnProj(b, f, { kind: 'bullet', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed * rand(0.9, 1.08), dmg: wp.dmg, r: 4, life: 2.5, weapon: true });
+  }
+  f.gunFlash = 0.16;
+  b.shake = Math.max(b.shake, Math.min(9, b.shake + 4));
 }
 
 function fireStaff(b, f) {
   const wp = WEAPONS.staff;
-  const angs = f.flags.tripleMagic ? [f.weaponAngle - 0.24, f.weaponAngle, f.weaponAngle + 0.24] : [f.weaponAngle];
+  // 정면이 비어 있다. 똑바로 굴러오는 상대는 오히려 두 발 다 비껴간다.
+  const angs = f.flags.doubleMagic ? [f.weaponAngle - 0.26, f.weaponAngle + 0.26] : [f.weaponAngle];
   const bounce = wp.bounces + (f.flags.doubleReflect ? 1 : 0);
   for (const a of angs) {
     spawnProj(b, f, { kind: 'orb', x: f.x + Math.cos(a) * (f.radius + 10), y: f.y + Math.sin(a) * (f.radius + 10), ang: a, spd: wp.projSpeed, dmg: wp.dmg, r: 9, life: 7, bounces: bounce, weapon: true });
@@ -1635,7 +1629,7 @@ function fireStaff(b, f) {
 }
 
 function releaseCharge(b, f) {
-  if (!f.charging || f.charging.t < 1) return false;
+  if (!f.charging || f.charging.t < 0.2) return false;
   spawnProj(b, f, {
     kind: 'charge', x: f.x + Math.cos(f.weaponAngle) * (f.radius + 10), y: f.y + Math.sin(f.weaponAngle) * (f.radius + 10),
     ang: f.weaponAngle, spd: 580, dmg: 30, r: 8, life: 3, pierce: true, pierceObstacles: true, weapon: true,
@@ -1703,7 +1697,6 @@ function onWeaponHitEffects(b, f, body) {
   if (f.flags.chase) f.timers.chase = 3;
   if (f.flags.vampiric) healFighter(b, f, f.maxHp * 0.05, true);
   if (f.flags.dualPhase) f.timers.untouchable = Math.max(f.timers.untouchable, 1);
-  if (f.flags.pinball) f.pinStacks = 0;
 }
 
 /* ---------------- 자동 공격 시스템 ---------------- */
@@ -1987,6 +1980,8 @@ function useSkill(b, f, slot) {
     if (active) f = active;
   }
   if (b.phase !== 'fight' || f.dead || f.mainDead || f.timers.stun > 0) return false;
+  // 칸은 둘뿐이다. 없는 이름이 들어오면 무기 스킬이 대신 나가 버린다.
+  if (slot !== 'char' && slot !== 'weapon') return false;
   // 활은 첫 입력으로 충전하고, 두 번째 입력으로 발사할 때 사용 횟수를 소비한다.
   if (slot === 'weapon' && f.weaponId === 'bow' && f.charging) {
     if (f.skillUses.weapon <= 0 || !releaseCharge(b, f)) return false;
@@ -1996,18 +1991,12 @@ function useSkill(b, f, slot) {
     return true;
   }
   if (f.skillUses[slot] <= 0) return false;
-  const commonId = f.player.copiedSkill || 'direction';
-  const id = slot === 'char' ? f.charId : slot === 'weapon' ? f.weaponId : commonId;
+  const id = slot === 'char' ? f.charId : f.weaponId;
   switch (id) {
     case 'direction':
       f.pendingAim = true;   // 드래그로 발동 (소비는 발동 시)
       return 'aim';
     case 'cat': {
-      if (slot === 'common' && f.player.copiedSkill === 'cat') {
-        f.timers.pawDrop = 1;
-        popup(b, 0, -34, '🐾 1초 후', '#ffb3d1', true);
-        break;
-      }
       const target = b.simT - 2;
       let best = null;
       for (const h of f.hist) { if (h.t <= target) best = h; else break; }
@@ -2136,7 +2125,7 @@ function aiUpdate(b, f, dt) {
   // 차지 샷 조준만은 판단 주기와 따로, 매 프레임 본다.
   // 활은 두 바퀴 도는 동안 상대와 겹치는 순간이 0.1초 남짓이라
   // 0.2~0.4초마다 보는 일반 판단으로는 절반 넘게 그냥 지나쳐 버린다.
-  if (f.charging && f.charging.t >= 1 && f.skillUses.weapon > 0) {
+  if (f.charging && f.charging.t >= 0.2 && f.skillUses.weapon > 0) {
     const tgt = b.nearestEnemyMain(f);
     if (tgt) {
       // 화살이 날아가는 동안 상대가 움직이는 만큼 앞을 겨눈다
@@ -2171,10 +2160,6 @@ function aiUpdate(b, f, dt) {
     }
   };
   if (f.skillUses.char > 0 && charHeur(f.charId)) use('char');
-  if (f.skillUses.common > 0) {
-    const cid = f.player.copiedSkill;
-    if (cid) { if (charHeur(cid)) use('common'); }
-  }
   // 무기 스킬
   if (f.skillUses.weapon > 0) {
     const angToE = Math.atan2(e.y - f.y, e.x - f.x);

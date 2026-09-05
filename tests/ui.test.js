@@ -67,7 +67,7 @@ function ensure(id) {
 for (const id of ['aug-cards', 'aug-sub', 'aug-round-label', 'aug-myinfo', 'aug-owned',
   'aug-timer', 'event-timer', 'weapon-timer', 'weapon-cards', 'btn-refresh', 'refresh-count',
   'event-cards', 'event-status', 'scr-weapon', 'scr-augment', 'scr-event',
-  'steer-control', 'steer-label', 'hud-count', 'sk-char', 'sk-weapon', 'sk-common']) ensure(id);
+  'steer-control', 'steer-label', 'hud-count', 'sk-char', 'sk-weapon']) ensure(id);
 for (const id of ['scr-weapon', 'scr-augment', 'scr-event']) {
   const head = makeEl('div'); head._classes.add('screen-head');
   ensure(id).appendChild(head);
@@ -78,7 +78,7 @@ for (const id of ['aug-timer', 'event-timer', 'weapon-timer']) {
   const label = makeEl('b'); label._classes.add('b');
   ensure(id).appendChild(fill); ensure(id).appendChild(label);
 }
-for (const id of ['sk-char', 'sk-weapon', 'sk-common']) {
+for (const id of ['sk-char', 'sk-weapon']) {
   for (const cls of ['lbl', 'ico', 'uses', 'cdoverlay']) {
     const child = makeEl('span'); child._classes.add(cls); ensure(id).appendChild(child);
   }
@@ -228,33 +228,32 @@ test('무기 선택 화면에도 제한시간 막대가 뜬다', () => {
   assert.ok(bar.classList.contains('hidden'), '단계가 끝나면 감춰야 한다');
 });
 
-test('기존 방향전환 버튼은 사라지고 이동 조이스틱이 전투 중 활성화된다', () => {
+test('스킬은 캐릭터·무기 두 칸으로 고정이다', () => {
   const fighter = {
     dead:false, mainDead:false, splitBalls:[], charId:'cat', weaponId:'sword',
     timers:{ stun:0, bind:0, dashPrep:0, dashT:0 }, flags:{},
-    player:{ copiedSkill:null }, skillUses:{ char:1, weapon:1, common:0 },
+    player:{}, skillUses:{ char:1, weapon:1 },
   };
   const battle = { phase:'fight', result:null, human:() => fighter };
   updateSkillbar(battle);
-  assert.equal($('sk-common').style.display, 'none', '일반 방향전환 버튼이 남으면 안 된다');
-  assert.equal($('sk-common').hidden, true);
+  assert.ok(!$('sk-common'), '셋째 스킬 칸은 없어져야 한다');
   assert.equal($('steer-control').style.display, '', '이동 조이스틱은 전투 중 보여야 한다');
   assert.equal($('steer-control').getAttribute('aria-disabled'), 'false');
   assert.equal($('steer-label').textContent, '꾹 눌러 천천히 조향');
 });
 
-test('카피 증강이 있을 때만 세 번째 스킬 버튼이 별도로 나타난다', () => {
+test('두 칸 모두 자기 스킬 이름과 남은 횟수를 보여준다', () => {
   const fighter = {
-    dead:false, mainDead:false, splitBalls:[], charId:'cat', weaponId:'sword',
-    timers:{ stun:0, bind:0, dashPrep:0, dashT:0 }, flags:{ battery:1 },
-    player:{ copiedSkill:'soft' }, skillUses:{ char:1, weapon:1, common:2 },
+    dead:false, mainDead:false, splitBalls:[], charId:'soft', weaponId:'bow',
+    timers:{ stun:0, bind:0, dashPrep:0, dashT:0 }, flags:{},
+    player:{}, skillUses:{ char:1, weapon:0 },
   };
   updateSkillbar({ phase:'fight', result:null, human:() => fighter });
-  assert.equal($('sk-common').style.display, '');
-  assert.equal($('sk-common').hidden, false);
-  assert.equal($('sk-common').querySelector('.lbl').textContent, '말랑 방어');
-  assert.equal($('sk-common').querySelector('.uses').textContent, '●●');
-  assert.equal($('steer-control').getAttribute('aria-disabled'), 'false', '카피 스킬과 조향은 함께 유지되어야 한다');
+  assert.equal($('sk-char').querySelector('.lbl').textContent, '말랑 방어');
+  assert.equal($('sk-char').querySelector('.uses').textContent, '●');
+  assert.equal($('sk-weapon').querySelector('.lbl').textContent, '차지 샷');
+  assert.equal($('sk-weapon').querySelector('.uses').textContent, '○', '다 쓰면 빈 동그라미');
+  assert.equal($('steer-control').getAttribute('aria-disabled'), 'false', '스킬과 조향은 함께 유지되어야 한다');
 });
 
 test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활성화한다', () => {
@@ -365,7 +364,7 @@ test('초상화는 칸 비율 그대로 그려진다 (눌리지 않는다)', () 
   // 스킬 버튼 — 복사 스킬을 먹어 셋이 되는 때가 가장 빠듯하다
   const pad = pick('#skillbar', 'padding').split(/ +/).map(parseFloat);   // 위 오른 아래 왼
   const gap = num('#skillbar', 'gap'), size = num('.skillbtn', 'width');
-  const span3 = size * 3 + gap * 2;
+  const span3 = size * 2 + gap;
   const toRight = pick('#skillbar', 'justify-content') === 'flex-end';
   const btn3 = toRight
     ? { x0: 100 - pad[1] - span3, x1: 100 - pad[1] }
@@ -388,7 +387,7 @@ test('초상화는 칸 비율 그대로 그려진다 (눌리지 않는다)', () 
       + (toRight ? '오른쪽' : '왼쪽') + ') — 한 손으로 둘 다 눌러야 한다');
   });
 
-  test('조이스틱이 스킬 버튼을 덮지 않는다 (버튼 3개일 때)', () => {
+  test('조이스틱이 스킬 버튼을 덮지 않는다', () => {
     assert.ok(!covers(box, btn3), '조이스틱 상자(x ' + box.x0.toFixed(1) + '~' + box.x1.toFixed(1)
       + ')가 스킬 버튼(x ' + btn3.x0.toFixed(1) + '~' + btn3.x1.toFixed(1)
       + ')을 덮는다 — 그 버튼은 눌리지 않는다');

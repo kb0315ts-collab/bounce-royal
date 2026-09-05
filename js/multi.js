@@ -254,6 +254,7 @@ const Multi = {
         charId: p.charId, weaponId: p.weaponId,
         eliminated: p.eliminated, augments: p.augments || [],
         isAI: p.isAI, disconnected: p.disconnected,
+        streak: p.streak || 0, lossStreak: p.lossStreak || 0,
         local: p.id === BounceRoyalNet.seat,
       })),
       human: BounceRoyalNet.players.find(p => p.id === BounceRoyalNet.seat) || null,

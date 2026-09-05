@@ -25,14 +25,12 @@ function fighterView(f) {
     gf: r1(f.gunFlash || 0),
     // 무기 모양에 영향을 주는 증강만 비트로 싣는다
     fg: (f.flags.giantBlade ? 1 : 0) | (f.flags.dualDagger ? 2 : 0)
-      | (f.flags.dualPistol ? 4 : 0) | (f.flags.bayonet ? 8 : 0),
+      | (f.flags.shotgun ? 4 : 0) | (f.flags.bayonet ? 8 : 0),
     // 권총 재장전 상태(총검술 표시용)
     rl: f.gun && f.gun.reloadT > 0 ? 1 : 0,
     vx: Math.round(f.vx * 100) / 100, vy: Math.round(f.vy * 100) / 100,
     // 스킬 잔여/최대 사용 횟수 (스킬바 표시용)
-    su: [f.skillUses.char, f.skillUses.weapon, f.skillUses.common],
-    sx: [1 + (f.flags.talent ? 1 : 0), 1 + (f.flags.weaponMastery ? 1 : 0), 1 + (f.flags.battery ? 1 : 0)],
-    cp: f.player.copiedSkill || null,
+    su: [f.skillUses.char, f.skillUses.weapon],
     // 화면 좌하단 스탯판에 쓰는 값 (공격력·모든피해·공격속도·회전력)
     st: [r2(f.st.atk), r2(f.st.dmg), r2(f.st.aspd), r2(f.st.rot)],
     // 벽 튕김·스킬 효과음 횟수. 서버에는 소리가 없으므로 클라이언트가 증가분만큼 재생한다.

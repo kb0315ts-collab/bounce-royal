@@ -519,7 +519,7 @@ function netFighter(view, meta, seat) {
   return {
     uid: view.u, pid: view.p, kind: 'main',
     isAI: meta ? meta.isAI : true,
-    player: { id: view.p, charId: meta ? meta.charId : 'cat', color: meta ? meta.color : '#4da6ff', copiedSkill: view.cp || null },
+    player: { id: view.p, charId: meta ? meta.charId : 'cat', color: meta ? meta.color : '#4da6ff' },
     name: meta ? meta.name : ('P' + view.p),
     color: meta ? meta.color : '#4da6ff',
     charId: meta ? meta.charId : 'cat',
@@ -543,7 +543,7 @@ function netFighter(view, meta, seat) {
     },
     flags: {
       giantBlade: !!(fg & 1), dualDagger: !!(fg & 2),
-      dualPistol: !!(fg & 4), bayonet: !!(fg & 8),
+      shotgun: !!(fg & 4), bayonet: !!(fg & 8),
     },
     // 스냅샷은 h/m으로 싣고 렌더러는 hp/maxHp를 읽는다 (소환수 체력바)
     summons: (view.sm || NET_EMPTY).map(s => ({ u: s.u, x: s.x, y: s.y, r: s.r, hp: s.h, maxHp: s.m })),
