@@ -234,6 +234,8 @@ const Net = {
         // 반대로 작은 폭발(반경 56 이하)은 소리가 나지 않았다.
         if (e.m) { this.burst(e.x, e.y, 10, e.c, 240); if (typeof SFX !== 'undefined' && SFX.boom) SFX.boom(); }
         else if (e.b - e.a > 45) this.burst(e.x, e.y, 10, e.c, 240);
+      } else if (e.k === 's') {
+        this.shatter(e.x, e.y, e.r, e.c);
       } else {
         this.localFx.push({ type: 'bolt', segs: e.g.map(s => ({ x: s[0], y: s[1] })), color: e.c, dur: e.d, t: 0 });
       }
@@ -261,6 +263,22 @@ const Net = {
       // 순서가 뒤바뀐 스냅샷이 기준을 되돌려 같은 소리를 두 번 내지 않게 한다
       this.soundState.set(f.u, { bc: Math.max(prev ? prev.bc : 0, bc), sc: Math.max(prev ? prev.sc : 0, sc) });
     }
+  },
+
+  /* 서버는 파편을 실어 보내지 않는다. 깨졌다는 신호만 받아 같은 조각을 만든다. */
+  shatter(x, y, r, color) {
+    const R = r || 14;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + (Math.random() - 0.5) * 0.32;
+      const s = 80 + Math.random() * 130;
+      this.localParticles.push({
+        x: x + Math.cos(a) * R * 0.5, y: y + Math.sin(a) * R * 0.5,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        t: 0, life: 0.8 + Math.random() * 0.45, color, size: R * (0.3 + Math.random() * 0.22),
+        shard: true, ang: a, spin: (Math.random() - 0.5) * 12,
+      });
+    }
+    this.burst(x, y, 16, color, 300);
   },
 
   burst(x, y, n, color, spd) {

@@ -280,7 +280,9 @@ const Multi = {
   /* ---------------- 매 프레임 ---------------- */
   update(dt) {
     if (!this.active) return;
-    BounceRoyalNet.advanceFx(dt || 1 / 60);
+    // 마무리 연출 동안은 파편도 같이 느려져야 슬로우로 보인다
+    const slowFx = this.view && this.view.phase === 'ending' ? 0.3 : 1;
+    BounceRoyalNet.advanceFx((dt || 1 / 60) * slowFx);
     const snap = BounceRoyalNet.viewState();
     if (!snap) { renderBattle(null); return; }
     this.view = netBattleView(snap, BounceRoyalNet.players, BounceRoyalNet.seat);

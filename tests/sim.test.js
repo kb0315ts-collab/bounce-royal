@@ -1235,6 +1235,43 @@ test('AI 증강 선택은 실측 성향과 그 판의 사정을 함께 본다', 
   assert.ok(late.winMomentum < early.winMomentum, '끝물에는 누적형을 덜 집어야 한다');
 });
 
+/* ---- 승패가 갈리는 순간 ----
+ * 진 공이 조각나 부서지고 화면이 느려져야, 누가 졌는지 눈으로 확인할
+ * 시간이 생긴다. 예전에는 결판이 나자마자 넘어가 볼 틈이 없었다. */
+test('진 공은 조각나 부서지고 마무리는 느리게 흐른다', () => {
+  let shards = 0, ends = [], base = 0;
+  for (let attempt = 0; attempt < 15 && !shards; attempt++) {
+    const b = makeBattle({ isAI: true }, {});
+    // 죽은 쪽은 멈추므로 살아남은 쪽의 이동량으로 재야 한다.
+    // 누가 이길지는 끝나 봐야 아니 둘 다 기록해 두고 나중에 고른다.
+    const track = b.fighters.map(() => ({ before: [], after: [] }));
+    for (let i = 0; i < 60 * 80; i++) {
+      const was = b.fighters.map(f => ({ x: f.x, y: f.y }));
+      const had = !!b.result;
+      b.update(1 / 60);
+      b.fighters.forEach((f, k) => {
+        const d = Math.hypot(f.x - was[k].x, f.y - was[k].y);
+        track[k][had ? 'after' : 'before'].push(d);
+      });
+      if (!had && b.result) shards = b.particles.filter(p => p.shard).length;
+      if (b.finished) break;
+    }
+    const win = b.result && b.result.winner ? b.fighters.indexOf(b.result.winner) : -1;
+    if (win < 0 || !shards) { shards = 0; continue; }
+    base = track[win].before[track[win].before.length - 1];   // 죽기 직전 프레임 = 1.0x 기준
+    ends = track[win].after;
+  }
+  assert.ok(shards >= 8, '진 공이 조각나야 한다 (조각 ' + shards + '개)');
+  assert.ok(base > 0 && ends.length >= 60,
+    '마무리를 최소 1초는 보여줘야 한다 (실제 ' + (ends.length / 60).toFixed(2) + '초)');
+  const avg = a => a.reduce((s, x) => s + x, 0) / a.length;
+  const n = Math.floor(ends.length / 3);
+  const 처음 = avg(ends.slice(0, n)) / base, 나중 = avg(ends.slice(-n)) / base;
+  assert.ok(처음 < 0.25, '결판 직후에는 거의 멈춘 듯 느려져야 한다 (실제 ' + 처음.toFixed(3) + 'x)');
+  assert.ok(나중 > 처음 * 1.8,
+    '느렸다가 서서히 풀려야 한다 (' + 처음.toFixed(3) + 'x → ' + 나중.toFixed(3) + 'x)');
+});
+
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
 `,
 ].join('\n');

@@ -423,6 +423,26 @@ test('아무것도 안 건드리면 아무 방향으로나 나간다', () => {
   assert.ok(dirs.size > 1, '건드리지 않았으면 방향이 무작위여야 한다');
 });
 
+/* 결판이 나자마자 넘어가면 누가 졌는지 볼 틈이 없다.
+ * 공이 깨지고 화면이 느려지는 연출이 끝날 때까지 붙잡아 둔다. */
+test('승패가 갈려도 최소 1초는 붙잡아 둔다', () => {
+  const { room } = aimRoom();
+  try {
+    for (const b of room.battles) if (!b.result) b.finish(b.fighters[0], '격파');
+    room.tick();
+    assert.equal(room.phase, 'battle', '결판 나자마자 넘어가면 누가 졌는지 못 본다');
+    assert.ok(room.roundOverAt > 0, '멈춘 시각을 기억해야 다음 판단을 할 수 있다');
+
+    room.roundOverAt = Date.now() - 999;      // 아직 1초가 안 됐다
+    room.tick();
+    assert.equal(room.phase, 'battle', '1초도 안 됐는데 넘어가면 안 된다');
+
+    room.roundOverAt = Date.now() - 5000;     // 충분히 기다렸다
+    room.tick();
+    assert.notEqual(room.phase, 'battle', '연출이 끝났으면 넘어가야 한다');
+  } finally { clearInterval(room.tickTimer); }
+});
+
 test('전투가 시작된 뒤에는 조준 패킷을 받지 않는다', () => {
   const { room, player, battle, fighter } = aimRoom();
   try {

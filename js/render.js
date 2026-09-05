@@ -640,8 +640,16 @@ function drawFx(g, glow, b, sc) {
     }
   }
   for (const p of b.particles) {
-    g.fillStyle(toInt(p.color), Math.max(0, 1 - p.t / p.life));
-    g.fillCircle(p.x, p.y, p.size);
+    const a = Math.max(0, 1 - p.t / p.life);
+    if (!p.shard) { g.fillStyle(toInt(p.color), a); g.fillCircle(p.x, p.y, p.size); continue; }
+    // 깨진 공 껍질 — 돌면서 날아가고 사그라들며 작아진다
+    const ang = p.ang + p.spin * p.t, s = p.size * (0.55 + 0.45 * a);
+    const cx = Math.cos(ang), cy = Math.sin(ang);
+    g.fillStyle(toInt(p.color), a);
+    g.fillTriangle(
+      p.x + cx * s * 1.4, p.y + cy * s * 1.4,
+      p.x - cx * s * 0.6 - cy * s * 0.8, p.y - cy * s * 0.6 + cx * s * 0.8,
+      p.x - cx * s * 0.6 + cy * s * 0.8, p.y - cy * s * 0.6 - cx * s * 0.8);
   }
   for (const p of b.popups) {
     sc.useText(p.x, p.y, p.txt, {

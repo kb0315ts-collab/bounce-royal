@@ -69,9 +69,12 @@ function snapshot(battle) {
     sk: battle.stickies.map(s => ({ x: r1(s.x), y: r1(s.y), r: r1(s.r), l: r1(s.life) })),
     // 타격 피드백. 클라이언트는 처음 본 uid만 자기 쪽에서 한 번 재생한다.
     px: battle.popups.map(p => ({ u: p.uid, x: r1(p.x), y: r1(p.y), s: String(p.txt), c: p.color, b: p.big ? 1 : 0 })),
-    fx: battle.fx.map(e => (e.type === 'ring'
-      ? { u: e.uid, k: 'r', x: r1(e.x), y: r1(e.y), a: r1(e.r0), b: r1(e.r1), c: e.color, d: e.dur, m: e.boom ? 1 : 0 }
-      : { u: e.uid, k: 'b', c: e.color, d: e.dur, g: e.segs.map(s => [r1(s.x), r1(s.y)]) })),
+    fx: battle.fx.map(e => {
+      if (e.type === 'ring') return { u: e.uid, k: 'r', x: r1(e.x), y: r1(e.y), a: r1(e.r0), b: r1(e.r1), c: e.color, d: e.dur, m: e.boom ? 1 : 0 };
+      // 공이 깨졌다는 신호. 파편 자체는 클라이언트가 만든다.
+      if (e.type === 'shatter') return { u: e.uid, k: 's', x: r1(e.x), y: r1(e.y), r: r1(e.r), c: e.color, d: e.dur };
+      return { u: e.uid, k: 'b', c: e.color, d: e.dur, g: e.segs.map(s => [r1(s.x), r1(s.y)]) };
+    }),
     res: battle.result ? { w: battle.result.winner ? battle.result.winner.pid : null, why: battle.result.reason, draw: !!battle.result.draw } : null,
   };
 }

@@ -109,8 +109,8 @@ const ACTIVE_MAP_IDS = ['diamond'];
 /* 전투가 모두 끝난 뒤의 진행 타이밍. 라운드 결과 화면은 표시하지 않고,
  * ROUND_RESOLVE_MS에 결과를 반영해 HUD를 갱신한 다음
  * 전투 종료로부터 ROUND_ADVANCE_MS가 지나면 다음 단계로 자동 전환한다. */
-const ROUND_RESOLVE_MS = 700;
-const ROUND_ADVANCE_MS = 1000;
+const ROUND_RESOLVE_MS = 1500;
+const ROUND_ADVANCE_MS = 2000;
 
 /* 실시간 진행을 위한 단계별 제한시간(초). 넘기면 자동으로 처리된다. */
 const AUGMENT_TIME = 15;

@@ -13,6 +13,7 @@ const BOW_CHARGE_TURNS = 2;          // 차지 샷: 두 바퀴 돌 동안 조준
 const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 난이도를 여기서 조절한다
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
 const COUNT_TIME = 3;       // 라운드 시작 카운트다운 (3 · 2 · 1)
+const ENDING_TIME = 1.5;    // 승패가 갈린 뒤 슬로우로 보여주는 시간
 const MELEE_ASPD_GAIN = 2;  // 근접이 공격속도 증가분을 받는 배율
 const STEER_MAX_RAD = 50 * Math.PI / 180; // 최대 조향속도: 초당 50도
 const STEER_RAMP_TIME = 0.25;              // 입력이 최대 조향력에 도달하는 시간
@@ -598,6 +599,23 @@ function sparks(b, x, y, n, color, spd = 160) {
   }
   if (b.particles.length > 300) b.particles.splice(0, b.particles.length - 300);
 }
+/* 공이 깨져 껍질 조각이 흩어진다. 누가 졌는지 눈으로 확인할 시간을 주려고
+ * 조각을 크게, 오래 남긴다. 멀티에서는 파티클을 실어 보내지 않으므로
+ * '깨졌다'는 신호 하나를 남겨 클라이언트가 같은 조각을 만들게 한다. */
+function shatterFx(b, x, y, r, color) {
+  const R = r || 14;
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * TAU + rand(-0.16, 0.16), s = rand(80, 210);
+    b.particles.push({
+      x: x + Math.cos(a) * R * 0.5, y: y + Math.sin(a) * R * 0.5,
+      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      t: 0, life: rand(0.8, 1.25), color, size: rand(R * 0.3, R * 0.52),
+      shard: true, ang: a, spin: rand(-6, 6),
+    });
+  }
+  sparks(b, x, y, 16, color, 300);
+  addFx(b, { type: 'shatter', x, y, r: R, color, dur: 0.05 });
+}
 function explodeFx(b, x, y, r, color = '#ffb14d') {
   addFx(b, { type: 'ring', x, y, r0: r * 0.2, r1: r, color, dur: 0.35, boom: true });
   sparks(b, x, y, 14, color, 260);
@@ -798,6 +816,7 @@ class Battle {
   /* ================= 메인 루프 ================= */
   update(rdt) {
     this.shake = Math.max(0, this.shake - rdt * 26);
+    let fxDt = rdt;
     if (this.phase === 'count') {
       // 3 · 2 · 1. 세는 동안 조이스틱이 가리키는 쪽이 곧 출발 방향이다.
       this.countT -= rdt;
@@ -826,11 +845,15 @@ class Battle {
       }
       this.step(dt);
     } else if (this.phase === 'ending') {
-      this.step(rdt * 0.22);
+      // 거의 멈춘 상태에서 시작해 서서히 풀린다. 파편과 팝업도 같은 속도로
+      // 흘러야 화면 전체가 느려진 것처럼 보인다.
+      const k = 1 - Math.max(0, this.endT) / ENDING_TIME;
+      fxDt = rdt * (0.10 + 0.45 * k * k);
+      this.step(fxDt);
       this.endT -= rdt;
       if (this.endT <= 0) this.finished = true;
     }
-    this.updateFx(rdt);
+    this.updateFx(fxDt);
   }
 
   updateFx(rdt) {
@@ -1122,7 +1145,7 @@ class Battle {
   finish(winner, reason) {
     if (this.result) return;
     this.result = { winner, losers: this.fighters.filter(f => f !== winner), draw: !winner, reason };
-    this.phase = 'ending'; this.endT = 1.1;
+    this.phase = 'ending'; this.endT = ENDING_TIME;
     if (winner) {
       addFx(this, { type: 'ring', x: winner.x, y: winner.y, r0: 20, r1: 160, color: winner.color, dur: 0.7 });
       sparks(this, winner.x, winner.y, 30, winner.color, 320);
@@ -1926,6 +1949,7 @@ function finalDeath(b, f) {
   if (f.dead) return;
   f.dead = true;
   f.deathAt = b.simT;
+  shatterFx(b, f.x, f.y, f.radius, f.color || (f.owner && f.owner.color));
   explodeFx(b, f.x, f.y, 90, f.color);
   if (f.kind === 'split') {
     const root = f.owner;

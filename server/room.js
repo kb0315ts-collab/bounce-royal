@@ -20,6 +20,9 @@ const AUGMENT_TIME = 15;
 const EVENT_VOTE_TIME = 12;
 const INTRO_TIME = 3;
 const ROUND_END_TIME = 3;
+// 승패가 갈린 뒤 화면을 붙잡아 두는 시간(ms). 공이 깨지고 느려지는 연출이
+// 끝나기도 전에 넘어가면 누가 졌는지도 못 본다.
+const ROUND_OVER_HOLD = 2000;
 /* 이벤트 결과 화면을 붙잡아 두는 시간.
  * 클라이언트는 표가 갈렸으면 최대 4.1초짜리 추첨 룰렛을 돌린 뒤 당첨자를
  * 공개하고, 2초 동안 결과를 읽을 시간을 준다. 서버가 그보다 먼저 다음
@@ -145,6 +148,7 @@ class Room {
 
   startRound() {
     this.round++;
+    this.roundOverAt = 0;
     const alive = this.aliveOf();
     const ffa = alive.length >= 2 && this.eventForceFfaRound === this.round;
     const options = {
@@ -450,7 +454,10 @@ class Room {
           if (b) this.send(p, { t: 's', q: seq, b: snapshot(b) });
         }
       }
-      if (this.battles.every(b => b.result)) this.resolveRound();
+      if (this.battles.every(b => b.result)) {
+        if (!this.roundOverAt) this.roundOverAt = Date.now();
+        if (Date.now() - this.roundOverAt >= ROUND_OVER_HOLD) this.resolveRound();
+      }
       return;
     }
 
