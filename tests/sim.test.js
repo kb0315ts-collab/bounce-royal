@@ -1272,6 +1272,36 @@ test('진 공은 조각나 부서지고 마무리는 느리게 흐른다', () =>
     '느렸다가 서서히 풀려야 한다 (' + 처음.toFixed(3) + 'x → ' + 나중.toFixed(3) + 'x)');
 });
 
+/* ---- 타격감 ----
+ * 피격 진동이 3딜이든 40딜이든 똑같이 +2였다. 0.08초 만에 사그라들어
+ * 20Hz 스냅샷은 봉우리를 대부분 놓쳤고, 멀티에서는 거의 안 흔들렸다. */
+test('맞을 때 진동은 피해량에 비례하고 스냅샷에 실릴 만큼 남는다', () => {
+  const hit = raw => {
+    const b = makeBattle({}, {});
+    const [a, t] = b.fighters;
+    t.timers.immune = 0; t.timers.untouchable = 0;
+    b.shake = 0;
+    dealDamage(b, a, t, raw, {});
+    return b.shake;
+  };
+  const 약 = hit(3), 중 = hit(20), 강 = hit(40);
+  assert.ok(중 > 약 * 1.5,
+    '세게 맞으면 더 크게 흔들려야 한다 (' + 약.toFixed(1) + ' → ' + 중.toFixed(1) + ')');
+  assert.ok(강 > 중, '더 세게 맞으면 더 크게 (' + 중.toFixed(1) + ' → ' + 강.toFixed(1) + ')');
+  // 감쇠는 초당 26. 스냅샷 한 칸(0.05초)이 지나도 남아 있어야 멀티에서도 보인다
+  assert.ok(중 - 26 * 0.05 > 3,
+    '한 번에 사그라들면 멀티에서는 안 흔들린다 (0.05초 뒤 ' + (중 - 26 * 0.05).toFixed(1) + ')');
+
+  // 폭발처럼 이미 크게 흔들리는 중에 잔챙이 피격이 와도 줄어들면 안 된다
+  const b = makeBattle({}, {});
+  const [a, t] = b.fighters;
+  t.timers.immune = 0; t.timers.untouchable = 0;
+  b.shake = 14;
+  dealDamage(b, a, t, 3, {});
+  assert.ok(b.shake >= 14,
+    '작은 피격이 큰 흔들림을 깎으면 안 된다 (실제 ' + b.shake.toFixed(1) + ')');
+});
+
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');
 `,
 ].join('\n');

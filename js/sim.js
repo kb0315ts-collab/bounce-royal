@@ -1890,7 +1890,11 @@ function dealDamage(b, src, body, raw, opts = {}) {
     if (t.flags.counter) t.counterReady = true;
     if (t.flags.hitCharge) t.hitChargeStacks = Math.min(5, t.hitChargeStacks + 1);
     if (t.tracking) t.tracking.bounces = 0;
-    b.shake = Math.min(10, b.shake + 2);
+    // 세게 맞을수록 크게 흔든다. 예전에는 3딜이든 40딜이든 똑같이 +2였는데,
+    // 그 정도는 0.08초 만에 사그라들어 맞은 느낌이 거의 없었다.
+    // 이미 폭발 등으로 더 크게 흔들리는 중이면 그대로 둔다.
+    // min만 쓰면 큰 흔들림이 작은 피격 때문에 오히려 줄어든다.
+    b.shake = Math.max(b.shake, Math.min(11, b.shake + Math.min(8, 2.5 + dmg * 0.18)));
   }
   if (src && src.flags && src.flags.lifesteal) healFighter(b, src, dmg * src.flags.lifesteal, true);
   if (body.hp <= 0 && !body.downPending) { body.downPending = true; killBody(b, body, src); }
