@@ -1041,8 +1041,9 @@ test('공격속도 증강은 근접 무기의 회전속도를 올리고, 회전 
     const b = makeBattle({ weaponId: 'sword', augments: augments });
     const A = b.fighters[0], V = b.fighters[1];
     const gap = A.radius + V.radius + 6;
+    A.weaponAngle = 0;                       // 무작위 시작 각도를 고정한다
     let hits = 0, turns = 0, prevAng = A.weaponAngle, prevHp = 1e9;
-    for (let i = 0; i < 60 * 12; i++) {
+    for (let i = 0; i < 60 * 40; i++) {      // 5.7바퀴로는 앞뒤 반 바퀴가 통계를 흔든다
       A.x = 0; A.y = 0; A.vx = 0; A.vy = 0;
       V.x = gap; V.y = 0; V.vx = 0; V.vy = 0;
       A.maxHp = 1e9; A.hp = 1e9; V.maxHp = 1e9; V.hp = prevHp;
@@ -1357,6 +1358,35 @@ test('연승과 연패를 따로 센다', () => {
   winRound(p);
   assert.equal(p.streak, 1);
   assert.equal(p.lossStreak, 0, '이기면 연패가 끊긴다');
+});
+
+/* 유도 화살은 상대 가까이 갔을 때만 살짝 휜다. 멀리서도 따라붙으면
+ * 조준이 필요 없어지고(승률 71% -> 93%), 트리플 샷의 부채꼴도 총구 앞에서
+ * 접혀 세 발이 한 줄로 날아간다. */
+test('유도 화살은 가까울 때만 휘고 멀리서는 거의 직진한다', () => {
+  const turnPerFrame = gap => {
+    const b = makeBattle({ weaponId: 'bow', augments: ['b_homing'] });
+    const [f, e] = b.fighters;
+    computeStats(f); computeStats(e);
+    f.x = 0; f.y = 0; f.vx = 1; f.vy = 0;
+    e.x = gap; e.y = 0; e.maxHp = e.hp = 1e9;
+    f.weaponAngle = 0.6;                    // 일부러 빗나가게 겨눈다
+    b.projectiles.length = 0;
+    fireBow(b, f);
+    const p = b.projectiles[0];
+    const before = p.ang;
+    b.updateProjectiles(1 / 60);
+    return Math.abs(p.ang - before);
+  };
+  const far = turnPerFrame(300), near = turnPerFrame(60);
+  assert.ok(far < 1e-9,
+    '멀리서는 휘면 안 된다 (실제 한 프레임에 ' + far.toFixed(6) + ' rad)');
+  assert.ok(near > 0.004,
+    '가까이서는 확실히 휘어야 한다 (실제 ' + near.toFixed(4) + ' rad)');
+
+  // 유도 미사일은 이 제한을 받지 않는다 — 유도가 그 증강의 정체성이다
+  const mb = makeBattle({ weaponId: 'bow', augments: ['missile'] });
+  assert.equal(mb.fighters[0].flags.missile, 1);
 });
 
 console.log('\\n' + passed + '개 시뮬레이션 테스트 통과');

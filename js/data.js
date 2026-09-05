@@ -156,7 +156,7 @@ const AUGMENTS = [
   { id:'d_phase', cat:'weapon', weapon:'dagger', name:'유체화', desc:'공격 성공 후 1초간 공격받지 않는 상태가 된다' },
   { id:'d_bleed', cat:'weapon', weapon:'dagger', name:'출혈', desc:'적중할 때마다 영구 중첩. 1초마다 중첩 수만큼 고정 피해' },
   { id:'b_triple',cat:'weapon', weapon:'bow', name:'트리플 샷', desc:'화살이 세 갈래. 대신 발당 피해가 절반' },
-  { id:'b_homing',cat:'weapon', weapon:'bow', name:'유도 화살', desc:'화살에 약한 유도 효과' },
+  { id:'b_homing',cat:'weapon', weapon:'bow', name:'유도 화살', desc:'상대에게 가까워진 화살만 살짝 휘어 따라붙는다. 멀리서는 그대로 직진' },
   { id:'b_kb',    cat:'weapon', weapon:'bow', name:'넉백 화살', desc:'적중 시 상대를 살짝 밀어낸다 (진행 방향 유지)' },
   { id:'p_shotgun',cat:'weapon', weapon:'pistol', name:'샷건', desc:'한 발씩 쏘지 않고 탄창을 모아 산탄으로 한 번에 뿌린다' },
   { id:'p_mag',   cat:'weapon', weapon:'pistol', name:'확장 탄창', desc:'한 번에 발사 가능한 탄환 수 증가 (+4)' },

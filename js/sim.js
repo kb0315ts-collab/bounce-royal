@@ -9,6 +9,8 @@ const ROCKET_SPEED = 760;
 const DIAMOND_L = 405;      // 다이아 경기장 기본 크기 (4인 난투)
 const DUEL_ARENA_L = 320;   // 1대1은 조우율을 위해 좁힌다
 const PISTOL_BARRAGE_ROT = TAU * 2;  // 회전 난사 중 초당 2바퀴
+const BOW_HOMING_NEAR = 140;         // 유도 화살이 듣기 시작하는 거리. 이 밖에서는 사실상 직선
+const BOW_HOMING_RATE = 1.6;         // 코앞에서의 선회 속도(rad/s). 거리에 따라 제곱으로 줄어든다
 const BOW_CHARGE_TURNS = 2;          // 차지 샷: 두 바퀴 돌 동안 조준한다
 const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 난이도를 여기서 조절한다
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
@@ -981,7 +983,14 @@ class Battle {
           const want = Math.atan2(tgt.y - p.y, tgt.x - p.x);
           let d = want - p.ang;
           while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
-          p.ang += clamp(d, -p.homing * dt, p.homing * dt);
+          // homeNear가 붙은 투사체(유도 화살)는 가까울 때만 휜다. 멀리서는 거의 직선이라
+          // 조준은 여전히 사람 몫이고, 아슬아슬하게 스칠 것만 끌어당긴다.
+          let rate = p.homing;
+          if (p.homeNear) {
+            const near = clamp((p.homeNear - dist(p.x, p.y, tgt.x, tgt.y)) / p.homeNear, 0, 1);
+            rate = p.homing * near * near;
+          }
+          p.ang += clamp(d, -rate * dt, rate * dt);
           p.vx = Math.cos(p.ang); p.vy = Math.sin(p.ang);
         }
       }
@@ -1605,7 +1614,7 @@ function fireBow(b, f) {
   const angs = f.flags.triple ? [f.weaponAngle - 0.21, f.weaponAngle, f.weaponAngle + 0.21] : [f.weaponAngle];
   const dmg = f.flags.triple ? wp.dmg * 0.5 : wp.dmg;
   for (const a of angs) {
-    spawnProj(b, f, { kind: 'arrow', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg, r: 5, life: 4, homing: f.flags.homing ? 1.6 : 0, weapon: true });
+    spawnProj(b, f, { kind: 'arrow', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg, r: 5, life: 4, homing: f.flags.homing ? BOW_HOMING_RATE : 0, homeNear: f.flags.homing ? BOW_HOMING_NEAR : 0, weapon: true });
   }
 }
 
