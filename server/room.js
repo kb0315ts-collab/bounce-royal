@@ -67,7 +67,7 @@ class Room {
       charId: core.CHARACTERS[seat.charId] ? seat.charId : core.pick(Object.keys(core.CHARACTERS)),
       weaponId: null,
       coins: 5, coinsLost: 0,
-      augments: [],
+      augments: [], augmentBaselines: {},
       gamble: false, trollCondition: false, damageRewardMult: 1,
       wins: 0, losses: 0, streak: 0, lossStreak: 0, rounds: 0,
       eliminated: false, elimOrder: 0, rank: 0, totalDmg: 0,

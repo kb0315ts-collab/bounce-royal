@@ -318,33 +318,35 @@ test('팽창은 권총탄·검기·지뢰의 외형과 판정을 함께 키운�
   assert.equal(mine.dmg, WEAPONS.mine.dmg);
 });
 
-/* 누적형은 '먹은 뒤로 쌓은 것'만 세던 탓에, 늦게 집으면 아무 효과가 없었다.
- * 이제 지금 들고 있는 전적을 그대로 본다 — 8라운드째 집어도 제값을 한다. */
-test('누적 성장 증강은 먹기 전 전적까지 그대로 센다', () => {
+/* 연승만 소급이다. '지금 몇 연승 중인가'가 곧 그 증강의 값이라 늦게 집었다고
+ * 진행 중인 연승을 못 본 척할 수 없다. 반대로 단순 누적형까지 소급해 주면
+ * 늦게 집을수록 공짜로 세지므로, 그쪽은 집은 뒤로 쌓은 것만 센다. */
+test('연승 증강만 진행 중인 연승을 받고 나머지 누적형은 집은 뒤부터 센다', () => {
   const p = makePlayer({ wins: 3, losses: 2, streak: 3, rounds: 5, coinsLost: 2 });
-  applyAugmentPick(p, AUG_BY_ID.winMomentum);   // 승리마다 공격력 +4%
-  applyAugmentPick(p, AUG_BY_ID.bloodRush);     // 연승마다 공격력 +6%
-  applyAugmentPick(p, AUG_BY_ID.seasonedExp);   // 라운드마다 공격력 +3%
-  applyAugmentPick(p, AUG_BY_ID.fallenPower);   // 코인을 잃을 때마다 피해량 +5%
+  applyAugmentPick(p, AUG_BY_ID.bloodRush);     // 연승마다 +6% — 소급
+  applyAugmentPick(p, AUG_BY_ID.winMomentum);   // 승리마다 +4% — 집은 뒤부터
+  applyAugmentPick(p, AUG_BY_ID.seasonedExp);   // 라운드마다 +3% — 집은 뒤부터
+  applyAugmentPick(p, AUG_BY_ID.fallenPower);   // 코인을 잃을 때마다 +5% — 집은 뒤부터
   let b = new Battle('square', [p, makePlayer({ isAI: true })]);
   let f = b.fighters[0];
-  assert.ok(Math.abs(f.perm.atk - 1.12 * 1.18 * 1.15) < 1e-9,
-    '3승 · 3연승 · 5라운드를 집는 순간부터 쳐야 한다 (실제 ' + f.perm.atk + ')');
-  assert.ok(Math.abs(f.perm.dmg - 1.10) < 1e-9, '이미 잃은 코인 2개도 센다');
+  assert.ok(Math.abs(f.perm.atk - 1.18) < 1e-9,
+    '진행 중인 3연승만 즉시 반영된다 (실제 ' + f.perm.atk + ')');
+  assert.equal(f.perm.dmg, 1, '집기 전에 잃은 코인 2개는 세지 않는다');
 
   p.wins++; p.streak++; p.rounds++; p.coinsLost++;
   b = new Battle('square', [p, makePlayer({ isAI: true })]);
   f = b.fighters[0];
-  assert.ok(Math.abs(f.perm.atk - 1.16 * 1.24 * 1.18) < 1e-9);
-  assert.ok(Math.abs(f.perm.dmg - 1.15) < 1e-9);
+  assert.ok(Math.abs(f.perm.atk - 1.24 * 1.04 * 1.03) < 1e-9,
+    '연승은 4연승 전체, 나머지는 집은 뒤로 1씩 (실제 ' + f.perm.atk + ')');
+  assert.ok(Math.abs(f.perm.dmg - 1.05) < 1e-9);
 
-  // 패배하면 연승만 끊긴다. 총 승수와 라운드 수는 그대로 남는다.
+  // 패배하면 연승은 끊기고, 집은 뒤로 쌓은 승수는 남는다
   p.losses++; p.streak = 0;
   p.wins++; p.streak = 1;
   b = new Battle('square', [p, makePlayer({ isAI: true })]);
   f = b.fighters[0];
-  assert.ok(Math.abs(f.perm.atk - 1.20 * 1.06 * 1.18) < 1e-9,
-    '연승은 1로 줄지만 5승 · 6라운드는 유지된다 (실제 ' + f.perm.atk + ')');
+  assert.ok(Math.abs(f.perm.atk - 1.06 * 1.08 * 1.03) < 1e-9,
+    '연승은 1로 끊기고 집은 뒤 승수는 2로 남는다 (실제 ' + f.perm.atk + ')');
 });
 
 test('변경된 조건부 증강 수치와 코인 증강 상태가 정확히 적용된다', () => {

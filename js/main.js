@@ -355,6 +355,7 @@ function makePlayer(spec, index, weaponId) {
     coins: 5,
     coinsLost: 0,
     augments: [],
+    augmentBaselines: {},
     gamble: false,
     trollCondition: false,
     damageRewardMult: 1,
@@ -545,7 +546,7 @@ const Game = {
       players.push({
         id: 100 + i, name: pick(AI_NAMES), isAI: true, color: colors[i],
         charId: pick(Object.keys(CHARACTERS)), weaponId: pick(Object.keys(WEAPONS)),
-        coins: 5, coinsLost: 0, augments: [],
+        coins: 5, coinsLost: 0, augments: [], augmentBaselines: {},
         wins: 0, losses: 0, streak: 0, rounds: 0, totalDmg: 0,
       });
     }
@@ -1091,7 +1092,7 @@ function setupTitleRecording() {
     const scenario = TITLE_RECORDING_SCENARIOS[scenarioIndex++ % TITLE_RECORDING_SCENARIOS.length];
     const players = scenario.map(([charId, weaponId, augments], i) => ({
       id: 900 + i, name: `DEMO ${i + 1}`, isAI: true, color: colors[i], charId, weaponId,
-      coins: 5, coinsLost: 0, augments: augments.slice(),
+      coins: 5, coinsLost: 0, augments: augments.slice(), augmentBaselines: {},
       gamble: false, trollCondition: false, damageRewardMult: 1,
       wins: 0, losses: 0, streak: 0, rounds: 0, totalDmg: 0,
     }));
@@ -1682,7 +1683,7 @@ window.__autotest = function (n = 10) {
         state.players.push({
           id: i, name: names[i], isAI: true, color: AI_COLORS[i % 3],
           charId: pick(Object.keys(CHARACTERS)), weaponId: pick(Object.keys(WEAPONS)),
-          coins: 5, coinsLost: 0, augments: [],
+          coins: 5, coinsLost: 0, augments: [], augmentBaselines: {},
           gamble: false, trollCondition: false, damageRewardMult: 1,
           wins: 0, losses: 0, streak: 0, rounds: 0, eliminated: false, totalDmg: 0,
         });

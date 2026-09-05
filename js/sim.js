@@ -275,9 +275,12 @@ class Arena {
  * ============================================================ */
 function applyAugmentBattle(f, id, player) {
   const P = f.perm, Fl = f.flags;
-  /* 누적형은 '먹은 뒤로 쌓은 것'만 세던 탓에, 늦게 집으면 아무 효과가 없었다.
-   * 지금 들고 있는 연승·전적을 그대로 본다. */
-  const gained = key => Math.max(0, player[key] || 0);
+  /* 누적형은 집은 뒤로 쌓은 것만 센다. 기준선을 찍어 두고 그만큼 뺀다 —
+   * 안 그러면 늦게 집을수록 공짜로 세진다.
+   * 연승만은 예외다. '지금 몇 연승 중인가'가 곧 그 증강의 값이라,
+   * 늦게 집었다고 진행 중인 연승을 못 본 척하면 말이 안 된다. */
+  const baseline = player.augmentBaselines && player.augmentBaselines[id];
+  const gained = key => Math.max(0, (player[key] || 0) - (baseline ? baseline[key] || 0 : 0));
   const streakGained = () => Math.max(0, player.streak || 0);
   switch (id) {
     case 'hp15': P.hp *= 1.15; break;
@@ -445,7 +448,17 @@ function rollAugmentOffers(player, n = 3) {
   while (offers.length < n) offers.push(AUG_BY_ID[pick(fillers)]);
   return offers;
 }
+/* 집은 뒤로 쌓은 것만 세는 증강들. 연승 계열(핏빛 질주)은 여기 없다 —
+ * 진행 중인 연승을 그대로 받는다. */
+const BASELINE_AUGMENTS = ['winMomentum', 'vengeance', 'learnLoss', 'survivor', 'battleExp', 'seasonedExp', 'fallenPower'];
 function applyAugmentPick(player, aug) {
+  if (BASELINE_AUGMENTS.includes(aug.id)) {
+    player.augmentBaselines = player.augmentBaselines || {};
+    player.augmentBaselines[aug.id] = {
+      wins: player.wins || 0, losses: player.losses || 0,
+      rounds: player.rounds || 0, coinsLost: player.coinsLost || 0,
+    };
+  }
   player.augments.push(aug.id);
   switch (aug.id) {
     case 'devilDeal':
