@@ -227,6 +227,7 @@ button:focus-visible,input:focus-visible{outline:.45cqw solid var(--cyan);outlin
 .codex-card::after{content:"";position:absolute;left:0;bottom:0;width:100%;height:.4cqw;background:var(--card-accent,#385368)}
 .codex-card .codex-ico{color:var(--card-accent,var(--cyan));font-size:9cqw;width:10cqw;height:10cqw;display:grid;place-items:center}
 .codex-card .codex-ico .ui-svg{width:8cqw;height:8cqw}
+.codex-card .codex-ico .ui-svg--augment{width:9.2cqw;height:9.2cqw}
 .codex-card .codex-ico canvas{display:block;width:10cqw;height:10cqw}
 .codex-card h3{font-family:'Do Hyeon',sans-serif;letter-spacing:.05cqw}
 .codex-card p{color:#91a4b4}
@@ -260,6 +261,7 @@ input[type=range]{accent-color:var(--cyan)}
   background-size:2.5cqw 2.5cqw,auto,auto;
 }
 .card .art .ui-svg{width:13cqw;height:13cqw;filter:drop-shadow(0 0 1.5cqw color-mix(in srgb,var(--card-accent,#67ddeb) 35%,transparent))}
+.card .art .ui-svg--augment{width:15.5cqw;height:15.5cqw;filter:drop-shadow(0 0 .55cqw color-mix(in srgb,var(--card-accent,#67ddeb) 24%,transparent))}
 .card .character-art{position:relative;overflow:hidden}.card .character-art canvas{position:absolute;inset:0;width:100%;height:100%}
 .weapon-card .art .ui-svg{width:15cqw;height:15cqw}
 .card .head{padding:1.8cqw 1.2cqw .7cqw}.card .nm{font:3.4cqw/1.05 'Do Hyeon',sans-serif;letter-spacing:.03cqw}
@@ -374,10 +376,10 @@ input[type=range]{accent-color:var(--cyan)}
 #player-modal{background:rgba(1,4,7,.82);backdrop-filter:blur(8px)}
 .modal-card{border-color:#36576c;border-radius:2.7cqw;background:linear-gradient(180deg,#122432,#08121b);box-shadow:0 5cqw 15cqw rgba(0,0,0,.58),var(--edge-highlight)}
 .modal-head{border-bottom-color:#263d4d}.modal-head h3{font-family:'Do Hyeon',sans-serif}
-.detail-item{border-color:#2a4354;border-radius:1.5cqw;background:#0d1b26}.detail-item .item-ico{color:var(--item-accent,var(--cyan));width:5cqw;height:5cqw;display:grid;place-items:center}.detail-item .item-ico .ui-svg{width:4.4cqw;height:4.4cqw}
+.detail-item{border-color:#2a4354;border-radius:1.5cqw;background:#0d1b26}.detail-item .item-ico{color:var(--item-accent,var(--cyan));width:5.5cqw;height:5.5cqw;display:grid;place-items:center}.detail-item .item-ico .ui-svg{width:4.4cqw;height:4.4cqw}.detail-item .item-ico .ui-svg--augment{width:5cqw;height:5cqw}
 #hold-tooltip{border-color:rgba(91,218,229,.48);border-radius:2.2cqw;background:rgba(8,20,28,.985);box-shadow:0 3cqw 10cqw rgba(0,0,0,.62),var(--edge-highlight)}
 .tooltip-title{display:flex;align-items:center;gap:1.2cqw;font-family:'Do Hyeon',sans-serif;color:var(--cyan)}
-.tooltip-title .ui-svg{width:4cqw;height:4cqw}
+.tooltip-title .ui-svg{width:4cqw;height:4cqw}.tooltip-title .ui-svg--augment{width:4.8cqw;height:4.8cqw;color:var(--item-accent,var(--cyan))}
 
 .rline,.rankline{border-color:#294151;border-radius:1.8cqw;background:#0d1b26;box-shadow:var(--edge-highlight)}
 .rline.elim{border-color:rgba(255,100,124,.45)}

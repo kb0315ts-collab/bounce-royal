@@ -54,6 +54,30 @@ const CAT_COLORS = Object.freeze({
   onhit:'#ff8277', skill:'#67e0e6', link:'#58e2d8', weapon:'#83c8ff', copy:'#b29aff',
 });
 const WEAPON_ICON_COLORS = Object.freeze({ sword:'#73d8f2', dagger:'#bf9aff', bow:'#72d9a0', pistol:'#f2c768', staff:'#b996ff', mine:'#ff9d68' });
+const AUGMENT_COLOR_GROUPS = Object.freeze([
+  ['#ff7188', 'hp15 lifesteal berserker lastResistance survivalInstinct bloodRush bloodWeapon vampiric d_bleed'],
+  ['#ffb85c', 'atk15 dmg10 warmup rampage20 firstStrike winMomentum vengeance seasonedExp glass brute collisionMania warmonger mark counter'],
+  ['#62d9f2', 'rot15 move15 elastic accelRot speedster rocketStart escapeInstinct battleExp reflectCharge staticFast rotMomentum chase autoExpert speedPower'],
+  ['#5edca9', 'meditate marathoner learnLoss survivor wallClimb m_heal'],
+  ['#73aef4', 'giant tiny ironDefense shockwave hitCharge'],
+  ['#f3cb5c', 'fallenPower brink trollCondition devilDeal gamble'],
+  ['#f4dc54', 'staticShock staticUp lightning chainBolt'],
+  ['#8fd8ff', 'frost m_freeze'],
+  ['#b18bf4', 'sleepGas gravityWell split lastStand'],
+  ['#ff7658', 'missile missilePlus missileUp flame flameUp flameDur minionRevenge'],
+  ['#a8cde8', 'shuriken shurikenSpd shurikenUp'],
+  ['#65d995', 'satellite satellitePlus miniBall twins legion'],
+  ['#74d7f1', 'w_giant w_beam desperateSpin'],
+  ['#c08cff', 'd_dual d_phase'],
+  ['#6edda4', 'b_triple b_homing b_kb'],
+  ['#f0c45d', 'p_shotgun p_mag p_bayonet'],
+  ['#ae8cf4', 's_double s_steal s_bounce'],
+  ['#ff9b61', 'm_big'],
+]);
+const AUGMENT_ICON_COLORS = Object.freeze(AUGMENT_COLOR_GROUPS.reduce((colors, group) => {
+  group[1].split(' ').forEach(id => { colors[id] = group[0]; });
+  return colors;
+}, {}));
 
 function iconMarkup(key, fallback = '◆', className = '') {
   if (typeof BRIcons !== 'undefined' && BRIcons && typeof BRIcons.markup === 'function') {
@@ -75,6 +99,7 @@ function itemIconKey(item) {
 }
 function itemAccent(item) {
   if (!item) return '#67ddeb';
+  if (item.id && AUGMENT_ICON_COLORS[item.id]) return AUGMENT_ICON_COLORS[item.id];
   if (item.weapon && WEAPON_ICON_COLORS[item.weapon]) return WEAPON_ICON_COLORS[item.weapon];
   return CAT_COLORS[item.cat] || item.color || '#67ddeb';
 }
@@ -148,6 +173,7 @@ let tooltipTimer = null;
 function showHoldTooltip(item) {
   const tip = $('hold-tooltip');
   if (!tip || !item) return;
+  setCssVar(tip, '--item-accent', itemAccent(item));
   const category = item.cat ? (CAT_TAGS[item.cat] || item.cat) : (item.kind || '상세 정보');
   const icon = item.ico || CAT_ICONS[item.cat] || '◆';
   tip.innerHTML = `<div class="tooltip-title"><span class="icon-inline">${iconMarkup(itemIconKey(item), icon)}</span><span>${esc(item.name || '정보')}</span></div><span class="tag tooltip-tag">${esc(category)}</span><div class="tooltip-desc">${esc(item.desc || item.skillDesc || '설명이 없습니다.')}</div>`;
