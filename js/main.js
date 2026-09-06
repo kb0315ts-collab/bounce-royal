@@ -64,6 +64,7 @@ function ratingTier(rating) {
 /* ---------------- 사운드 (WebAudio 신스) ---------------- */
 const SFX = {
   ctx: null,
+  lastHitAt: 0,
   muted: Profile.data.sound.muted,
   volume: Profile.data.sound.volume,
   ensure() {
@@ -86,12 +87,18 @@ const SFX = {
       o.start(t); o.stop(t + dur + 0.03);
     } catch (e) { }
   },
-  ui() { this.tone(700, 0.06, 'triangle', 0.1); },
-  hit() { if (chance(0.5)) this.tone(180 + Math.random() * 70, 0.06, 'square', 0.08); },
-  bounce() { this.tone(130, 0.05, 'sine', 0.07); },
-  boom() { this.tone(90, 0.3, 'sawtooth', 0.16, -55); },
-  shoot() { this.tone(540, 0.05, 'triangle', 0.05, -140); },
-  skill() { this.tone(420, 0.16, 'sine', 0.11, 260); },
+  ui() { this.tone(760, 0.045, 'triangle', 0.075, 90); },
+  hit() {
+    const now = performance.now();
+    if (now - this.lastHitAt < 34) return;
+    this.lastHitAt = now;
+    this.tone(155 + Math.random() * 55, 0.075, 'square', 0.075, -45);
+    if (Math.random() < 0.32) this.tone(760 + Math.random() * 140, 0.028, 'triangle', 0.035, -230);
+  },
+  bounce() { this.tone(145, 0.045, 'sine', 0.055, 65); },
+  boom() { this.tone(86, 0.32, 'sawtooth', 0.14, -50); this.tone(210, 0.09, 'square', 0.045, -120); },
+  shoot() { this.tone(620, 0.042, 'triangle', 0.042, -210); },
+  skill() { this.tone(360, 0.18, 'sine', 0.085, 310); this.tone(760, 0.1, 'triangle', 0.045, 180, 0.035); },
   coin() { this.tone(880, 0.08, 'triangle', 0.1); this.tone(1320, 0.1, 'triangle', 0.08, 0, 0.07); },
   win() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.12, 0, i * 0.12)); },
   lose() { [400, 330, 262].forEach((f, i) => this.tone(f, 0.2, 'sawtooth', 0.08, 0, i * 0.14)); },

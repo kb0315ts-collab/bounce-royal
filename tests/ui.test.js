@@ -175,7 +175,7 @@ test('증강 화면의 코인은 넘겨받은 최신 목록을 쓴다', () => {
   const roster = $('scr-augment')._find('prow');
   assert.ok(roster.length >= 2, '참가자 줄이 그려져야 한다');
   const text = roster.map(el => el.innerHTML).join(' ');
-  assert.ok(text.includes('🪙2') && text.includes('🪙4'), '코인이 전원 5개로 굳어 보이면 안 된다 (실제: ' + text + ')');
+  assert.ok(text.includes('data-coins="2"') && text.includes('data-coins="4"'), '코인이 전원 5개로 굳어 보이면 안 된다 (실제: ' + text + ')');
 });
 
 test('타이머 눈금은 단계 전체 길이 기준이다', () => {

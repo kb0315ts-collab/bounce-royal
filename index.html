@@ -232,6 +232,7 @@ body{display:flex;align-items:center;justify-content:center}
 @media (max-aspect-ratio:9/16){#app{box-shadow:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
 </style>
+<link rel="stylesheet" href="css/visual-polish.css">
 </head>
 <body>
 <main id="app" aria-label="바운스 로얄 720×1280 세로 게임 화면" data-render-target="720x1280">
@@ -245,15 +246,15 @@ body{display:flex;align-items:center;justify-content:center}
       <div id="hud-round">ROUND 1</div><div id="hud-map">다이아 경기장</div><div id="hud-timer">30.0</div><div id="ot-tag">연장전 · 5초간 가속 → 1.5배속</div>
     </div>
     <div id="hud-spec">관전 중</div>
-    <button id="btn-watch-other" class="midbtn ghostbtn" type="button">👁 다른 전투 보기</button>
+    <button id="btn-watch-other" class="midbtn ghostbtn" type="button"><span class="icon-inline" data-ui-icon="watch"></span> 다른 전투 보기</button>
     <div id="hud-count" aria-hidden="true"></div>
     <div id="steer-control" class="disabled" role="application" aria-label="이동 조이스틱. 공은 자동으로 이동하며 누르는 동안 진행 방향이 천천히 휘어집니다." aria-disabled="true">
       <div id="steer-base"><span class="steer-ring" aria-hidden="true"></span><span id="steer-knob"><span class="steer-arrow" aria-hidden="true">➤</span></span></div>
       <div id="steer-label">꾹 눌러 조향</div>
     </div>
     <div id="skillbar">
-      <button class="skillbtn" id="sk-char" type="button"><span class="key">1</span><span class="ico">🐾</span><span class="lbl">캐릭터 스킬</span><span class="uses">●</span><span class="cdoverlay">충전 중…</span></button>
-      <button class="skillbtn" id="sk-weapon" type="button"><span class="key">2</span><span class="ico">⚔️</span><span class="lbl">무기 스킬</span><span class="uses">●</span><span class="cdoverlay">충전 중…</span></button>
+      <button class="skillbtn" id="sk-char" type="button"><span class="key">1</span><span class="ico" data-ui-icon="cat"></span><span class="lbl">캐릭터 스킬</span><span class="uses">●</span><span class="cdoverlay">충전 중…</span></button>
+      <button class="skillbtn" id="sk-weapon" type="button"><span class="key">2</span><span class="ico" data-ui-icon="sword"></span><span class="lbl">무기 스킬</span><span class="uses">●</span><span class="cdoverlay">충전 중…</span></button>
     </div>
     <div id="hud-hint"></div>
   </section>
@@ -262,18 +263,18 @@ body{display:flex;align-items:center;justify-content:center}
 
   <section class="screen" id="scr-title">
     <div class="title-profile">
-      <div class="mini-avatar">🔵</div>
+      <div class="mini-avatar" data-ui-icon="brand"></div>
       <div class="who"><div class="nick" id="title-nickname">플레이어</div><div class="rating"><span id="title-tier">브론즈 I</span> · <span id="title-rating">1000 RP</span></div></div>
-      <button class="iconbtn title-settings-mini" id="btn-title-settings" type="button" aria-label="설정">⚙</button>
+      <button class="iconbtn title-settings-mini" id="btn-title-settings" type="button" aria-label="설정" data-ui-icon="settings"></button>
     </div>
-    <div class="title-brand"><div class="title-crown">♛</div><div class="logo">바운스<br>로얄</div><div class="title-en">BOUNCE ROYALE</div><div class="title-season">SEASON 01 · 반사의 시작</div></div>
+    <div class="title-brand"><div class="title-crown" data-ui-icon="brand"></div><div class="logo">바운스<br>로얄</div><div class="title-en">BOUNCE ROYALE</div><div class="title-season">SEASON 01 · 반사의 시작</div></div>
     <nav class="hub-menu" aria-label="메인 메뉴">
-      <button class="hub-main ranked" id="btn-ranked" type="button"><strong>경쟁전</strong><small>랭크를 걸고 랜덤 매칭</small><span class="hub-ico">🏆</span></button>
-      <button class="hub-main friendly" id="btn-friendly" type="button"><strong>친선전</strong><small>친구·AI와 함께 플레이</small><span class="hub-ico">🤝</span></button>
+      <button class="hub-main ranked" id="btn-ranked" type="button"><span class="hub-ico" data-ui-icon="ranked"></span><span class="hub-copy"><strong>경쟁전</strong><small>랭크를 걸고 랜덤 매칭</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
+      <button class="hub-main friendly" id="btn-friendly" type="button"><span class="hub-ico" data-ui-icon="friendly"></span><span class="hub-copy"><strong>친선전</strong><small>친구·AI와 함께 플레이</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
       <div class="hub-subnav">
-        <button class="hub-small" id="btn-bag" type="button"><span>🎒</span>가방</button>
-        <button class="hub-small" id="btn-codex" type="button"><span>📖</span>도감</button>
-        <button class="hub-small" id="btn-settings" type="button"><span>⚙️</span>설정</button>
+        <button class="hub-small" data-menu="bag" id="btn-bag" type="button"><span class="hub-ico" data-ui-icon="bag"></span><span class="hub-copy"><strong>가방</strong><small>장착 캐릭터와 보유 항목</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
+        <button class="hub-small" data-menu="codex" id="btn-codex" type="button"><span class="hub-ico" data-ui-icon="codex"></span><span class="hub-copy"><strong>도감</strong><small>캐릭터·무기·증강 정보</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
+        <button class="hub-small" data-menu="settings" id="btn-settings" type="button"><span class="hub-ico" data-ui-icon="settings"></span><span class="hub-copy"><strong>설정</strong><small>닉네임·사운드·진동</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
       </div>
     </nav>
     <div class="build-tag">720 × 1280 PORTRAIT BUILD</div>
@@ -281,35 +282,35 @@ body{display:flex;align-items:center;justify-content:center}
   </section>
 
   <section class="screen hidden" id="scr-matchmaking">
-    <header class="screen-head"><button class="backbtn" id="btn-back-matchmaking" type="button">‹</button><h2>경쟁전</h2><span></span></header>
+    <header class="screen-head"><button class="backbtn" id="btn-back-matchmaking" type="button" aria-label="뒤로" data-ui-icon="back"></button><h2>경쟁전</h2><span></span></header>
     <div class="screen-scroll">
-      <div class="rank-card"><div class="rank-emblem">🛡️</div><div id="ranked-tier">브론즈 I</div><div id="ranked-rating">1000 RP</div><div class="rating-track"><i></i></div><div class="subt">승리와 최종 순위에 따라 레이팅이 오르거나 내려갑니다.</div></div>
+      <div class="rank-card"><div class="rank-emblem" data-ui-icon="ranked"></div><div id="ranked-tier">브론즈 I</div><div id="ranked-rating">1000 RP</div><div class="rating-track"><i></i></div><div class="subt">승리와 최종 순위에 따라 레이팅이 오르거나 내려갑니다.</div></div>
       <div id="ranked-search-status">매칭을 시작할 준비가 되었습니다.</div>
       <div class="center-actions"><button class="bigbtn" id="btn-ranked-match" type="button">대전 시작</button><button class="midbtn ghostbtn hidden" id="btn-offline-practice" type="button" style="margin-top:3cqw">서버 없이 AI와 연습</button></div>
     </div>
   </section>
 
   <section class="screen hidden" id="scr-friendly">
-    <header class="screen-head"><button class="backbtn" id="btn-back-friendly" type="button">‹</button><h2>친선전</h2><span></span></header>
-    <div class="room-code-wrap"><div><small>방 코드 · 친구에게 알려주세요</small><div id="room-code">BR-0000</div></div><button class="iconbtn" id="btn-copy-room" type="button" aria-label="방 코드 복사">⧉</button></div>
+    <header class="screen-head"><button class="backbtn" id="btn-back-friendly" type="button" aria-label="뒤로" data-ui-icon="back"></button><h2>친선전</h2><span></span></header>
+    <div class="room-code-wrap"><div><small>방 코드 · 친구에게 알려주세요</small><div id="room-code">BR-0000</div></div><button class="iconbtn" id="btn-copy-room" type="button" aria-label="방 코드 복사" data-ui-icon="copy"></button></div>
     <div class="screen-scroll"><div id="room-slots"></div></div>
     <div class="room-actions"><button class="midbtn ghostbtn" id="btn-online-join" type="button">코드로 입장</button><button class="midbtn" id="btn-room-start" type="button">게임 시작</button></div>
     <div class="room-actions hidden" id="room-local-actions" style="margin-top:2cqw"><button class="midbtn ghostbtn" id="btn-room-ai" type="button">＋ AI 추가</button></div>
   </section>
 
   <section class="screen hidden" id="scr-bag">
-    <header class="screen-head"><button class="backbtn" id="btn-back-bag" type="button">‹</button><h2>가방</h2><span></span></header>
+    <header class="screen-head"><button class="backbtn" id="btn-back-bag" type="button" aria-label="뒤로" data-ui-icon="back"></button><h2>가방</h2><span></span></header>
     <div class="screen-scroll"><div id="bag-equipped"></div><div class="subt">전투에 데려갈 캐릭터를 미리 장착하세요.</div><div id="bag-cards"></div></div>
   </section>
 
   <section class="screen hidden" id="scr-codex">
-    <header class="screen-head"><button class="backbtn" id="btn-back-codex" type="button">‹</button><h2>도감</h2><span class="head-extra" id="codex-count"></span></header>
+    <header class="screen-head"><button class="backbtn" id="btn-back-codex" type="button" aria-label="뒤로" data-ui-icon="back"></button><h2>도감</h2><span class="head-extra" id="codex-count"></span></header>
     <nav id="codex-tabs"><button class="tabbtn active" data-tab="characters" type="button">캐릭터</button><button class="tabbtn" data-tab="weapons" type="button">무기</button><button class="tabbtn" data-tab="augments" type="button">증강</button></nav>
     <div class="screen-scroll"><div id="codex-list"></div></div>
   </section>
 
   <section class="screen hidden" id="scr-settings">
-    <header class="screen-head"><button class="backbtn" id="btn-back-settings" type="button">‹</button><h2>설정</h2><span></span></header>
+    <header class="screen-head"><button class="backbtn" id="btn-back-settings" type="button" aria-label="뒤로" data-ui-icon="back"></button><h2>설정</h2><span></span></header>
     <div class="screen-scroll">
       <div class="settings-panel">
         <label class="setting-row"><span class="setting-copy"><strong>닉네임</strong><small>게임에서 다른 플레이어에게 표시됩니다.</small></span><input class="text-input" id="settings-nickname" maxlength="12" value="플레이어"></label>
@@ -323,7 +324,7 @@ body{display:flex;align-items:center;justify-content:center}
   </section>
 
   <section class="screen hidden selection-screen" id="scr-char">
-    <header class="screen-head"><button class="backbtn" id="btn-back-char" type="button">‹</button><h2>캐릭터 선택</h2><span></span></header>
+    <header class="screen-head"><button class="backbtn" id="btn-back-char" type="button" aria-label="뒤로" data-ui-icon="back"></button><h2>캐릭터 선택</h2><span></span></header>
     <div class="screen-scroll"><div class="subt">고유 스킬을 지닌 여섯 캐릭터 중 하나를 선택합니다.</div><div class="cards" id="char-cards"></div></div>
   </section>
 
@@ -339,7 +340,7 @@ body{display:flex;align-items:center;justify-content:center}
     <div class="selection-body">
       <div class="subt" id="aug-sub">새로운 증강 하나를 획득합니다.</div>
       <div class="cards" id="aug-cards"></div>
-      <div id="aug-meta"><div class="refresh-row"><button class="midbtn ghostbtn refresh-btn" id="btn-refresh" type="button">↻ 새로고침</button><span class="refresh-count-pill">보유 <b id="refresh-count">0</b>회</span></div><div id="aug-myinfo"></div><div class="aug-owned-wrap"><div id="aug-owned"></div></div></div>
+      <div id="aug-meta"><div class="refresh-row"><button class="midbtn ghostbtn refresh-btn" id="btn-refresh" type="button"><span class="icon-inline" data-ui-icon="refresh"></span> 새로고침</button><span class="refresh-count-pill">보유 <b id="refresh-count">0</b>회</span></div><div id="aug-myinfo"></div><div class="aug-owned-wrap"><div id="aug-owned"></div></div></div>
     </div>
   </section>
 
@@ -380,7 +381,7 @@ body{display:flex;align-items:center;justify-content:center}
   </section>
 
   <div id="player-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="player-modal-title">
-    <div class="modal-card"><header class="modal-head"><h3 id="player-modal-title">플레이어 정보</h3><button class="iconbtn" id="btn-player-modal-close" type="button" aria-label="닫기">×</button></header><div class="modal-body" id="player-modal-content"></div></div>
+    <div class="modal-card"><header class="modal-head"><h3 id="player-modal-title">플레이어 정보</h3><button class="iconbtn" id="btn-player-modal-close" type="button" aria-label="닫기" data-ui-icon="close"></button></header><div class="modal-body" id="player-modal-content"></div></div>
   </div>
   <div id="hold-tooltip" class="hidden" role="tooltip"></div>
 </main>
@@ -393,6 +394,7 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/events.js"></script>
 <script src="js/render.js"></script>
 <script src="js/net.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 <script src="js/multi.js"></script>

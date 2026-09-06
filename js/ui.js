@@ -39,10 +39,34 @@ function banner(main, sub = '', duration = 1400) {
 
 /* ---------------- 공통 렌더 유틸 ---------------- */
 const CAT_ICONS = {
-  stat:'💪', time:'⏱️', tempo:'🚀', hpcond:'❤️‍🔥', streak:'📈', coin:'🪙', trade:'⚖️',
-  physics:'💥', cc:'🧊', auto:'⚙️', summon:'🔵', death:'☠️', onhit:'🎯', skill:'⚡',
-  link:'🔗', weapon:'🛠️', copy:'🧬',
+  stat:'◆', time:'◷', tempo:'»', hpcond:'♥', streak:'↗', coin:'●', trade:'⇄',
+  physics:'◉', cc:'✳', auto:'◎', summon:'◌', death:'◇', onhit:'⊙', skill:'ϟ',
+  link:'∞', weapon:'†', copy:'◫',
 };
+const CAT_ICON_KEYS = Object.freeze({
+  stat:'stat', time:'time', tempo:'tempo', hpcond:'hpcond', streak:'streak', coin:'coin', trade:'trade',
+  physics:'physics', cc:'cc', auto:'auto', summon:'summon', death:'death', onhit:'onhit', skill:'skill',
+  link:'link', weapon:'weapon', copy:'copySkill',
+});
+
+function iconMarkup(key, fallback = '◆', className = '') {
+  if (typeof BRIcons !== 'undefined' && BRIcons && typeof BRIcons.markup === 'function') {
+    return BRIcons.markup(key, className);
+  }
+  return `<span class="icon-fallback${className ? ` ${esc(className)}` : ''}">${esc(fallback)}</span>`;
+}
+function setCssVar(element, name, value) {
+  if (!element?.style) return;
+  if (typeof element.style.setProperty === 'function') element.style.setProperty(name, value);
+  else element.style[name] = value;
+}
+function itemIconKey(item) {
+  if (!item) return 'skill';
+  if (item.id && typeof WEAPONS !== 'undefined' && WEAPONS[item.id]) return item.id;
+  if (item.weapon && WEAPONS[item.weapon]) return item.weapon;
+  if (item.id && typeof CHARACTERS !== 'undefined' && CHARACTERS[item.id]) return item.id;
+  return CAT_ICON_KEYS[item.cat] || item.id || 'skill';
+}
 
 function bar(label, value) {
   const pct = Math.max(5, Math.min(100, Math.round(Number(value || 0) * 100)));
@@ -101,11 +125,11 @@ function playerStatus(player, game) {
 }
 
 function playerStatusIcon(status) {
-  if (status === '전투 중') return '⚔️';
-  if (status === '전투 종료') return '🏁';
-  if (status === '탈락') return '💀';
-  if (status === '부전승') return '⭐';
-  return '●';
+  if (status === '전투 중') return 'weapon';
+  if (status === '전투 종료') return 'ranked';
+  if (status === '탈락') return 'death';
+  if (status === '부전승') return 'skill';
+  return 'onhit';
 }
 
 /* ---------------- 길게 누르기 상세 ---------------- */
@@ -115,7 +139,7 @@ function showHoldTooltip(item) {
   if (!tip || !item) return;
   const category = item.cat ? (CAT_TAGS[item.cat] || item.cat) : (item.kind || '상세 정보');
   const icon = item.ico || CAT_ICONS[item.cat] || '◆';
-  tip.innerHTML = `<div class="tooltip-title">${esc(icon)} ${esc(item.name || '정보')}</div><span class="tag tooltip-tag">${esc(category)}</span><div class="tooltip-desc">${esc(item.desc || item.skillDesc || '설명이 없습니다.')}</div>`;
+  tip.innerHTML = `<div class="tooltip-title"><span class="icon-inline">${iconMarkup(itemIconKey(item), icon)}</span><span>${esc(item.name || '정보')}</span></div><span class="tag tooltip-tag">${esc(category)}</span><div class="tooltip-desc">${esc(item.desc || item.skillDesc || '설명이 없습니다.')}</div>`;
   tip.classList.remove('hidden');
   clearTimeout(tooltipTimer);
   tooltipTimer = setTimeout(hideHoldTooltip, 3600);
@@ -183,7 +207,8 @@ function selectionPlayers(players) {
       const p = playerSource(raw), ch = CHARACTERS[p.charId];
       const el = document.createElement('button');
       el.type = 'button'; el.className = `prow${p.eliminated ? ' dead eliminated' : ''}`;
-      el.innerHTML = `<div class="portrait"><span class="coin-rank">${rank + 1}</span><canvas aria-hidden="true"></canvas></div><div class="hud-name"><span>${esc(p.name || `플레이어 ${rank + 1}`)}</span>${p.coins != null ? `<span class="hud-coins">🪙${Math.max(0, p.coins)}</span>` : ''}</div>`;
+      setCssVar(el, '--player-color', p.color || '#6ea6c4');
+      el.innerHTML = `<div class="portrait"><span class="coin-rank">${rank + 1}</span><canvas aria-hidden="true"></canvas></div><div class="hud-name"><span>${esc(p.name || `플레이어 ${rank + 1}`)}</span>${p.coins != null ? `<span class="hud-coins" data-coins="${Math.max(0, p.coins)}">${iconMarkup('coin', '●')}${Math.max(0, p.coins)}</span>` : ''}</div>`;
       el.onclick = () => showPlayerDetail(p);
       roster.appendChild(el);
       paintPortrait(el.querySelector('canvas'), p.charId, p.weaponId, p.color);
@@ -200,10 +225,12 @@ function buildCharSelect(onPick) {
   Object.entries(CHARACTERS).forEach(([id, ch]) => {
     const el = document.createElement('button');
     el.type = 'button'; el.className = 'card character-card';
-    el.innerHTML = `<div class="art"><span>${esc(ch.ico)}</span></div><div class="head"><span class="nm">${esc(ch.name)}</span></div><div class="stats">${bar('체력', ch.hp / 130)}${bar('이동', (ch.move - 130) / 70)}</div><div class="desc"><b style="color:#ffd24d">${esc(ch.skillName)}</b><br>${esc(ch.skillDesc)}</div>`;
+    setCssVar(el, '--card-accent', ch.color || '#67ddeb');
+    el.innerHTML = `<div class="art character-art"><canvas aria-hidden="true"></canvas></div><div class="head"><span class="nm">${esc(ch.name)}</span></div><div class="stats">${bar('체력', ch.hp / 130)}${bar('이동', (ch.move - 130) / 70)}</div><div class="desc"><b class="accent-copy">${esc(ch.skillName)}</b><br>${esc(ch.skillDesc)}</div>`;
     el.onclick = () => { playUI(); onPick?.(id); };
     bindLongPress(el, { name:ch.skillName, ico:ch.ico, kind:ch.name, desc:ch.skillDesc });
     box.appendChild(el);
+    paintPortrait(el.querySelector('canvas'), id, null, ch.color);
   });
 }
 
@@ -216,7 +243,8 @@ function buildWeaponSelect(offers, onPick) {
     const wp = WEAPONS[id]; if (!wp) return;
     const el = document.createElement('button');
     el.type = 'button'; el.className = 'card weapon-card';
-    el.innerHTML = `<div class="art">${esc(wp.ico)}</div><div class="head"><span class="nm">${esc(wp.name)}</span></div><span class="tag">${wp.type === 'melee' ? '근접' : wp.type === 'mine' ? '설치' : '원거리'}</span><div class="stats">${bar('공격', wp.stat?.atk)}${bar('속도', wp.stat?.spd)}${bar('사거리', wp.stat?.rng)}${bar('기동', wp.stat?.mob)}</div><div class="desc">${esc(wp.desc)}</div><div class="foot"><b style="color:#ffd24d">${esc(wp.skillName)}</b><br>${esc(wp.skillDesc)}</div>`;
+    el.dataset.weapon = id;
+    el.innerHTML = `<div class="art">${iconMarkup(id, wp.ico)}</div><div class="head"><span class="nm">${esc(wp.name)}</span></div><span class="tag">${wp.type === 'melee' ? '근접' : wp.type === 'mine' ? '설치' : '원거리'}</span><div class="stats">${bar('공격', wp.stat?.atk)}${bar('속도', wp.stat?.spd)}${bar('사거리', wp.stat?.rng)}${bar('기동', wp.stat?.mob)}</div><div class="desc">${esc(wp.desc)}</div><div class="foot"><b class="accent-copy">${esc(wp.skillName)}</b><br>${esc(wp.skillDesc)}</div>`;
     el.onclick = () => {
       if (box.dataset.picked) return;            // 한 번 고르면 잠근다
       box.dataset.picked = '1';
@@ -248,7 +276,8 @@ function buildAugmentSelect(offers, player, onPick, subtitle, refreshOptions = n
     const el = document.createElement('button');
     el.type = 'button'; el.className = 'card augment-card';
     const icon = CAT_ICONS[augment.cat] || '◆';
-    el.innerHTML = `<div class="art">${esc(icon)}</div><div class="head"><span class="nm">${esc(augment.name)}</span></div><span class="tag">${esc(CAT_TAGS[augment.cat] || augment.cat)}</span><div class="desc">${esc(augment.desc)}</div>`;
+    el.dataset.category = augment.cat || '';
+    el.innerHTML = `<div class="art">${iconMarkup(CAT_ICON_KEYS[augment.cat] || 'skill', icon)}</div><div class="head"><span class="nm">${esc(augment.name)}</span></div><span class="tag">${esc(CAT_TAGS[augment.cat] || augment.cat)}</span><div class="desc">${esc(augment.desc)}</div>`;
     el.onclick = () => {
       if (box.dataset.picked) return;          // 한 번 고르면 잠근다
       box.dataset.picked = '1';
@@ -265,7 +294,7 @@ function buildAugmentSelect(offers, player, onPick, subtitle, refreshOptions = n
   });
   delete box.dataset.picked;                   // 새 후보가 오면 다시 고를 수 있다
   const p = playerSource(player), ch = CHARACTERS[p.charId], wp = WEAPONS[p.weaponId];
-  if ($('aug-myinfo')) $('aug-myinfo').textContent = `${ch?.ico || ''} ${ch?.name || ''} · ${wp?.ico || ''} ${wp?.name || ''} · 🪙 ${Math.max(0, p.coins || 0)}개`;
+  if ($('aug-myinfo')) $('aug-myinfo').innerHTML = `<span>${esc(ch?.name || '')}</span><i>·</i><span>${esc(wp?.name || '')}</span><i>·</i><span class="coin-copy">${iconMarkup('coin', '●')} ${Math.max(0, p.coins || 0)}개</span>`;
   const owned = $('aug-owned');
   if (owned) {
     owned.replaceChildren();
@@ -327,6 +356,7 @@ function eventPlayerKey(rawPlayer, index = -1) {
 
 function eventChoiceCopy(choice) {
   return {
+    key: String(choice?.id ?? choice?.eventId ?? choice?.key ?? 'skill'),
     name: String(choice?.name ?? choice?.title ?? '이름 없는 이벤트'),
     desc: String(choice?.desc ?? choice?.description ?? choice?.effect ?? '이벤트 설명이 없습니다.'),
     icon: String(choice?.ico ?? choice?.icon ?? choice?.emoji ?? '✦'),
@@ -445,7 +475,7 @@ function renderEventVoteCards() {
     button.dataset.eventId = key;
     button.setAttribute('aria-pressed', 'false');
 
-    const art = document.createElement('span'); art.className = 'event-art'; art.textContent = copy.icon;
+    const art = document.createElement('span'); art.className = 'event-art'; art.innerHTML = iconMarkup(copy.key, copy.icon);
     const name = document.createElement('span'); name.className = 'event-name'; name.textContent = copy.name;
     const desc = document.createElement('span'); desc.className = 'event-desc'; desc.textContent = copy.desc;
     const voters = document.createElement('span'); voters.className = 'event-card-voters';
@@ -681,12 +711,13 @@ function buildFriendlySlots(room, callbacks = {}) {
   for (let index = 0; index < max; index++) {
     const slot = slots[index], el = document.createElement('div');
     if (!slot) {
-      el.className = 'room-slot empty'; el.innerHTML = `<span>＋ 빈 자리 ${index + 1}</span>`;
+      el.className = 'room-slot empty'; el.innerHTML = `<span class="icon-inline">${iconMarkup('plus', '+')}</span><span>빈 자리 ${index + 1}</span>`;
       if (callbacks.onAddAI) { el.style.cursor = 'pointer'; el.onclick = () => callbacks.onAddAI(index); }
       box.appendChild(el); continue;
     }
     const ch = CHARACTERS[slot.charId];
     el.className = 'room-slot';
+    setCssVar(el, '--slot-color', slot.color || '#3e5b70');
     el.innerHTML = `<div class="slot-avatar"><canvas aria-hidden="true"></canvas></div><div class="slot-info"><div class="slot-name">${esc(slot.name || `플레이어 ${index + 1}`)}${slot.local ? ' <span style="color:#67baff">(나)</span>' : ''}</div><div class="slot-meta">${esc(ch?.name || '캐릭터 미정')} · ${slot.isAI ? 'AI' : '플레이어'}</div></div><button class="ready-pill${slot.ready ? ' on' : ''}" type="button">${slot.ready ? '준비 완료' : '준비 중'}</button>${index > 0 && slot.isAI ? '<button class="slot-remove" type="button" aria-label="참가자 제거">×</button>' : ''}`;
     const ready = el.querySelector('.ready-pill');
     ready.onclick = () => callbacks.onToggleReady?.(index);
@@ -730,10 +761,13 @@ function buildCodex(tab = 'characters') {
   entries.forEach(item => {
     const el = document.createElement('button'); el.type = 'button'; el.className = 'codex-card';
     const icon = item.ico || CAT_ICONS[item.cat] || '◆';
-    el.innerHTML = `<span class="tag">${esc(item.kind)}</span><div class="codex-ico">${esc(icon)}</div><h3>${esc(item.name)}</h3><p>${esc(item.desc || item.skillDesc || '')}</p>`;
+    const isCharacter = validTab === 'characters';
+    setCssVar(el, '--card-accent', isCharacter ? (item.color || '#67ddeb') : validTab === 'weapons' ? '#55cce8' : '#68d8c9');
+    el.innerHTML = `<span class="tag">${esc(item.kind)}</span><div class="codex-ico">${isCharacter ? '<canvas aria-hidden="true"></canvas>' : iconMarkup(itemIconKey(item), icon)}</div><h3>${esc(item.name)}</h3><p>${esc(item.desc || item.skillDesc || '')}</p>`;
     el.onclick = () => showHoldTooltip(item);
     bindLongPress(el, item);
     box.appendChild(el);
+    if (isCharacter) paintPortrait(el.querySelector('canvas'), item.id, null, item.color);
   });
 }
 
@@ -770,7 +804,7 @@ function showPlayerDetail(rawPlayer) {
   const ch = CHARACTERS[p.charId], wp = WEAPONS[p.weaponId];
   const augments = (p.augments || []).map(id => AUG_BY_ID[id]).filter(Boolean);
   $('player-modal-title').textContent = `${p.name || '플레이어'}의 장비`;
-  content.innerHTML = `<div class="detail-hero"><canvas aria-hidden="true"></canvas><div><h4 style="color:${esc(p.color || '#eef3ff')}">${esc(p.name || '플레이어')}</h4><p>🪙 ${Math.max(0, p.coins || 0)} · ${p.eliminated ? '탈락' : '생존'}</p></div></div><div class="detail-section"><strong>캐릭터와 무기</strong><div class="detail-item" data-kind="character"><span class="item-ico">${esc(ch?.ico || '●')}</span><span class="item-name">${esc(ch?.name || '미정')}</span><small>${esc(ch?.skillName || '')}</small></div><div class="detail-item" data-kind="weapon"><span class="item-ico">${esc(wp?.ico || '—')}</span><span class="item-name">${esc(wp?.name || '무기 선택 전')}</span><small>${esc(wp?.skillName || '')}</small></div></div><div class="detail-section"><strong>증강 ${augments.length}개 · 길게 눌러 설명 보기</strong><div id="detail-augments">${augments.length ? '' : '<div class="detail-item"><span class="item-name">아직 획득한 증강이 없습니다.</span></div>'}</div></div>`;
+  content.innerHTML = `<div class="detail-hero"><canvas aria-hidden="true"></canvas><div><h4 style="color:${esc(p.color || '#eef3ff')}">${esc(p.name || '플레이어')}</h4><p><span class="icon-inline">${iconMarkup('coin', '●')}</span> ${Math.max(0, p.coins || 0)} · ${p.eliminated ? '탈락' : '생존'}</p></div></div><div class="detail-section"><strong>캐릭터와 무기</strong><div class="detail-item" data-kind="character"><span class="item-ico">${iconMarkup(p.charId || 'skill', ch?.ico || '●')}</span><span class="item-name">${esc(ch?.name || '미정')}</span><small>${esc(ch?.skillName || '')}</small></div><div class="detail-item" data-kind="weapon"><span class="item-ico">${iconMarkup(p.weaponId || 'weapon', wp?.ico || '—')}</span><span class="item-name">${esc(wp?.name || '무기 선택 전')}</span><small>${esc(wp?.skillName || '')}</small></div></div><div class="detail-section"><strong>증강 ${augments.length}개 · 길게 눌러 설명 보기</strong><div id="detail-augments">${augments.length ? '' : '<div class="detail-item"><span class="item-name">아직 획득한 증강이 없습니다.</span></div>'}</div></div>`;
   paintPortrait(content.querySelector('canvas'), p.charId, p.weaponId, p.color);
   const characterItem = content.querySelector('[data-kind="character"]');
   if (ch) bindLongPress(characterItem, { name:ch.name, ico:ch.ico, kind:'캐릭터 스킬', desc:`${ch.skillName} · ${ch.skillDesc}` });
@@ -779,7 +813,7 @@ function showPlayerDetail(rawPlayer) {
   augments.forEach(augment => {
     const el = document.createElement('div'); el.className = 'detail-item';
     const icon = CAT_ICONS[augment.cat] || '◆';
-    el.innerHTML = `<span class="item-ico">${esc(icon)}</span><span class="item-name">${esc(augment.name)}</span><small>${esc(CAT_TAGS[augment.cat] || '')}</small>`;
+    el.innerHTML = `<span class="item-ico">${iconMarkup(CAT_ICON_KEYS[augment.cat] || 'skill', icon)}</span><span class="item-name">${esc(augment.name)}</span><small>${esc(CAT_TAGS[augment.cat] || '')}</small>`;
     bindLongPress(el, augment); augBox.appendChild(el);
   });
   modal.classList.remove('hidden');
@@ -803,7 +837,7 @@ function showResult(title, lines, buttonText, onDone) {
 function showGameOver(players, human, onRestart) {
   showScreen('scr-over');
   const myRank = human?.rank || 4, champion = myRank === 1;
-  $('over-rank').textContent = champion ? '🏆 1위!' : `${myRank}위`;
+  $('over-rank').innerHTML = champion ? `<span class="icon-inline">${iconMarkup('ranked', '◆')}</span> 1위!` : `${myRank}위`;
   $('over-rank').style.color = champion ? '#ffd24d' : '#eef3ff';
   const rating = $('over-rating'), delta = Number(human?.ratingDelta || 0);
   if (rating) rating.textContent = human?.ratingAfter != null ? `레이팅 ${human.ratingAfter} RP  ${delta >= 0 ? '+' : ''}${delta}` : '';
@@ -811,7 +845,7 @@ function showGameOver(players, human, onRestart) {
   (players || []).slice().sort((a,b) => (a.rank || 99) - (b.rank || 99)).forEach(p => {
     const ch = CHARACTERS[p.charId], wp = WEAPONS[p.weaponId], el = document.createElement('button');
     el.type = 'button'; el.className = `rankline${p.rank === 1 ? ' first' : ''}${p.eliminated ? ' dead' : ''}`;
-    el.innerHTML = `<span class="pos">${p.rank || '-'}위</span><span style="color:${esc(p.color || '#eef3ff')}">${esc(p.name)}${p === human ? ' (나)' : ''}</span><span style="margin-left:auto;color:#8995b6">${esc(ch?.ico || '')}${esc(wp?.ico || '')} · 증강 ${(p.augments || []).length}</span>`;
+    el.innerHTML = `<span class="pos">${p.rank || '-'}위</span><span style="color:${esc(p.color || '#eef3ff')}">${esc(p.name)}${p === human ? ' (나)' : ''}</span><span class="rank-loadout"><span class="icon-inline">${iconMarkup(p.weaponId || 'weapon', wp?.ico || '')}</span> 증강 ${(p.augments || []).length}</span>`;
     el.onclick = () => showPlayerDetail(p); box.appendChild(el);
   });
   $('btn-restart').onclick = () => { playUI(); onRestart?.(); };
@@ -826,8 +860,9 @@ function updatePlayersPanel(game) {
     const status = playerStatus(p, game), el = document.createElement('button');
     el.type = 'button'; el.className = `prow${p === game.human ? ' me' : ''}${p.eliminated ? ' dead eliminated' : ''}`;
     el.dataset.playerId = String(p.id);
+    setCssVar(el, '--player-color', p.color || '#6ea6c4');
     el.title = status;
-    el.innerHTML = `<div class="portrait"><span class="coin-rank">${index + 1}</span><span class="hud-status">${playerStatusIcon(status)}</span><span class="hud-streak">${streakLabel(p)}</span><canvas aria-hidden="true"></canvas></div><div class="hud-name"><span>${esc(p.name)}${p === game.human ? ' · 나' : ''}</span><span class="hud-coins">🪙${Math.max(0,p.coins || 0)}</span></div>`;
+    el.innerHTML = `<div class="portrait"><span class="coin-rank">${index + 1}</span><span class="hud-status">${iconMarkup(playerStatusIcon(status), '●')}</span><span class="hud-streak">${streakLabel(p)}</span><canvas aria-hidden="true"></canvas></div><div class="hud-name"><span>${esc(p.name)}${p === game.human ? ' · 나' : ''}</span><span class="hud-coins" data-coins="${Math.max(0,p.coins || 0)}">${iconMarkup('coin', '●')}${Math.max(0,p.coins || 0)}</span></div>`;
     el.onclick = () => showPlayerDetail(p); box.appendChild(el);
     paintPortrait(el.querySelector('canvas'), p.charId, p.weaponId, p.color);
   });
@@ -849,7 +884,7 @@ function updatePlayerStatuses(game) {
     if (!el) continue;
     const status = playerStatus(p, game);
     const icon = el.querySelector('.hud-status');
-    if (icon) icon.textContent = playerStatusIcon(status);
+    if (icon) icon.innerHTML = iconMarkup(playerStatusIcon(status), '●');
     const streak = el.querySelector('.hud-streak');
     if (streak) streak.innerHTML = streakLabel(p);
     el.title = status;
@@ -868,7 +903,8 @@ function specTag(text) {
 }
 function showViewOtherBattle(visible, onClick, label = '👁 다른 전투 보기') {
   const button = $('btn-watch-other'); if (!button) return;
-  button.textContent = label;
+  const cleanLabel = String(label || '다른 전투 보기').replace(/^👁\s*/, '');
+  button.innerHTML = `<span class="icon-inline">${iconMarkup('watch', '◇')}</span> ${esc(cleanLabel)}`;
   button.classList.toggle('watch-other-on', !!visible);
   button.hidden = !visible;
   button.onclick = visible && typeof onClick === 'function' ? event => { event.preventDefault(); playUI(); onClick(); } : null;
@@ -881,8 +917,9 @@ function skillSlotInfo(fighter, slot) {
   const name = slot === 'char'
     ? (CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬')
     : (weapon?.skillName || '무기 스킬');
-  const icon = SKILL_ICONS[slot === 'char' ? fighter.charId : fighter.weaponId];
-  return { name, icon: icon || '◆', uses, max: 1 };
+  const iconKey = slot === 'char' ? fighter.charId : fighter.weaponId;
+  const icon = SKILL_ICONS[iconKey];
+  return { name, icon: icon || '◆', iconKey, uses, max: 1 };
 }
 function updateSteerControl(battle, fighter) {
   const control = $('steer-control'), label = $('steer-label');
@@ -945,7 +982,7 @@ function updateSkillbar(battle) {
     el.style.display = '';
     el.hidden = false;
     const info = skillSlotInfo(fighter, slot), charging = slot === 'weapon' && fighter.charging;
-    el.querySelector('.lbl').textContent = info.name; el.querySelector('.ico').textContent = info.icon;
+    el.querySelector('.lbl').textContent = info.name; el.querySelector('.ico').innerHTML = iconMarkup(info.iconKey, info.icon);
     el.querySelector('.uses').textContent = '●'.repeat(Math.max(0, info.uses)) + '○'.repeat(Math.max(0, info.max - info.uses));
     const slotReady = canAct && info.uses > 0;
     el.classList.toggle('charging', !!charging); el.classList.toggle('used', info.uses <= 0); el.classList.toggle('ready', !!(slotReady && !charging));

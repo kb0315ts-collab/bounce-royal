@@ -133,10 +133,10 @@ class BattleScene extends Phaser.Scene {
     this.gUI = mk();
     // 발광 레이어에 Glow 필터
     for (const [g, color, outer] of [
-      [this.gArenaGlow, 0x648cff, 1.6],
+      [this.gArenaGlow, 0x48d5e8, 1.6],
       [this.gGroundGlow, 0xffffff, 1.2],
-      [this.gProjGlow, 0xffd24d, 1.8],
-      [this.gFxGlow, 0xaee3ff, 1.8],
+      [this.gProjGlow, 0xffca68, 1.8],
+      [this.gFxGlow, 0x88ecf2, 1.8],
     ]) {
       g.enableFilters();
       g.filters.internal.addGlow(color, outer, 0, 1, false, 6, 12);
@@ -154,7 +154,7 @@ class BattleScene extends Phaser.Scene {
    *
    * setStyle은 글자를 캔버스에 다시 그려 GPU로 올린다. 이름표·스탯판처럼
    * 모양이 그대로인 글자에까지 매 프레임 걸면 그 비용을 공짜로 버린다.
-   * 실측(피해 숫자 20개, 200프레임): 216ms -> 22ms. 폰에서는 이 차이가
+   * 실측(피해 숫자 20개, 200프레임): 216ms -> 11ms. 폰에서는 이 차이가
    * 몇 프레임씩 건너뛰는 끊김으로 나타난다. */
   useText(x, y, str, style) {
     let t = this.texts[this.textIndex];
@@ -241,9 +241,9 @@ function drawBackdrop(g, stars) {
   if (!w || !h) return;
   // 방사형 그라디언트 대체: 큰 동심원을 겹친다
   const cx = w / 2, cy = h * 0.42, rMax = Math.max(w, h) * 0.75;
-  g.fillStyle(0x05070f, 1);
+  g.fillStyle(0x03070b, 1);
   g.fillRect(0, 0, w, h);
-  const stops = [[0, '#101830'], [0.55, '#0a0f20'], [1, '#05070f']];
+  const stops = [[0, '#102631'], [0.55, '#08151e'], [1, '#03070b']];
   for (let i = 22; i >= 0; i--) {
     const t = i / 22;
     let c;
@@ -254,8 +254,13 @@ function drawBackdrop(g, stars) {
   }
   const t = performance.now() / 1000;
   for (const s of stars) {
-    g.fillStyle(0x9fb4e8, 0.25 + 0.25 * Math.sin(t * 1.5 + s.p));
+    g.fillStyle(0x8edce8, 0.14 + 0.18 * Math.sin(t * 1.35 + s.p));
     g.fillRect(s.x * w, s.y * h, s.r, s.r);
+  }
+  // 스포츠 중계 세트처럼 위·아래에 아주 얇은 구조선을 둔다.
+  g.lineStyle(1, 0x5fd6e7, 0.06);
+  for (const y of [h * 0.18, h * 0.82]) {
+    g.beginPath(); g.moveTo(w * 0.08, y); g.lineTo(w * 0.92, y); g.strokePath();
   }
 }
 
@@ -277,7 +282,7 @@ function arenaPath(g, A) {
 function drawArena(g, glow, b) {
   const A = b.arena;
   // 은은한 격자
-  g.lineStyle(1, 0x5a6eb4, 0.07);
+  g.lineStyle(1, 0x62c6d3, 0.055);
   const gk = arenaZoom(A), gEnd = 360 * gk, gStep = 80 * gk;
   for (let i = -gEnd; i <= gEnd + 1e-6; i += gStep) {
     g.beginPath(); g.moveTo(i, -gEnd); g.lineTo(i, gEnd); g.strokePath();
@@ -285,32 +290,41 @@ function drawArena(g, glow, b) {
   }
   const kind = arenaPath(g, A);
   if (kind === 'path') {
-    g.fillStyle(0x101830, 0.55); g.fillPath();
-    g.lineStyle(7, 0x2c3d6e, 1); g.strokePath();
+    g.fillStyle(0x0c2029, 0.72); g.fillPath();
+    g.lineStyle(9, 0x142f3b, 1); g.strokePath();
     glow.beginPath();
     glow.moveTo(0, -A.L); glow.lineTo(A.L, 0); glow.lineTo(0, A.L); glow.lineTo(-A.L, 0);
     glow.closePath();
-    glow.lineStyle(2.5, 0x78a0ff, 0.55); glow.strokePath();
+    glow.lineStyle(2.2, 0x59d6e4, 0.58); glow.strokePath();
   } else if (kind === 'circle') {
-    g.fillStyle(0x101830, 0.55); g.fillCircle(0, 0, A.R);
-    g.lineStyle(7, 0x2c3d6e, 1); g.strokeCircle(0, 0, A.R);
-    glow.lineStyle(2.5, 0x78a0ff, 0.55); glow.strokeCircle(0, 0, A.R);
+    g.fillStyle(0x0c2029, 0.72); g.fillCircle(0, 0, A.R);
+    g.lineStyle(9, 0x142f3b, 1); g.strokeCircle(0, 0, A.R);
+    glow.lineStyle(2.2, 0x59d6e4, 0.58); glow.strokeCircle(0, 0, A.R);
   } else {
     const H = A.H;
-    g.fillStyle(0x101830, 0.55); g.fillRect(-H, -H, H * 2, H * 2);
-    g.lineStyle(7, 0x2c3d6e, 1); g.strokeRect(-H, -H, H * 2, H * 2);
-    glow.lineStyle(2.5, 0x78a0ff, 0.55); glow.strokeRect(-H, -H, H * 2, H * 2);
+    g.fillStyle(0x0c2029, 0.72); g.fillRect(-H, -H, H * 2, H * 2);
+    g.lineStyle(9, 0x142f3b, 1); g.strokeRect(-H, -H, H * 2, H * 2);
+    glow.lineStyle(2.2, 0x59d6e4, 0.58); glow.strokeRect(-H, -H, H * 2, H * 2);
+  }
+  // 중앙 표식과 방향 눈금은 경기장 형태와 무관하게 공통으로 보인다.
+  const markR = (A.R || A.L || A.H || 360) * 0.12;
+  g.lineStyle(1.4, 0x73dce7, 0.12); g.strokeCircle(0, 0, markR);
+  g.fillStyle(0x9beaf1, 0.2); g.fillCircle(0, 0, 2.5);
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2, d0 = markR * 1.32, d1 = markR * 1.72;
+    g.beginPath(); g.moveTo(Math.cos(a) * d0, Math.sin(a) * d0); g.lineTo(Math.cos(a) * d1, Math.sin(a) * d1); g.strokePath();
   }
   for (const p of A.pillars) {
-    radialFill(g, p.x, p.y, 0, p.r, '#3a4a80', '#1a2340', 10);
-    g.lineStyle(3, 0x78a0ff, 0.5); g.strokeCircle(p.x, p.y, p.r);
+    radialFill(g, p.x, p.y, 0, p.r, '#365665', '#122631', 10);
+    g.lineStyle(3, 0x62cbd8, 0.45); g.strokeCircle(p.x, p.y, p.r);
+    g.lineStyle(1.2, 0xc4f4f6, 0.22); g.strokeCircle(p.x, p.y, Math.max(2, p.r - 6));
   }
   if (A.cube && A.cube.active) {
     const c = A.cube, t = performance.now() / 1000;
     glow.save();
     glow.translateCanvas(c.x, c.y + Math.sin(t * 2.2) * 8);
     glow.rotateCanvas(c.spin);
-    glow.fillStyle(0xffd24d, 1);
+    glow.fillStyle(0xffc857, 1);
     glow.fillRoundedRect(-16, -16, 32, 32, 7);
     glow.restore();
   }
@@ -411,8 +425,11 @@ function drawBallG(g, f, x, y, r, opts = {}) {
   drawBallDetailsG(g, f.charId, r, opts);
   g.restore();
   if (f.flash > 0) {
-    g.fillStyle(0xffffff, Math.min(1, f.flash * 5));
+    const hitAlpha = Math.min(0.62, f.flash * 5);
+    g.fillStyle(0xffffff, hitAlpha);
     g.fillCircle(x, y, r);
+    g.lineStyle(3.5, 0xffffff, Math.min(0.85, f.flash * 7));
+    g.strokeCircle(x, y, r + 3 + (0.12 - Math.min(0.12, f.flash)) * 55);
   }
   if (f.timers && (f.timers.immune > 0 || f.timers.untouchable > 0)) {
     // setLineDash 대체: 원호를 끊어 그린다
@@ -551,6 +568,56 @@ function bladeUnit(g, R, bladeLen, w, off) {
   g.restore();
 }
 
+/* 판정과 무관한 상태 가독성 레이어. 현재 스킬 타이머만 읽으며 새 게임 상태를 만들지 않는다. */
+function drawFighterAura(g, f, x, y, r) {
+  const T = f.timers || {}, now = performance.now() / 1000;
+  const dx = Number.isFinite(f.vx) ? f.vx : 0, dy = Number.isFinite(f.vy) ? f.vy : 0;
+  const forceTrail = !!f.rocketActive || T.dashT > 0 || (f.st && f.st.move > 205);
+  if (forceTrail && (dx || dy)) {
+    const strength = f.rocketActive ? 1 : T.dashT > 0 ? 0.82 : 0.35;
+    for (let i = 3; i >= 1; i--) {
+      const d = (r * 0.62 + i * r * 0.72) * strength;
+      g.fillStyle(toInt(f.color || '#67ddeb'), (0.13 / i) * strength);
+      g.fillCircle(x - dx * d, y - dy * d, r * (0.9 - i * 0.12));
+    }
+  }
+  if (T.berserk > 0) {
+    const pulse = 0.5 + Math.sin(now * 10) * 0.12;
+    g.lineStyle(2.5, 0xffa04d, pulse); g.strokeCircle(x, y, r + 7 + Math.sin(now * 8) * 2);
+  }
+  if (T.balloon > 0) {
+    g.lineStyle(2, 0xff8ca1, 0.35 + Math.sin(now * 7) * 0.12); g.strokeCircle(x, y, r + 6);
+  }
+  if (T.rampage > 0) {
+    g.lineStyle(2.2, 0xcaa6ff, 0.45); g.strokeCircle(x, y, r + 8 + Math.sin(now * 8) * 2);
+    g.lineStyle(1.2, 0xffffff, 0.22); g.strokeCircle(x, y, r + 13 + Math.sin(now * 6 + 1) * 2);
+  }
+  if (T.fuse > 0 || T.det > 0) {
+    const ratio = Math.max(T.fuse || 0, T.det || 0);
+    const alpha = 0.36 + (1 - Math.min(1, ratio)) * 0.42;
+    g.lineStyle(3, 0xffad4f, alpha);
+    for (let i = 0; i < 8; i += 2) {
+      const a0 = now * 5 + i * TAU / 8;
+      g.beginPath(); g.arc(x, y, r + 10, a0, a0 + TAU / 16); g.strokePath();
+    }
+  }
+  if (f.spinRemaining > 0) {
+    g.lineStyle(2.5, 0xbcecff, 0.22);
+    for (let i = 0; i < 3; i++) {
+      const a0 = f.weaponAngle - i * 0.7;
+      g.beginPath(); g.arc(x, y, r + 27 + i * 4, a0 - 0.65, a0); g.strokePath();
+    }
+  }
+  if (T.dashPrep > 0 && (dx || dy)) {
+    const sideX = -dy, sideY = dx, len = r + 30 + (1 - Math.min(1, T.dashPrep)) * 18;
+    g.fillStyle(0x9cecf2, 0.3 + (1 - Math.min(1, T.dashPrep)) * 0.35);
+    g.fillTriangle(
+      x + dx * len, y + dy * len,
+      x - dx * r * 0.25 + sideX * 6, y - dy * r * 0.25 + sideY * 6,
+      x - dx * r * 0.25 - sideX * 6, y - dy * r * 0.25 - sideY * 6);
+  }
+}
+
 function drawUnits(g, b) {
   for (const f of b.fighters) {
     for (const s of f.summons) {
@@ -559,9 +626,11 @@ function drawUnits(g, b) {
     }
     for (const sp of f.splitBalls) {
       if (sp.dead) continue;
+      drawFighterAura(g, sp, sp.x, sp.y, sp.r || sp.radius || 12);
       drawBallG(g, Object.assign({}, f, { x: sp.x, y: sp.y, flash: sp.flash || 0 }), sp.x, sp.y, sp.r || sp.radius || 12);
     }
     if (!f.mainDead && !f.dead) {
+      drawFighterAura(g, f, f.x, f.y, f.radius);
       drawBallG(g, f, f.x, f.y, f.radius, { spin: f.weaponAngle });
       drawWeaponG(g, f);
     }
@@ -571,10 +640,30 @@ function drawUnits(g, b) {
 /* ============================================================
  * 투사체
  * ============================================================ */
+function drawProjectileTrail(g, p, color, length, width, alpha = 0.28) {
+  const dx = Math.cos(p.ang || 0), dy = Math.sin(p.ang || 0);
+  for (let i = 3; i >= 1; i--) {
+    const from = length * (i - 1) / 3, to = length * i / 3;
+    g.lineStyle(Math.max(0.7, width * (1 - i * 0.18)), toInt(color), alpha * (1 - i * 0.2));
+    g.beginPath();
+    g.moveTo(p.x - dx * from, p.y - dy * from);
+    g.lineTo(p.x - dx * to, p.y - dy * to);
+    g.strokePath();
+  }
+}
+
 function drawProjectiles(g, glow, b) {
   const t = performance.now() / 1000;
   for (const p of b.projectiles) {
     const target = (p.kind === 'orb' || p.kind === 'bullet' || p.kind === 'beam' || p.kind === 'charge') ? glow : g;
+    const ownerColor = ownerPlayerColor(p.owner, '#67ddeb');
+    if (p.kind === 'charge') drawProjectileTrail(target, p, '#ffd477', 62, 8, 0.48);
+    else if (p.kind === 'beam') drawProjectileTrail(target, p, '#bdeeff', 44, 7, 0.34);
+    else if (p.kind === 'bullet') drawProjectileTrail(target, p, '#ffcf72', 25, 4, 0.36);
+    else if (p.kind === 'orb') drawProjectileTrail(target, p, ownerColor, 31, Math.max(3, p.r * 0.65), 0.25);
+    else if (p.kind === 'missile') drawProjectileTrail(target, p, ownerColor, 28, 3, 0.3);
+    else if (p.kind === 'arrow') drawProjectileTrail(target, p, '#d9edf0', 22, 2, 0.22);
+    else if (p.kind === 'shuriken') drawProjectileTrail(target, p, ownerColor, 18, 2, 0.18);
     target.save();
     target.translateCanvas(p.x, p.y);
     target.rotateCanvas(p.ang);
@@ -592,8 +681,9 @@ function drawProjectiles(g, glow, b) {
       }
       case 'bullet': {
         target.scaleCanvas(p.r / 4, p.r / 4);
-        target.fillStyle(0xffe08a, 1);
+        target.fillStyle(0xffd477, 1);
         target.fillEllipse(0, 0, 12, 6);
+        target.fillStyle(0xffffff, 0.72); target.fillEllipse(2, 0, 4, 2);
         break;
       }
       case 'orb': {
@@ -602,8 +692,10 @@ function drawProjectiles(g, glow, b) {
         break;
       }
       case 'missile': {
-        target.fillStyle(0xc3cfe6, 1);
+        target.fillStyle(0xd7e8eb, 1);
         target.fillTriangle(9, 0, -6, -4.5, -6, 4.5);
+        target.fillStyle(toInt(ownerColor), 0.9);
+        target.fillTriangle(-2, 0, -8, -7, -7, 0); target.fillTriangle(-2, 0, -8, 7, -7, 0);
         target.fillStyle(mixInt('#ff8c3c', '#ffc83c', (Math.sin(t * 40) + 1) / 2), 0.95);
         target.fillEllipse(-9, 0, (6 + Math.sin(t * 50) * 2) * 2, 6);
         break;
@@ -642,25 +734,47 @@ function drawFx(g, glow, b, sc) {
   for (const e of b.fx) {
     const k = e.t / (e.dur || 0.4);
     if (e.type === 'ring') {
-      g.lineStyle(3.5 * (1 - k * 0.6), toInt(e.color), Math.max(0, 1 - k) * alphaOf(e.color));
-      g.strokeCircle(e.x, e.y, e.r0 + (e.r1 - e.r0) * k);
+      const fade = Math.max(0, 1 - k) * alphaOf(e.color);
+      const radius = e.r0 + (e.r1 - e.r0) * k;
+      g.lineStyle(4 * (1 - k * 0.55), toInt(e.color), fade); g.strokeCircle(e.x, e.y, radius);
+      glow.lineStyle(1.5, 0xffffff, fade * 0.68); glow.strokeCircle(e.x, e.y, Math.max(1, radius - 3));
+      if (e.boom) {
+        g.fillStyle(toInt(e.color), Math.max(0, 0.16 - k * 0.16)); g.fillCircle(e.x, e.y, radius * 0.72);
+        for (let i = 0; i < 8; i++) {
+          const a = i * TAU / 8, d0 = radius * 0.76, d1 = radius * (1.05 + k * 0.18);
+          g.lineStyle(2.4 * (1 - k), toInt(e.color), fade * 0.72);
+          g.beginPath(); g.moveTo(e.x + Math.cos(a) * d0, e.y + Math.sin(a) * d0); g.lineTo(e.x + Math.cos(a) * d1, e.y + Math.sin(a) * d1); g.strokePath();
+        }
+      }
     } else if (e.type === 'bolt') {
       const a = Math.max(0, 1 - k);
-      glow.lineStyle(3, toInt(e.color), a);
+      glow.lineStyle(6, toInt(e.color), a * 0.22);
       glow.beginPath();
       glow.moveTo(e.segs[0].x, e.segs[0].y);
       for (let i = 1; i < e.segs.length; i++) glow.lineTo(e.segs[i].x, e.segs[i].y);
       glow.strokePath();
-      glow.lineStyle(1.2, 0xffffff, a);
+      glow.lineStyle(2.2, toInt(e.color), a);
       glow.beginPath();
       glow.moveTo(e.segs[0].x, e.segs[0].y);
       for (let i = 1; i < e.segs.length; i++) glow.lineTo(e.segs[i].x, e.segs[i].y);
       glow.strokePath();
+      glow.lineStyle(0.9, 0xffffff, a); glow.beginPath(); glow.moveTo(e.segs[0].x, e.segs[0].y);
+      for (let i = 1; i < e.segs.length; i++) glow.lineTo(e.segs[i].x, e.segs[i].y); glow.strokePath();
+    } else if (e.type === 'shatter') {
+      const a = Math.max(0, 1 - k);
+      glow.fillStyle(0xffffff, a * 0.82); glow.fillCircle(e.x, e.y, Math.max(2, e.r * (1 - k)));
     }
   }
   for (const p of b.particles) {
     const a = Math.max(0, 1 - p.t / p.life);
-    if (!p.shard) { g.fillStyle(toInt(p.color), a); g.fillCircle(p.x, p.y, p.size); continue; }
+    if (!p.shard) {
+      const speed = Math.hypot(p.vx || 0, p.vy || 0), ux = speed ? p.vx / speed : 0, uy = speed ? p.vy / speed : 0;
+      const len = Math.min(11, speed * 0.035) * a;
+      g.lineStyle(Math.max(1, p.size * a), toInt(p.color), a);
+      g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - ux * len, p.y - uy * len); g.strokePath();
+      g.fillStyle(0xffffff, a * 0.52); g.fillCircle(p.x, p.y, Math.max(0.7, p.size * 0.42));
+      continue;
+    }
     // 깨진 공 껍질 — 돌면서 날아가고 사그라들며 작아진다
     const ang = p.ang + p.spin * p.t, s = p.size * (0.55 + 0.45 * a);
     const cx = Math.cos(ang), cy = Math.sin(ang);
@@ -671,13 +785,15 @@ function drawFx(g, glow, b, sc) {
       p.x - cx * s * 0.6 + cy * s * 0.8, p.y - cy * s * 0.6 - cx * s * 0.8);
   }
   for (const p of b.popups) {
+    const number = Number.parseFloat(String(p.txt));
+    const impactSize = Number.isFinite(number) ? Math.min(8, Math.max(0, number - 8) * 0.22) : 0;
     sc.useText(p.x, p.y, p.txt, {
-      fontFamily: 'Jua, sans-serif',
-      fontSize: (p.big ? 22 : 15) + 'px',
+      fontFamily: 'Do Hyeon, Jua, sans-serif',
+      fontSize: (p.big ? 23 : 15 + impactSize) + 'px',
       fontStyle: 'bold',
       color: p.color,
-      stroke: 'rgba(0,0,0,.6)',
-      strokeThickness: 3,
+      stroke: 'rgba(2,7,10,.82)',
+      strokeThickness: p.big ? 4 : 3,
     }).setAlpha(Math.min(1, p.t * 2.5));
   }
 }
@@ -966,4 +1082,3 @@ function drawWeapon(c, f) {
   }
   c.restore();
 }
-
