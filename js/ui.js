@@ -48,6 +48,12 @@ const CAT_ICON_KEYS = Object.freeze({
   physics:'physics', cc:'cc', auto:'auto', summon:'summon', death:'death', onhit:'onhit', skill:'skill',
   link:'link', weapon:'weapon', copy:'copySkill',
 });
+const CAT_COLORS = Object.freeze({
+  stat:'#68d8ef', time:'#62dfbd', tempo:'#ffac67', hpcond:'#ff718c', streak:'#f7ca59', coin:'#ffd268',
+  trade:'#cf91ff', physics:'#70b9ff', cc:'#9acaff', auto:'#ffa95e', summon:'#67dcae', death:'#bd91ff',
+  onhit:'#ff8277', skill:'#67e0e6', link:'#58e2d8', weapon:'#83c8ff', copy:'#b29aff',
+});
+const WEAPON_ICON_COLORS = Object.freeze({ sword:'#73d8f2', dagger:'#bf9aff', bow:'#72d9a0', pistol:'#f2c768', staff:'#b996ff', mine:'#ff9d68' });
 
 function iconMarkup(key, fallback = '◆', className = '') {
   if (typeof BRIcons !== 'undefined' && BRIcons && typeof BRIcons.markup === 'function') {
@@ -62,10 +68,15 @@ function setCssVar(element, name, value) {
 }
 function itemIconKey(item) {
   if (!item) return 'skill';
+  if (item.id && typeof AUG_BY_ID !== 'undefined' && AUG_BY_ID[item.id]) return `aug-${item.id}`;
   if (item.id && typeof WEAPONS !== 'undefined' && WEAPONS[item.id]) return item.id;
-  if (item.weapon && WEAPONS[item.weapon]) return item.weapon;
   if (item.id && typeof CHARACTERS !== 'undefined' && CHARACTERS[item.id]) return item.id;
   return CAT_ICON_KEYS[item.cat] || item.id || 'skill';
+}
+function itemAccent(item) {
+  if (!item) return '#67ddeb';
+  if (item.weapon && WEAPON_ICON_COLORS[item.weapon]) return WEAPON_ICON_COLORS[item.weapon];
+  return CAT_COLORS[item.cat] || item.color || '#67ddeb';
 }
 
 function bar(label, value) {
@@ -276,8 +287,9 @@ function buildAugmentSelect(offers, player, onPick, subtitle, refreshOptions = n
     const el = document.createElement('button');
     el.type = 'button'; el.className = 'card augment-card';
     const icon = CAT_ICONS[augment.cat] || '◆';
+    setCssVar(el, '--card-accent', itemAccent(augment));
     el.dataset.category = augment.cat || '';
-    el.innerHTML = `<div class="art">${iconMarkup(CAT_ICON_KEYS[augment.cat] || 'skill', icon)}</div><div class="head"><span class="nm">${esc(augment.name)}</span></div><span class="tag">${esc(CAT_TAGS[augment.cat] || augment.cat)}</span><div class="desc">${esc(augment.desc)}</div>`;
+    el.innerHTML = `<div class="art">${iconMarkup(itemIconKey(augment), icon)}</div><div class="head"><span class="nm">${esc(augment.name)}</span></div><span class="tag">${esc(CAT_TAGS[augment.cat] || augment.cat)}</span><div class="desc">${esc(augment.desc)}</div>`;
     el.onclick = () => {
       if (box.dataset.picked) return;          // 한 번 고르면 잠근다
       box.dataset.picked = '1';
@@ -762,7 +774,7 @@ function buildCodex(tab = 'characters') {
     const el = document.createElement('button'); el.type = 'button'; el.className = 'codex-card';
     const icon = item.ico || CAT_ICONS[item.cat] || '◆';
     const isCharacter = validTab === 'characters';
-    setCssVar(el, '--card-accent', isCharacter ? (item.color || '#67ddeb') : validTab === 'weapons' ? '#55cce8' : '#68d8c9');
+    setCssVar(el, '--card-accent', isCharacter ? (item.color || '#67ddeb') : validTab === 'weapons' ? '#55cce8' : itemAccent(item));
     el.innerHTML = `<span class="tag">${esc(item.kind)}</span><div class="codex-ico">${isCharacter ? '<canvas aria-hidden="true"></canvas>' : iconMarkup(itemIconKey(item), icon)}</div><h3>${esc(item.name)}</h3><p>${esc(item.desc || item.skillDesc || '')}</p>`;
     el.onclick = () => showHoldTooltip(item);
     bindLongPress(el, item);
@@ -813,7 +825,8 @@ function showPlayerDetail(rawPlayer) {
   augments.forEach(augment => {
     const el = document.createElement('div'); el.className = 'detail-item';
     const icon = CAT_ICONS[augment.cat] || '◆';
-    el.innerHTML = `<span class="item-ico">${iconMarkup(CAT_ICON_KEYS[augment.cat] || 'skill', icon)}</span><span class="item-name">${esc(augment.name)}</span><small>${esc(CAT_TAGS[augment.cat] || '')}</small>`;
+    setCssVar(el, '--item-accent', itemAccent(augment));
+    el.innerHTML = `<span class="item-ico">${iconMarkup(itemIconKey(augment), icon)}</span><span class="item-name">${esc(augment.name)}</span><small>${esc(CAT_TAGS[augment.cat] || '')}</small>`;
     bindLongPress(el, augment); augBox.appendChild(el);
   });
   modal.classList.remove('hidden');
