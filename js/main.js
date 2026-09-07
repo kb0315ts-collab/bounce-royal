@@ -61,18 +61,69 @@ function ratingTier(rating) {
   return '브론즈';
 }
 
-/* ---------------- 사운드 (WebAudio 신스) ---------------- */
+/* ---------------- 사운드 ----------------
+ *
+ * 기본은 코드로 만드는 소리다. 받아온 효과음 파일을 한 벌 다 깔아 봤는데
+ * 대부분 이 게임에 안 어울렸다 — 사실적인 충돌음·폭발음이라 아기자기한
+ * 화면과 따로 놀았다. 그래서 신스로 되돌리고, 파일은 정말 나은 자리에만
+ * 골라 넣는 방식으로 바꿨다.
+ *
+ * SFX_FILES에 이름을 넣으면 assets/sfx/<이름>.mp3를 받아 그 소리를 쓰고,
+ * 없으면 아래 신스가 그대로 울린다. 지금은 비어 있다.
+ * ============================================================ */
+/* 직접 들어보고 고른 것만 파일을 쓴다. 나머지는 아래 신스가 낸다.
+ * 지팡이는 골라 둔 파일이 너무 경쾌해서 빼고, 낮게 울리는 zing으로 바꿨다. */
+const SFX_FILES = ['fire-bow', 'fire-pistol', 'fire-shotgun'];
+/* 파일마다 크기가 제각각이라 여기서 맞춘다 */
+const SFX_GAIN = {
+  'fire-bow': 0.5, 'fire-pistol': 0.4, 'fire-shotgun': 0.55,
+};
+
 const SFX = {
   ctx: null,
-  lastHitAt: 0,
   muted: Profile.data.sound.muted,
   volume: Profile.data.sound.volume,
+  buffers: new Map(),
+  loading: false,
+  lastAt: new Map(),      // 같은 소리가 한꺼번에 겹쳐 뭉개지지 않게 막는다
   ensure() {
     try {
       if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (this.ctx.state === 'suspended') this.ctx.resume();
+      this.load();
     } catch (e) { /* 오디오 불가 환경 */ }
   },
+  load() {
+    if (this.loading || !this.ctx) return;
+    this.loading = true;
+    for (const name of SFX_FILES) {
+      fetch('assets/sfx/' + name + '.mp3')
+        .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+        .then(buf => this.ctx.decodeAudioData(buf))
+        .then(audio => { this.buffers.set(name, audio); })
+        .catch(() => { /* 이 소리만 신스로 물러난다 */ });
+    }
+  },
+  /* 같은 소리를 gap(초) 안에 두 번 울리지 않는다. 난전에서 타격음이
+   * 수십 개 겹치면 커지는 게 아니라 지저분해지기만 한다. */
+  play(name, { gap = 0.04, rate = 1, vol = 1 } = {}) {
+    if (this.muted || !this.ctx) return false;
+    const buf = this.buffers.get(name);
+    if (!buf) return false;
+    const now = this.ctx.currentTime;
+    if (now - (this.lastAt.get(name) || -1) < gap) return true;
+    this.lastAt.set(name, now);
+    try {
+      const src = this.ctx.createBufferSource(), g = this.ctx.createGain();
+      src.buffer = buf;
+      src.playbackRate.value = rate;
+      g.gain.value = (SFX_GAIN[name] ?? 0.5) * vol * this.volume;
+      src.connect(g).connect(this.ctx.destination);
+      src.start();
+    } catch (e) { }
+    return true;
+  },
+  /* 예전 신스 — 파일이 없을 때만 쓰인다 */
   tone(freq, dur, type = 'square', vol = 0.12, slide = 0, delay = 0) {
     if (this.muted || !this.ctx) return;
     try {
@@ -87,22 +138,175 @@ const SFX = {
       o.start(t); o.stop(t + dur + 0.03);
     } catch (e) { }
   },
-  ui() { this.tone(760, 0.045, 'triangle', 0.075, 90); },
-  hit() {
-    const now = performance.now();
-    if (now - this.lastHitAt < 34) return;
-    this.lastHitAt = now;
-    this.tone(155 + Math.random() * 55, 0.075, 'square', 0.075, -45);
-    if (Math.random() < 0.32) this.tone(760 + Math.random() * 140, 0.028, 'triangle', 0.035, -230);
+
+  /* 잡음을 대역통과 필터로 쓸어 올렸다 내리면 "휙" 소리가 난다.
+   *
+   * 날아가는 것들은 이걸 쓴다. 파일을 쓰지 않는 이유는 두 가지다.
+   * 용량이 0이고, pitch만 바꾸면 표창은 가볍게 미사일은 묵직하게 —
+   * 같은 결을 유지하면서 무엇이 날아오는지 귀로 갈린다.
+   * 파일로는 그 구분을 내려면 종류마다 파일이 따로 있어야 한다. */
+  noise() {
+    if (this._noise) return this._noise;
+    const n = Math.floor(this.ctx.sampleRate * 0.4);
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    this._noise = buf;
+    return buf;
   },
-  bounce() { this.tone(145, 0.045, 'sine', 0.055, 65); },
-  boom() { this.tone(86, 0.32, 'sawtooth', 0.14, -50); this.tone(210, 0.09, 'square', 0.045, -120); },
-  shoot() { this.tone(620, 0.042, 'triangle', 0.042, -210); },
-  skill() { this.tone(360, 0.18, 'sine', 0.085, 310); this.tone(760, 0.1, 'triangle', 0.045, 180, 0.035); },
+  /* 대역통과 필터가 잡음의 대부분을 버리기 때문에, 같은 gain을 줘도
+   * 오실레이터보다 6배쯤 작게 나온다 (오프라인 렌더로 재 보니 최대진폭이
+   * 0.013 대 0.08이었다). 그만큼 미리 키워 놔야 다른 소리와 균형이 맞는다. */
+  /* 베는 소리. 휙(투사체)과 달리 밝게 시작해 어둡게 떨어진다 —
+   * 스쳐 지나가는 게 아니라 훑고 지나가는 결이다.
+   * f0 -> f1 으로 통과 대역을 내리고, Q가 낮을수록 바람 소리처럼 넓어진다. */
+  swish(f0, f1, q, vol, dur, attack) {
+    if (this.muted || !this.ctx) return;
+    const makeup = q >= 4 ? 5 : 3.2;   // 대역이 좁을수록 더 많이 깎이니 더 키운다
+    try {
+      const t = this.ctx.currentTime;
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noise();
+      src.playbackRate.value = 0.92 + Math.random() * 0.16;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.Q.value = q;
+      bp.frequency.setValueAtTime(f0, t);
+      bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol * makeup * this.volume, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp).connect(g).connect(this.ctx.destination);
+      src.start(t); src.stop(t + dur + 0.02);
+    } catch (e) { }
+  },
+  /* 대검은 길고 묵직하게(슈육), 단검은 짧고 날카롭게(샥).
+   *
+   * 대검은 원래 1150->300Hz였는데 아예 들리지 않았다. 크기가 작아서가 아니라
+   * 타격음(215Hz 사각파)의 배음이 바로 그 대역을 덮고 있어서다 — 밴드별로 재
+   * 보니 대검이 가장 큰 1000Hz 대역에서 타격음이 오히려 더 컸다. 단검은
+   * 중심이 2000Hz라 타격음의 3.4배로 남았고, 그래서 단검만 들렸던 것이다.
+   * 대역을 1900->500으로 올려 타격음 위로 빼내고, 붙는 시간도 0.035초에서
+   * 0.012초로 줄여 앞머리를 세웠다. 이제 2000Hz에서 6배 위다.
+   * 그래도 단검(2700Hz·0.085초)보다 어둡고 3배 길어 결은 그대로다. */
+  slash(weaponId) {
+    if (weaponId === 'dagger') this.swish(2700, 1250, 4.5, 0.075, 0.085, 0.01);
+    else this.swish(1900, 500, 2.3, 0.12, 0.25, 0.012);
+  },
+
+  /* 낮게 울리는 마법 소리(지잉).
+   * 톱니 둘을 살짝 어긋나게 겹치면 맥놀이가 생겨 '지이잉' 하고 떨린다.
+   * 로우패스로 위를 깎아 경쾌해지지 않게 눌러 둔다. */
+  zing(pitch = 1, vol = 0.1, dur = 0.3) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const base = 128 * pitch;
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.Q.value = 1.2;
+      lp.frequency.setValueAtTime(900 * pitch, t);
+      lp.frequency.exponentialRampToValueAtTime(320 * pitch, t + dur);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol * this.volume, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      lp.connect(g).connect(this.ctx.destination);
+      for (const mult of [1, 1.012]) {          // 1.2% 어긋남 = 초당 1.5회쯤 떨린다
+        const o = this.ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(base * mult, t);
+        o.frequency.exponentialRampToValueAtTime(base * mult * 0.82, t + dur);
+        o.connect(lp);
+        o.start(t); o.stop(t + dur + 0.02);
+      }
+    } catch (e) { }
+  },
+
+  whoosh(pitch = 1, vol = 0.09, dur = 0.16) {
+    if (this.muted || !this.ctx) return;
+    const makeup = 6;
+    try {
+      const t = this.ctx.currentTime;
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noise();
+      src.playbackRate.value = 0.9 + Math.random() * 0.2;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 5.5;
+      // 낮은 데서 확 올라갔다 떨어진다 — 스쳐 지나가는 느낌의 정체다
+      bp.frequency.setValueAtTime(420 * pitch, t);
+      bp.frequency.exponentialRampToValueAtTime(2400 * pitch, t + dur * 0.65);
+      bp.frequency.exponentialRampToValueAtTime(700 * pitch, t + dur);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol * makeup * this.volume, t + dur * 0.2);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(bp).connect(g).connect(this.ctx.destination);
+      src.start(t); src.stop(t + dur + 0.02);
+    } catch (e) { }
+  },
+
+  ui() { this.tone(700, 0.06, 'triangle', 0.1); },
+  // 벤 소리를 덮지 않게, 또 연타 때 시끄럽지 않게 조금 낮췄다 (0.08 -> 0.055)
+  hit() { if (chance(0.5)) this.tone(180 + Math.random() * 70, 0.06, 'square', 0.055); },
+  bounce() { this.tone(130, 0.05, 'sine', 0.07); },
+  boom() { this.tone(90, 0.3, 'sawtooth', 0.16, -55); },
+  skill() { this.tone(420, 0.16, 'sine', 0.11, 260); },
   coin() { this.tone(880, 0.08, 'triangle', 0.1); this.tone(1320, 0.1, 'triangle', 0.08, 0, 0.07); },
   win() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.12, 0, i * 0.12)); },
   lose() { [400, 330, 262].forEach((f, i) => this.tone(f, 0.2, 'sawtooth', 0.08, 0, i * 0.14)); },
+  shoot() { this.tone(540, 0.05, 'triangle', 0.05, -140); },
+
+  /* 무엇이 날아가는지 소리로 갈라 준다.
+   * 골라 둔 파일이 있으면 그걸 쓰고, 없으면 휙 소리를 pitch만 바꿔 낸다.
+   * 연사해도 뭉개지지 않게 gap을 짧게 준다. */
+  fire(kind) {
+    const spec = SFX_FIRE[kind];
+    if (!spec) return;
+    if (spec.file && this.play(spec.file, { gap: 0.03, rate: 0.94 + Math.random() * 0.12 })) return;
+    if (spec.zing) this.zing(spec.zing, spec.vol, spec.dur);
+    else if (spec.pitch) this.whoosh(spec.pitch, spec.vol, spec.dur);
+    else if (spec.click) this.tone(320, 0.05, 'square', 0.07, -80);
+  },
 };
+
+/* 투사체 종류 -> 소리.
+ * file 이 있으면 그 파일(직접 골라 둔 것), 없으면 휙 소리.
+ * pitch가 높을수록 가볍고 작게, 낮을수록 묵직하고 길게 들린다. */
+const SFX_FIRE = {
+  arrow: { file: 'fire-bow', pitch: 1.2, vol: 0.08, dur: 0.14 },
+  bullet: { file: 'fire-pistol', pitch: 1.5, vol: 0.05, dur: 0.08 },
+  // 톱니 둘이 겹쳐 다른 소리보다 2.4배 크게 나왔다(실측 0.185 대 0.076). 그만큼 낮춰 둔다.
+  orb: { zing: 1, vol: 0.042, dur: 0.3 },             // 낮게 지이잉
+  shotgun: { file: 'fire-shotgun', pitch: 0.7, vol: 0.11, dur: 0.2 },
+  // 아래는 파일을 안 골랐다 — 휙 소리로 간다
+  shuriken: { pitch: 1.55, vol: 0.075, dur: 0.12 },   // 가볍게 스치는
+  missile: { pitch: 0.7, vol: 0.1, dur: 0.26 },       // 묵직하게 밀고 가는
+  charge: { pitch: 0.62, vol: 0.13, dur: 0.3 },       // 크게 모았다 나가는 한 방
+  beam: { pitch: 1.0, vol: 0.1, dur: 0.18 },          // 베어 날리는
+  mine: { click: true },                               // 설치는 딸깍
+};
+
+/* 소리를 콘솔에서 바로 들어보고 상태를 확인할 수 있게 열어 둔다.
+ * SFX는 스크립트 안의 const라 밖에서 손이 닿지 않는데, 소리가 안 난다는
+ * 이야기가 나올 때마다 원인을 짚을 방법이 없어 한참 헤맸다.
+ *
+ *   BounceRoyalSFX.check()          지금 상태 (음소거·음량·불러온 파일)
+ *   BounceRoyalSFX.slash('sword')   대검 베는 소리
+ *   BounceRoyalSFX.zing(1,.042,.3)  지팡이
+ *   BounceRoyalSFX.fire('arrow')    무기별 발사음
+ */
+SFX.check = function () {
+  this.ensure();
+  return {
+    음소거: this.muted,
+    음량: this.volume,
+    오디오상태: this.ctx ? this.ctx.state : '없음',
+    불러온파일: [...this.buffers.keys()],
+    받아야할파일: SFX_FILES,
+  };
+};
+window.BounceRoyalSFX = SFX;
 
 /* ============================================================
  * 공용 라운드 로직 (UI 없는 시뮬레이션과 게임이 동일 경로를 사용)

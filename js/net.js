@@ -253,15 +253,25 @@ const Net = {
     const has = typeof SFX !== 'undefined';
     for (const f of snap.f || NET_EMPTY) {
       const prev = this.soundState.get(f.u);
-      const bc = f.bc || 0, sc = f.sc || 0;
+      const bc = f.bc || 0, sc = f.sc || 0, ml = f.ml || 0;
       if (prev) {
         const nb = Math.min(2, bc - prev.bc);
         for (let i = 0; i < nb; i++) if (has && SFX.bounce) SFX.bounce();
         const ns = Math.min(3, sc - prev.sc);   // 한 전투원이 세 슬롯을 연달아 쓸 수 있다
         for (let i = 0; i < ns; i++) if (has && SFX.skill) SFX.skill();
+        // 벤 소리. 무기에 따라 대검(슈육)과 단검(샥)이 다르다.
+        const nm = Math.min(2, ml - prev.ml);
+        if (nm > 0 && has && SFX.slash) {
+          const meta = this.players && this.players.find(p => p && p.id === f.p);
+          for (let i = 0; i < nm; i++) SFX.slash(meta ? meta.weaponId : 'sword');
+        }
       }
       // 순서가 뒤바뀐 스냅샷이 기준을 되돌려 같은 소리를 두 번 내지 않게 한다
-      this.soundState.set(f.u, { bc: Math.max(prev ? prev.bc : 0, bc), sc: Math.max(prev ? prev.sc : 0, sc) });
+      this.soundState.set(f.u, {
+        bc: Math.max(prev ? prev.bc : 0, bc),
+        sc: Math.max(prev ? prev.sc : 0, sc),
+        ml: Math.max(prev ? prev.ml : 0, ml),
+      });
     }
   },
 
@@ -539,7 +549,7 @@ function netFighter(view, meta, seat) {
     timers: {
       immune: ti.im || 0, untouchable: ti.un || 0, freeze: ti.fz || 0,
       actingDead: ti.ad || 0, stun: ti.st || 0, balloon: ti.ba || 0,
-      rampage: ti.ra || 0, gunBarrage: ti.gb || 0,
+      rampage: ti.ra || 0, gunBarrage: ti.gb || 0, berserk: ti.be || 0,
     },
     flags: {
       giantBlade: !!(fg & 1), dualDagger: !!(fg & 2),
@@ -573,10 +583,13 @@ function netBattleView(snap, players, seat) {
     shake: snap.sh,
     result: snap.res ? { winner: owner(snap.res.w), reason: snap.res.why, draw: snap.res.draw, losers: [] } : null,
     fighters,
+    // uid를 그대로 실어 준다. 스냅샷에는 원래 있는데 여기서 버리고 있었다.
+    // 렌더러가 '새로 생긴 투사체'를 uid로 찾아 발사음을 내므로, 이게 빠지면
+    // 멀티에서만 소리가 안 난다.
     projectiles: (snap.pr || NET_EMPTY).map(p => ({
-      kind: p.k, x: p.x, y: p.y, ang: p.a, r: p.r, owner: owner(p.o),
+      uid: p.u, kind: p.k, x: p.x, y: p.y, ang: p.a, r: p.r, owner: owner(p.o),
     })),
-    mines: (snap.mn || NET_EMPTY).map(m => ({ x: m.x, y: m.y, r: m.r, arm: m.a ? 0 : 1, owner: owner(m.o) })),
+    mines: (snap.mn || NET_EMPTY).map(m => ({ uid: m.u, x: m.x, y: m.y, r: m.r, arm: m.a ? 0 : 1, owner: owner(m.o) })),
     flames: (snap.fm || NET_EMPTY).map(f => ({ x: f.x, y: f.y, r: f.r, life: f.l })),
     stickies: (snap.sk || NET_EMPTY).map(s => ({ x: s.x, y: s.y, r: s.r, life: s.l })),
     fx: Net.localFx, particles: Net.localParticles, popups: Net.localPopups,

@@ -231,7 +231,63 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 
 /* main.js는 매 프레임 이 함수를 부른다. 실제 그리기는 씬의 update가 담당한다. */
-function renderBattle(b) { pendingBattle = b; }
+/* main.js가 매 프레임 넘겨주는 전투. 넘겨받는 김에 새로 생긴
+ * 투사체·지뢰를 보고 발사음을 낸다 — 혼자 할 때나 멀티나 같은 자리다. */
+function renderBattle(b) {
+  pendingBattle = b;
+  watchFireSounds(b);
+}
+
+/* ---------------- 발사음 ----------------
+ * 새로 생긴 투사체·지뢰를 찾아 그 종류의 소리를 낸다.
+ *
+ * 여기서 처리하는 이유: renderBattle은 혼자 할 때나 멀티에서나 똑같이
+ * 매 프레임 불린다. 멀티 스냅샷도 투사체마다 uid와 kind를 싣고 오므로
+ * 통신 규약을 건드리지 않고 두 모드가 같은 소리를 낸다.
+ *
+ * sim.js에서 쏘는 순간에 소리를 내면 서버에서만 울리고 클라이언트에는
+ * 안 들린다 — 멀티에서 sim은 서버에서만 돈다. */
+let projMark = -1, mineMark = -1;
+
+function watchFireSounds(b) {
+  if (typeof SFX === 'undefined') return;
+  // 타이틀 뒤 시범 경기는 조용히 둔다. 메뉴에서 총소리가 나면 안 된다.
+  if (!b || b.demo) { projMark = -1; mineMark = -1; return; }
+  projMark = scanNewByUid(b.projectiles, projMark, p => SFX.fire(projKind(p)));
+  mineMark = scanNewByUid(b.mines, mineMark, () => SFX.fire('mine'));
+}
+
+/* 지금까지 본 가장 큰 uid보다 큰 것이 '이번에 새로 생긴 것'이다.
+ *
+ * 처음에는 목록 객체를 그대로 비교했는데, 멀티에서는 스냅샷마다 배열도
+ * 객체도 새로 만들어진다(multi.js가 매 프레임 netBattleView를 부른다).
+ * 그래서 '전투가 바뀌었다'로 오인해 소리가 한 번도 안 났다.
+ * uid는 서버에서도 클라이언트에서도 커지기만 하므로 이쪽이 안전하다. */
+function scanNewByUid(list, mark, onNew) {
+  if (mark < 0) {
+    /* 처음 보는 전투다. 이미 날아다니는 게 있으면 방금 쏜 것이 아니므로
+     * 소리 없이 기준선만 잡는다(관전 전환 때 한꺼번에 터지는 것 방지).
+     * 비어 있으면 0에서 시작해 첫 발부터 들린다. */
+    let base = 0;
+    for (const it of list || []) if (it.uid > base) base = it.uid;
+    return base;
+  }
+  let next = mark;
+  for (const it of list || []) {
+    const u = it.uid;
+    if (u == null) continue;
+    if (u > next) next = u;
+    if (u > mark) onNew(it);
+  }
+  return next;
+}
+
+/* 샷건은 총알(bullet)을 뿌리는 것이라 투사체 종류만으로는 권총과 못 가른다.
+ * 쏜 사람의 샷건 표식을 보고 갈라 준다 — 이 표식은 멀티 스냅샷에도 실린다. */
+function projKind(p) {
+  if (p.kind === 'bullet' && p.owner && p.owner.flags && p.owner.flags.shotgun) return 'shotgun';
+  return p.kind;
+}
 
 /* ============================================================
  * 배경

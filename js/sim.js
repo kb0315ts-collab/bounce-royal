@@ -376,6 +376,7 @@ function buildFighter(player, battle) {
     bounceRun: 0, charged: false, counterReady: false, pushReady: false,
     bounceTotal: 0, lightningNext: 3,
     sfxSkill: 0,        // 스킬 효과음이 난 횟수. 멀티에서 클라이언트가 같은 소리를 재생하는 근거
+    sfxSlash: 0,        // 근접 무기가 벤 횟수. 위와 같은 이유로 센다
 
     hist: [], histT: 0,
     skillUses: { char: 1, weapon: 1 },
@@ -1699,7 +1700,15 @@ function weaponDamage(b, f, body, baseDmg) {
   }
   const raw = baseDmg * f.st.atk * f.st.dmg * mult;
   const dealt = dealDamage(b, f, body, raw, { kind: 'weapon' });
-  if (dealt > 0) onWeaponHitEffects(b, f, body);
+  if (dealt > 0) {
+    onWeaponHitEffects(b, f, body);
+    // 벤 소리. 대검과 단검이 다르게 들려야 해서 무기를 그대로 넘긴다.
+    // 세는 것은 멀티 때문이다 — 거기선 이 함수가 서버에서 돌아 소리가 안 난다.
+    if (WEAPONS[f.weaponId] && WEAPONS[f.weaponId].type === 'melee') {
+      f.sfxSlash++;
+      if (typeof SFX !== 'undefined' && SFX.slash) SFX.slash(f.weaponId);
+    }
+  }
   return dealt;
 }
 
@@ -1979,6 +1988,7 @@ function finalDeath(b, f) {
       // 멀티에서 마지막 순간의 튕김·스킬 소리가 사라진다.
       root.bounceTotal += f.bounceTotal;
       root.sfxSkill += f.sfxSkill;
+      root.sfxSlash += f.sfxSlash;
       root.splitBalls.splice(i, 1);
     }
     sparks(b, f.x, f.y, 10, root.color, 180);

@@ -18,7 +18,9 @@ function fighterView(f) {
     d: f.dead ? 1 : 0, md: f.mainDead ? 1 : 0,
     fl: r1(f.flash),
     // 렌더링에 영향을 주는 상태만 추린다
-    ti: { im: r1(t.immune), un: r1(t.untouchable), fz: r1(t.freeze), ad: r1(t.actingDead), st: r1(t.stun), ba: r1(t.balloon), ra: r1(t.rampage), gb: r1(t.gunBarrage) },
+    // be(파괴 폭주)는 규칙이 아니라 화면 표시용이다. 이걸 안 실으면
+    // 왁뿌볼의 대표 스킬이 혼자 할 때만 보이고 멀티에서는 아무 표시가 없다.
+    ti: { im: r1(t.immune), un: r1(t.untouchable), fz: r1(t.freeze), ad: r1(t.actingDead), st: r1(t.stun), ba: r1(t.balloon), ra: r1(t.rampage), gb: r1(t.gunBarrage), be: r1(t.berserk) },
     // 충전 진행도. 렌더러가 시위 당겨지는 정도로 쓴다(1에서 포화).
     // 0/1만 보내면 멀티에서 활 차지가 처음부터 끝까지 최대로 당겨진 채 보인다.
     ch: f.charging ? Math.max(0.05, Math.min(1, r1(f.charging.t))) : 0,
@@ -35,7 +37,7 @@ function fighterView(f) {
     st: [r2(f.st.atk), r2(f.st.dmg), r2(f.st.aspd), r2(f.st.rot)],
     // 벽 튕김·스킬 효과음 횟수. 서버에는 소리가 없으므로 클라이언트가 증가분만큼 재생한다.
     // 본체가 죽으면 분열체가 몸을 대신하므로 둘을 합쳐 센다 (분열체는 0에서 시작한다).
-    bc: sfxCount(f, 'bounceTotal'), sc: sfxCount(f, 'sfxSkill'),
+    bc: sfxCount(f, 'bounceTotal'), sc: sfxCount(f, 'sfxSkill'), ml: sfxCount(f, 'sfxSlash'),
     // 소환수·분열체도 uid를 실어야 죽어서 배열이 밀려도 엉뚱한 대상과 보간되지 않는다
     // 소환수도 체력바를 그리므로 hp/maxHp를 함께 보낸다
     sm: f.summons.map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r), h: Math.round(s.hp), m: s.maxHp })),

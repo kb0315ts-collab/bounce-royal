@@ -51,7 +51,17 @@ const server = http.createServer((req, res) => {
   }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404).end('not found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+    /* 캐시 헤더를 하나도 안 보내면 브라우저가 알아서 오래 들고 있는다.
+     * 빌드 단계가 없어 파일 이름에 버전이 안 붙는 구조라, 배포해도 예전
+     * js를 계속 쓰는 사람이 생긴다 — 실제로 여기서 한 번 당했다.
+     * 코드·마크업은 매번 물어보게 하고(no-cache), 소리·그림처럼 갈아 끼울
+     * 일이 드문 것만 하루 캐시한다. */
+    const ext = path.extname(file);
+    const stable = ['.mp3', '.ogg', '.mp4', '.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      'Cache-Control': stable ? 'public, max-age=86400' : 'no-cache',
+    });
     res.end(buf);
   });
 });
