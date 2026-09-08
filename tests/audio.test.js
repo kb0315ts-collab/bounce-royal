@@ -39,8 +39,9 @@ class Context {
   createBufferSource() { return this.node('buffer'); }
   createBiquadFilter() { return this.node('filter'); }
   createStereoPanner() { return this.node('panner'); }
-  createBuffer(channels, length, sampleRate) { return { duration:length / sampleRate, getChannelData:() => new Float32Array(length) }; }
-  async decodeAudioData() { return { duration:.2, sample:true }; }
+  createWaveShaper() { return this.node('limiter'); }
+  createBuffer(channels, length, sampleRate) { const data=Array.from({length:channels},()=>new Float32Array(length));return { numberOfChannels:channels,length,sampleRate,duration:length / sampleRate,getChannelData:c=>data[c] }; }
+  async decodeAudioData() { return {...this.createBuffer(1,1600,8000),sample:true}; }
   async resume() { this.state = 'running'; }
   async close() { this.state = 'closed'; }
 }
@@ -63,6 +64,7 @@ test('audio remains lazy until a user gesture requests ensure', async () => {
 test('audio randomness is isolated from the simulation and catalog icons resolve', async () => {
   const context = { Math:Object.create(Math) };
   context.Math.random = () => { throw new Error('Game RNG must not be consumed by audio'); };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/audio-design.js'),'utf8'),context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/audio.js'),'utf8'),context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/icons.js'),'utf8'),context);
   const engine = context.BounceRoyalAudio.create({ AudioContext:Context, fetch:failedFetch });
@@ -88,7 +90,7 @@ test('all catalog sounds schedule bounded finite sources using synthesis fallbac
     assert.equal(await engine.preview(item.id),true,item.id);
     assert.equal(engine.voices.size,1,item.id);
     const voice = [...engine.voices][0];
-    assert.ok(voice.sources.length >= 2 && voice.sources.length <= 4,item.id);
+    assert.ok(voice.sources.length >= 1 && voice.sources.length <= 8,item.id);
     assert.ok(voice.endTime <= item.duration + .001,item.id);
     for (const source of voice.sources) {
       assert.equal(source.starts.length,1,item.id);
@@ -98,7 +100,7 @@ test('all catalog sounds schedule bounded finite sources using synthesis fallbac
   }
   engine.stopAll();
   assert.equal(engine.voices.size,0);
-  assert.deepEqual(engine.sampleFailures.sort(),['bow','pistol','shotgun']);
+  assert.equal(engine.sampleFailures.length,11);
 });
 
 test('zero volume, mute and runtime volume adjustments control every layer', async () => {
@@ -123,6 +125,15 @@ test('zero volume, mute and runtime volume adjustments control every layer', asy
   assert.equal(engine.volume,0);
   engine.volume = NaN;
   assert.equal(engine.volume,0);
+});
+
+test('peak protection is linear at normal levels and bounds extreme stacked transients', async()=>{
+  const engine=newEngine();await engine.ensure();
+  const curve=engine.limiter.curve;
+  assert.equal(curve[2048],0);
+  assert.ok(Math.abs(curve[3072]-.5)<1e-6);
+  assert.ok(curve.at(-1)<.98 && curve.at(-1)>.9);
+  assert.equal(engine.limiter.oversample,'none');
 });
 
 test('stopAll cancels already scheduled delayed notes and disconnects their graphs', async () => {
@@ -201,22 +212,62 @@ test('same-sound cooldown prevents duplicate shot clusters without blocking late
   assert.equal(engine.play('unknown.sound'),false);
 });
 
-test('decoded sample is layered in game playback, failed files retain audible fallback', async () => {
+test('approved original samples remain unlayered while failed files retain their original whoosh', async () => {
   const requests = [];
   const engine = newEngine({ fetch:async url => { requests.push(url); return { ok:!url.includes('shotgun'), arrayBuffer:async () => new ArrayBuffer(1) }; } });
   await engine.ensure();
   await engine.loadPromise;
-  assert.equal(requests.length,3);
-  assert.equal(engine.buffers.size,2);
+  assert.equal(requests.length,11);
+  assert.equal(engine.buffers.size,10);
   engine.fire('arrow');
   let voice = [...engine.voices][0];
   assert.ok(voice.sources.some(source => source.buffer && source.buffer.sample));
-  assert.ok(voice.sources.some(source => source.kind === 'oscillator'));
+  assert.equal(voice.sources.length,1,'Do not bury the approved original sample in new synth tones');
   engine.stopAll();
   engine.fire('shotgun');
   voice = [...engine.voices][0];
   assert.ok(voice.sources.some(source => source.loop));
   assert.ok(!voice.sources.some(source => source.buffer && source.buffer.sample));
+});
+
+test('approved sword and projectile sweep signatures match the pre-update recipes', async () => {
+  const engine=newEngine();await engine.ensure();
+  for(const [id,start,mid,end,q] of [
+    ['augment.shuriken',420*1.55,2400*1.55,700*1.55,5.5],
+    ['augment.missile',420*.7,2400*.7,700*.7,5.5],
+    ['augment.beam',420,2400,700,5.5],
+  ]) {
+    engine.stopAll();engine.ctx.nodes=[];await engine.preview(id);
+    const filter=engine.ctx.nodes.find(n=>n.kind==='filter');
+    assert.deepEqual(filter.frequency.events.map(e=>e[1]),[start,Math.min(mid,engine.ctx.sampleRate*.45),end]);
+    assert.equal(filter.Q.value,q);
+    assert.equal([...engine.voices][0].sources.length,1);
+  }
+  engine.stopAll();engine.ctx.nodes=[];await engine.preview('weapon.sword.hit');
+  const filter=engine.ctx.nodes.find(n=>n.kind==='filter');
+  assert.deepEqual(filter.frequency.events.map(e=>e[1]),[1900,500]);
+  assert.equal(filter.Q.value,2.3);
+  assert.equal(catalog.find(s=>s.id==='weapon.sword.hit').restored,true);
+});
+
+test('comparison preview never changes the sound used by gameplay', async () => {
+  const engine=newEngine();await engine.ensure();
+  await engine.preview('weapon.sword.hit',{variant:'previous'});
+  assert.equal([...engine.voices][0].sources.length,3);
+  engine.stopAll();engine.play('weapon.sword.hit');
+  assert.equal([...engine.voices][0].sources.length,1);
+});
+
+test('Foley playback keeps the complete recording and cleans reverse/alternate layers', async () => {
+  const engine=newEngine({fetch:async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(1)})});
+  await engine.ensure();await engine.loadPromise;
+  const full=engine.ctx.createBuffer(1,3600,8000); // deliberately longer than old .21s crop
+  engine.buffers.set('bow',full);engine.play('weapon.bow.fire',{preview:true});
+  assert.ok(Math.abs([...engine.voices][0].sources[0].stops[0]-.475)<1e-9);
+  engine.stopAll();assert.equal(await engine.preview('skill.cat.rewind'),true);
+  const reverse=[...engine.voices][0].sources[0].buffer;
+  assert.notEqual(reverse,engine.buffers.get('arrowPass'));
+  engine.stopAll();assert.equal(engine.voices.size,0);
 });
 
 test('release sounds cancel preparation even if its sources have delayed starts', async () => {

@@ -79,13 +79,24 @@
   sound('ui.vote.tick', '이벤트 · 추첨 이동', '인터페이스', '빛이 다른 플레이어로 옮겨갈 때 울리는 작은 클릭입니다.', 'watch', [tone(960,690,.054,.035,'sine'), noise(3300,1700,.022,.021)], { priority:3, gap:.035 });
   sound('ui.vote.win', '이벤트 · 당첨', '인터페이스', '선택된 플레이어를 밝은 세 음과 반짝임으로 강조합니다.', 'ranked', [tone(784,784,.24,.045,'triangle'), tone(1046,1046,.30,.042,'triangle',.11), tone(1568,1568,.43,.032,'sine',.22), tone(2093,2093,.33,.015,'sine',.255)], { priority:5, gap:.5 });
 
+  // Keep the rejected first pass available for honest A/B comparison. The game
+  // always uses current; merely previewing another take cannot change gameplay.
+  const previousById = new Map(definitions.map(def => [def.id, {...def}]));
+  const design = root.BounceRoyalSoundDesign || (typeof require === 'function' ? require('./audio-design.js') : {});
+  for (const def of definitions) if (design[def.id]) Object.assign(def, design[def.id]);
+  const layerDuration = l => Math.max(l.trim || l.dur,l.fallback?.dur || 0) / (l.rate || 1) + (l.delay || 0);
+  const durationOf = def => Math.round((Math.max(...def.layers.map(layerDuration)) + .025) * 1000) / 1000;
   const byId = new Map(definitions.map(def => [def.id, def]));
   const catalog = Object.freeze(definitions.map(def => Object.freeze({
     id:def.id, name:def.name, group:def.group, description:def.description, icon:def.icon,
-    duration:Math.round((Math.max(...def.layers.map(l => l.dur + (l.delay || 0))) + .025) * 1000) / 1000,
-    source:def.layers.some(l => l.kind === 'sample') ? '합성 + CC0 샘플' : '절차 합성',
+    duration:durationOf(def), previousDuration:durationOf(previousById.get(def.id)),
+    variants:Object.freeze(['current','previous']), restored:!!def.restored, signature:def.signature || '',
+    source:def.layers.some(l => l.kind === 'sample') ? (def.restored ? '원본 샘플' : 'CC0 폴리 + 디자인') : def.restored ? '원래 음색 복원' : '절차 합성',
   })));
-  const sampleFiles = Object.freeze({ bow:'fire-bow.mp3', pistol:'fire-pistol.mp3', shotgun:'fire-shotgun.mp3' });
+  const sampleFiles = Object.freeze({ bow:'fire-bow.mp3', pistol:'fire-pistol.mp3', shotgun:'fire-shotgun.mp3',
+    bowDraw:'foley/bow-draw.wav',bowRelease:'foley/bow-release.wav',bowReleaseAlt:'foley/bow-release-alt.wav',
+    bladeAir:'foley/blade-air.wav',bladeScrape:'foley/blade-scrape.wav',bladeScrapeAlt:'foley/blade-scrape-alt.wav',
+    mechanism:'foley/mechanism.wav',arrowPass:'foley/arrow-pass.wav' });
   const fireIds = Object.freeze({ arrow:'weapon.bow.fire', bullet:'weapon.pistol.fire', shotgun:'weapon.shotgun.fire', orb:'weapon.staff.fire', mine:'weapon.mine.place', charge:'skill.bow.release', beam:'augment.beam', missile:'augment.missile', shuriken:'augment.shuriken' });
   const aliases = Object.freeze({ 'fire-bow':'weapon.bow.fire', 'fire-pistol':'weapon.pistol.fire', 'fire-shotgun':'weapon.shotgun.fire' });
 
@@ -132,7 +143,21 @@
           this.compressor.ratio.value = 8;
           this.compressor.attack.value = .003;
           this.compressor.release.value = .13;
-          this.compressor.connect(this.master).connect(this.ctx.destination);
+          this.compressor.connect(this.master);
+          // Transparent below 0.70: approved quiet Foley/swish is unchanged.
+          // Catch the compressor's initial transient when many explosions align.
+          if (this.ctx.createWaveShaper) {
+            this.limiter = this.ctx.createWaveShaper();
+            const curve = new Float32Array(4097);
+            for(let i=0;i<curve.length;i++) {
+              const x=i/(curve.length-1)*2-1,a=Math.abs(x);
+              curve[i]=Math.sign(x)*(a<=.70?a:.70+.28*Math.tanh((a-.70)/.28));
+            }
+            // Do not oversample this final safety stage: the downsampler's
+            // ringing can overshoot its own ceiling on synchronized transients.
+            this.limiter.curve=curve;this.limiter.oversample='none';
+            this.master.connect(this.limiter).connect(this.ctx.destination);
+          } else this.master.connect(this.ctx.destination);
           this._applyVolume();
         }
         if (this.ctx.state === 'suspended') await this.ctx.resume();
@@ -175,7 +200,7 @@
     }
     play(rawId, options = {}) {
       const id = aliases[rawId] || rawId;
-      const def = byId.get(id);
+      const def = (options.variant === 'previous' ? previousById : byId).get(id);
       if (!def) return false;
       return this._playDefinition(def, options);
     }
@@ -196,7 +221,7 @@
       const rate = clamp(finite(options.rate, 1) * (1 + variation), .5, 2);
       const vol = clamp(finite(options.vol, 1), 0, 2);
       if (vol === 0) return false;
-      const voice = { id:def.id, priority, startTime:now, endTime:now, nodes:[], sources:[], pending:0, finished:false };
+      const voice = { id:def.id, preview:!!options.preview, priority, startTime:now, endTime:now, nodes:[], sources:[], pending:0, finished:false };
       try {
         const gain = this.ctx.createGain();
         gain.gain.value = vol;
@@ -215,36 +240,65 @@
       } catch (_) { this._finish(voice); return false; }
     }
     _layer(voice, rawLayer, rate) {
-      const layer = rawLayer.kind === 'sample' && !this.buffers.has(rawLayer.name) ? rawLayer.fallback : rawLayer;
+      const layer = rawLayer.kind === 'sample' && !this.buffers.has(rawLayer.name)
+        ? {...rawLayer.fallback,delay:(rawLayer.delay || 0)+(rawLayer.fallback?.delay || 0),rate:rawLayer.rate || 1}
+        : rawLayer;
+      // A fallback keeps its parent cue's timing, not an unrelated time-zero hit.
+      if (!layer) return;
       const t = voice.startTime + (layer.delay || 0);
-      const duration = layer.dur / rate;
+      const layerRate = rate * (layer.rate || 1);
+      let buffer;
+      if (layer.kind === 'sample') {
+        const candidates = [layer.name,...(layer.alternates || [])].filter(name => this.buffers.has(name));
+        const name = candidates[voice.preview ? 0 : Math.floor(this._random() * candidates.length)];
+        buffer = this.buffers.get(name);
+        if (layer.reverse) {
+          if (!this._reversed) this._reversed = new Map();
+          if (!this._reversed.has(name)) {
+            const reversed = this.ctx.createBuffer(buffer.numberOfChannels,buffer.length,buffer.sampleRate);
+            for (let c=0;c<buffer.numberOfChannels;c++) reversed.getChannelData(c).set(buffer.getChannelData(c).slice().reverse());
+            this._reversed.set(name,reversed);
+          }
+          buffer = this._reversed.get(name);
+        }
+      }
+      const duration = (layer.trim || (layer.flat && buffer ? Math.max(.01,buffer.duration - (layer.offset || 0)) : layer.dur)) / layerRate;
       const end = t + duration;
       const env = this.ctx.createGain();
       voice.nodes.push(env);
-      env.gain.setValueAtTime(.0001, t);
-      env.gain.linearRampToValueAtTime(layer.gain, t + Math.min(duration * .45, layer.attack || .006));
-      env.gain.exponentialRampToValueAtTime(.0001, end);
+      if (layer.gainPath) {
+        layer.gainPath.forEach(([at,g],i)=>env.gain[i===0?'setValueAtTime':'linearRampToValueAtTime'](Math.max(.0001,g),t+at*duration));
+      } else if (layer.flat) {
+        env.gain.setValueAtTime(layer.gain,t);
+        env.gain.setValueAtTime(layer.gain,Math.max(t,end-.008));
+        env.gain.linearRampToValueAtTime(.0001,end);
+      } else {
+        const floor=layer.floor || .0001;
+        env.gain.setValueAtTime(layer.attack===0 ? layer.gain : .0001,t);
+        if (layer.attack!==0) env.gain.linearRampToValueAtTime(layer.gain,t+Math.min(duration*.45,layer.attack || .006));
+        env.gain.exponentialRampToValueAtTime(floor,end);
+      }
       env.connect(voice.output);
+      const sweep = (param,points,min,max) => points.forEach(([at,value],i)=>param[i===0?'setValueAtTime':'exponentialRampToValueAtTime'](clamp(value*rate,min,max),t+at*duration));
+      const makeFilter = spec => {
+        const filter=this.ctx.createBiquadFilter(); filter.type=spec.type;filter.Q.value=spec.q || .8;
+        sweep(filter.frequency,spec.path || [[0,spec.f],[1,spec.to]],40,this.ctx.sampleRate*.45);
+        voice.nodes.push(filter);return filter;
+      };
       let source;
       if (layer.kind === 'tone') {
         source = this.ctx.createOscillator();
         source.type = layer.wave;
-        source.frequency.setValueAtTime(Math.max(25, layer.f * rate), t);
-        source.frequency.exponentialRampToValueAtTime(Math.max(25, layer.to * rate), end);
-        source.connect(env);
+        sweep(source.frequency,layer.freqPath || [[0,layer.f],[1,layer.to]],25,this.ctx.sampleRate*.45);
+        if (layer.filter && typeof layer.filter==='object') source.connect(makeFilter(layer.filter)).connect(env);
+        else source.connect(env);
       } else {
         source = this.ctx.createBufferSource();
-        source.buffer = layer.kind === 'sample' ? this.buffers.get(layer.name) : this._noiseBuffer();
-        source.playbackRate.value = layer.kind === 'sample' ? rate : 1;
+        source.buffer = layer.kind === 'sample' ? buffer : this._noiseBuffer();
+        source.playbackRate.value = layer.kind === 'sample' ? layerRate : 1 + (voice.preview ? 0 : (this._random()*2-1)*(layer.noiseRateVariation || 0));
         if (layer.kind === 'noise') {
           source.loop = true;
-          const filter = this.ctx.createBiquadFilter();
-          filter.type = layer.filter;
-          filter.Q.value = layer.q || .8;
-          const maxFreq = this.ctx.sampleRate * .45;
-          filter.frequency.setValueAtTime(clamp(layer.f * rate, 40, maxFreq), t);
-          filter.frequency.exponentialRampToValueAtTime(clamp(layer.to * rate, 40, maxFreq), end);
-          voice.nodes.push(filter);
+          const filter = makeFilter({type:layer.filter,q:layer.q,f:layer.f,to:layer.to,path:layer.filterPath});
           source.connect(filter).connect(env);
         } else source.connect(env);
       }
@@ -259,7 +313,8 @@
         voice.pending--;
         if (voice.pending === 0) this._finish(voice);
       };
-      source.start(t);
+      if (layer.kind === 'sample') source.start(t,layer.offset || 0);
+      else source.start(t);
       source.stop(end + .025);
     }
     _finish(voice) {
@@ -293,16 +348,16 @@
         this.loadPromise.then(waiter.finish,waiter.finish);
       });
     }
-    async preview(id) {
+    async preview(id, options = {}) {
       this.stopAll();
       const version = this._previewVersion;
       if (!await this.ensure() || version !== this._previewVersion) return false;
-      const def = byId.get(aliases[id] || id);
+      const def = (options.variant === 'previous' ? previousById : byId).get(aliases[id] || id);
       // Gameplay never waits for network I/O. In the listening room, briefly
       // prefer the finished sample layer over a first-click fallback instead.
       if (def && this.loadPromise && def.layers.some(layer => layer.kind === 'sample' && !this.buffers.has(layer.name) && !this.sampleFailures.includes(layer.name))) await this._waitForSamples();
       if (version !== this._previewVersion) return false;
-      return this.play(id, { preview:true, priority:10 });
+      return this.play(id, { preview:true, priority:10, variant:options.variant });
     }
     check() {
       return { supported:!!(this.options.AudioContext || root.AudioContext || root.webkitAudioContext), state:this.ctx ? this.ctx.state : 'not-started', muted:this.muted, volume:this.volume, activeVoices:this.voices.size, maxVoices:this.maxVoices, loadedSamples:[...this.buffers.keys()], sampleFailures:[...this.sampleFailures], dropped:this.dropped, sounds:catalog.length };
@@ -327,10 +382,11 @@
       if (this._document && this._document.removeEventListener) this._document.removeEventListener('visibilitychange', this._onVisibility);
       if (this.compressor) this.compressor.disconnect();
       if (this.master) this.master.disconnect();
+      if (this.limiter) this.limiter.disconnect();
       if (this.ctx && this.ctx.close) this.ctx.close();
     }
   }
-  const api = Object.freeze({ create:options => new SoundEngine(options), catalog });
+  const api = Object.freeze({ create:options => new SoundEngine(options), catalog, samples:sampleFiles });
   root.BounceRoyalAudio = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -51,7 +51,7 @@ sandbox.window = sandbox;
 const context = vm.createContext(sandbox);
 const source = [
   read('js/data.js'),
-  read('js/audio.js'),
+  read('js/audio-design.js'), read('js/audio.js'),
   read('js/sim.js'),
   read('js/matchmaking.js'),
   read('js/events.js'),

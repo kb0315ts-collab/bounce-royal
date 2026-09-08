@@ -38,6 +38,7 @@
   let selectedGroup = '전체';
   let generation = 0;
   let activeId = null;
+  let activeVariant = 'current';
   let sequenceIndex = -1;
   let sequenceTimer = null;
   let activeTimer = null;
@@ -45,7 +46,7 @@
   let muted = false;
   let previewQueue = Promise.resolve();
 
-  const durationOf = item => Math.max(.1, Math.min(30, Number(item.duration) || .8));
+  const durationOf = (item, variant='current') => Math.max(.1, Math.min(30, Number(variant === 'previous' ? item.previousDuration : item.duration) || .8));
   const groupColor = item => (groups.find(group => group.name === item.group) || groups[0]).color;
   const setStatus = (message, isError = false) => {
     elements.status.textContent = message;
@@ -69,24 +70,28 @@
     try { localStorage.setItem('bounce-royal-sound-room-volume', String(value)); } catch (_) {}
   }
 
-  function showPlayback(id, isBusy = false) {
+  function showPlayback(id, isBusy = false, variant = 'current') {
     activeId = id;
+    activeVariant = variant;
     busy = isBusy;
     const item = sounds.get(id);
-    elements.now.textContent = item ? item.name : '어떤 소리부터 들어볼까요?';
+    elements.now.textContent = item ? item.name + (variant === 'previous' ? ' · 직전 시안' : '') : '어떤 소리부터 들어볼까요?';
     elements.label.textContent = isBusy ? 'LOADING SOUND' : item ? (sequenceIndex >= 0 ? `이어 듣기 ${sequenceIndex + 1} / ${catalog.length}` : item.group + ' · 재생 중') : 'READY TO PLAY';
     elements.visual.classList.toggle('is-playing', !!item && !isBusy);
     elements.stop.disabled = !item && sequenceIndex < 0;
     elements.playAll.querySelector('span:last-child').textContent = sequenceIndex >= 0 ? '처음부터 다시 듣기' : '전체 이어 듣기';
     for (const card of elements.grid.children) {
       const playing = card.dataset.soundId === id && !isBusy;
+      card.style.setProperty('--sound-duration', durationOf(sounds.get(card.dataset.soundId),playing ? variant : 'current') + 's');
       card.classList.toggle('is-playing', playing);
-      const button = card.querySelector('.sound-play');
-      if (!button) continue;
-      button.setAttribute('aria-pressed', String(playing));
-      button.setAttribute('aria-label', `${sounds.get(card.dataset.soundId).name} ${playing ? '중지' : '재생'}`);
-      button.querySelector('.play-label').textContent = playing ? '재생 중' : '들어보기';
-      button.querySelector('.play-mark').className = 'play-mark ' + (playing ? 'stop-square' : 'play-triangle');
+      for (const button of card.querySelectorAll('.sound-play')) {
+        const thisPlaying = playing && button.dataset.variant === variant;
+        const label = button.dataset.variant === 'previous' ? '직전 시안' : '게임 적용음';
+        button.setAttribute('aria-pressed', String(thisPlaying));
+        button.setAttribute('aria-label', `${sounds.get(card.dataset.soundId).name} ${label} ${thisPlaying ? '중지' : '재생'}`);
+        button.querySelector('.play-label').textContent = thisPlaying ? '재생 중' : label;
+        button.querySelector('.play-mark').className = 'play-mark ' + (thisPlaying ? 'stop-square' : 'play-triangle');
+      }
     }
   }
 
@@ -110,9 +115,9 @@
     return true;
   }
 
-  async function playOne(item, token, ready) {
+  async function playOne(item, token, ready, variant = 'current') {
     if (token !== generation || document.hidden) return false;
-    showPlayback(item.id, true);
+    showPlayback(item.id, true, variant);
     try {
       const available = await ready;
       if (token !== generation || document.hidden) return false;
@@ -120,7 +125,7 @@
       // Serialize asynchronous previews so a cancelled resume cannot stop a newer sound.
       const next = previewQueue.catch(() => false).then(async () => {
         if (token !== generation || document.hidden) return false;
-        const played = await audio.preview(item.id);
+        const played = await audio.preview(item.id, {variant});
         if (token !== generation || document.hidden) {
           audio.stopAll();
           return false;
@@ -131,15 +136,15 @@
       const played = await next;
       if (token !== generation || document.hidden) return false;
       if (!played) throw new Error('playback-failed');
-      showPlayback(item.id);
+      showPlayback(item.id, false, variant);
       const seqText = sequenceIndex >= 0 ? ` (${sequenceIndex + 1}/${catalog.length})` : '';
-      setStatus(`${item.name}${seqText} · ${item.description || '효과음을 재생합니다.'}`);
+      setStatus(variant === 'previous' ? `${item.name} · 직전의 전자음 중심 시안입니다. 현재 게임에는 적용되지 않습니다.` : `${item.name}${seqText} · ${item.description || '효과음을 재생합니다.'}`);
       clearTimeout(activeTimer);
       activeTimer = setTimeout(() => {
         if (token !== generation) return;
         showPlayback(null);
-        if (sequenceIndex < 0) setStatus(`${item.name} 재생이 끝났어요. 다시 눌러 비교해 보세요.`);
-      }, durationOf(item) * 1000);
+        if (sequenceIndex < 0) setStatus(`${item.name} · ${variant === 'previous' ? '직전 시안' : '게임 적용음'} 재생이 끝났어요. 다시 눌러 비교해 보세요.`);
+      }, durationOf(item, variant) * 1000);
       return true;
     } catch (_) {
       if (token !== generation) return false;
@@ -149,8 +154,8 @@
     }
   }
 
-  function preview(item) {
-    if (activeId === item.id && !busy) {
+  function preview(item, variant = 'current') {
+    if (activeId === item.id && activeVariant === variant && !busy) {
       cancelPlayback();
       setStatus('재생을 멈췄어요. 다른 소리도 들어보세요.');
       return;
@@ -159,7 +164,20 @@
     if (!checkAudible()) return;
     // Start audio permission/resume within the user's click.
     const ready = audio.ensure();
-    void playOne(item, token, ready);
+    void playOne(item, token, ready, variant);
+  }
+
+  async function previewChargeShot() {
+    const token=cancelPlayback();
+    if(!checkAudible()) return;
+    const ready=audio.ensure();
+    if(!await playOne(sounds.get('skill.bow.charge'),token,ready)) return;
+    if(token!==generation) return;
+    // 1.05 seconds is one possible player release timing, not a change to the
+    // game's charge rules. The release cancels the remaining preparation tail.
+    sequenceTimer=setTimeout(()=>{
+      if(token===generation) void playOne(sounds.get('skill.bow.release'),token,Promise.resolve(true));
+    },1050);
   }
 
   async function playSequence(index, token, ready) {
@@ -199,7 +217,7 @@
 
   function renderCards() {
     const query = elements.search.value.trim().toLocaleLowerCase().replace(/\s+/g, '');
-    const visible = catalog.filter(item => (selectedGroup === '전체' || item.group === selectedGroup) && (!query || `${item.name} ${item.description || ''} ${item.group || ''}`.toLocaleLowerCase().replace(/\s+/g, '').includes(query)));
+    const visible = catalog.filter(item => (selectedGroup === '전체' || item.group === selectedGroup) && (!query || `${item.name} ${item.signature || ''} ${item.description || ''} ${item.group || ''}`.toLocaleLowerCase().replace(/\s+/g, '').includes(query)));
     elements.grid.replaceChildren();
     elements.count.textContent = String(visible.length);
     elements.empty.hidden = visible.length > 0;
@@ -219,25 +237,32 @@
       }
       top.append(icon, make('span', 'card-category', item.group || '효과음'));
       const title = make('h3', '', item.name);
+      const signature = make('p','sound-signature',item.signature || '짧고 분명한 인터페이스 신호');
       const description = make('p', 'sound-description', item.description || '재생 버튼을 눌러 효과음을 들어보세요.');
       const bottom = make('div', 'card-bottom');
       const meta = make('span', 'sound-meta');
       meta.append(make('span', 'sound-duration', durationOf(item).toFixed(1) + '초'));
-      const source = {sample:'녹음 사운드', synth:'디자인 사운드', synthesized:'디자인 사운드', '합성 + CC0 샘플':'혼합 사운드', '절차 합성':'디자인 사운드'}[item.source];
+      const source = item.restored ? '원래 소리 복원' : item.source === 'CC0 폴리 + 디자인' ? '실제 녹음 편집' : '새 음색';
       if (source) meta.append(make('span', 'meta-dot'), make('span', '', source));
-      const play = make('button', 'sound-play');
-      play.type = 'button';
-      const mark = make('span', 'play-mark play-triangle');
-      mark.setAttribute('aria-hidden', 'true');
-      play.append(mark, make('span', 'play-label', '들어보기'));
-      play.addEventListener('click', () => preview(item));
-      bottom.append(meta, play);
+      const choices = make('div','sound-choices');
+      for (const variant of ['current','previous']) {
+        const play = make('button', 'sound-play' + (variant==='previous' ? ' sound-compare' : ''));
+        play.type='button';play.dataset.variant=variant;
+        const mark=make('span','play-mark play-triangle');mark.setAttribute('aria-hidden','true');
+        play.append(mark,make('span','play-label',variant==='previous'?'직전 시안':'게임 적용음'));
+        play.addEventListener('click',()=>preview(item,variant));choices.append(play);
+      }
+      bottom.append(meta,choices);
+      if(item.id==='skill.bow.charge') {
+        const combo=make('button','charge-preview','충전 → 발사 이어 듣기');combo.type='button';
+        combo.addEventListener('click',()=>void previewChargeShot());bottom.append(combo);
+      }
       const progress = make('span', 'sound-progress');
       progress.setAttribute('aria-hidden', 'true');
-      card.append(top, title, description, bottom, progress);
+      card.append(top, title, signature, description, bottom, progress);
       elements.grid.append(card);
     }
-    showPlayback(activeId, busy);
+    showPlayback(activeId, busy, activeVariant);
   }
 
   elements.search.addEventListener('input', renderCards);

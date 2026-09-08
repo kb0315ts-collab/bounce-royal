@@ -10,6 +10,7 @@ body{font:15px/1.6 system-ui;background:#0b1423;color:#dae8f7;max-width:900px;ma
 <p>실제 브라우저의 OfflineAudioContext로 각 효과음의 무음·비정상 값·클리핑과 동시 재생을 검사합니다. 소리가 스피커로 재생되지는 않습니다.</p>
 <button id="run">검증 시작</button> <a href="../sound-lab.html">사운드룸</a>
 <pre id="report" role="status">검증 대기 중</pre>
+<script src="../js/audio-design.js"></script>
 <script src="../js/audio.js"></script>
 <script>
 'use strict';
@@ -22,8 +23,8 @@ run.onclick = async () => {
   try {
     const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     if (!Offline) throw new Error('OfflineAudioContext 미지원');
-    async function render(ids, fallback = false) {
-      const longest = Math.max(...ids.map(id => BounceRoyalAudio.catalog.find(s => s.id === id).duration));
+    async function render(ids, fallback = false, variant = 'current') {
+      const longest = Math.max(...ids.map(id => { const s=BounceRoyalAudio.catalog.find(s=>s.id===id);return variant==='previous'?s.previousDuration:s.duration; }));
       const context = new Offline(2, Math.ceil((longest + .25) * 44100), 44100);
       // The engine schedules on the same graph/audio clock. Only the offline
       // context's suspended state is adapted; synthesis and mixing are unchanged.
@@ -37,9 +38,9 @@ run.onclick = async () => {
         document:{hidden:false}, fetch:async () => ({ok:false}) });
       await engine.ensure();
       if (!fallback) {
-        for (const name of ['bow','pistol','shotgun']) {
+        for (const [name,file] of Object.entries(BounceRoyalAudio.samples)) {
           if (!decoded.has(name)) {
-            const response = await fetch('../assets/sfx/fire-' + name + '.mp3');
+            const response = await fetch('../assets/sfx/' + file);
             if (!response.ok) throw new Error('샘플 읽기 실패: ' + name);
             decoded.set(name, await context.decodeAudioData(await response.arrayBuffer()));
           }
@@ -47,7 +48,7 @@ run.onclick = async () => {
         }
       }
       for (const id of ids) {
-        if (!engine.play(id, {preview:true})) throw new Error('예약 실패: ' + id);
+        if (!engine.play(id, {preview:true,variant})) throw new Error('예약 실패: ' + id);
       }
       const buffer = await context.startRendering();
       let peak = 0, energy = 0, invalid = 0;
@@ -61,8 +62,8 @@ run.onclick = async () => {
       engine.stopAll();
       return {peak, rms, invalid};
     }
-    async function check(label, ids, fallback = false) {
-      const r = await render(ids, fallback);
+    async function check(label, ids, fallback = false, variant = 'current') {
+      const r = await render(ids, fallback, variant);
       const ok = !r.invalid && r.peak > .0001 && r.peak < .98;
       const line = `${ok ? 'PASS' : 'FAIL'} ${label} · peak ${r.peak.toFixed(4)} · RMS ${r.rms.toFixed(4)}`;
       results.push(line);
@@ -70,10 +71,11 @@ run.onclick = async () => {
       report.textContent = results.join('\n');
     }
     for (const sound of BounceRoyalAudio.catalog) await check(sound.id, [sound.id]);
+    for (const sound of BounceRoyalAudio.catalog) await check(sound.id+' (previous)', [sound.id],false,'previous');
     for (const id of ['weapon.bow.fire','weapon.pistol.fire','weapon.shotgun.fire']) await check(id + ' (fallback)', [id], true);
     await check('16 simultaneous impacts', Array(16).fill('weapon.sword.hit'));
     await check('16 simultaneous explosions', Array(16).fill('skill.bomb.explode'));
-    report.textContent = `${failures.length ? 'FAIL' : 'PASS'} · ${results.length}건 / 실패 ${failures.length}건\n\n` + results.join('\n');
+    report.textContent = `${failures.length ? 'FAIL' : 'PASS'} · ${results.length}건 / 실패 ${failures.length}건\n\n` + results.join('\n')+'\n\nSAMPLES\n'+[...decoded].map(([name,b])=>`${name}: ${b.duration.toFixed(3)}s`).join('\n');
   } catch (error) { report.textContent += '\nERROR: ' + error.message; }
   finally { run.disabled = false; }
 };
