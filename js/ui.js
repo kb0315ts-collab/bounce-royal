@@ -694,9 +694,7 @@ function showEventVoteResult(result = {}, onContinue) {
     finalPortrait?.classList.add('winner');
     document.querySelectorAll('#event-cards .event-card').forEach(card => card.classList.toggle('winning', card.dataset.eventId === winningKey));
     if (status) status.textContent = `${winnerName}님의 표가 당첨되어 최종 이벤트가 결정되었습니다.`;
-    if (typeof SFX !== 'undefined' && SFX && typeof SFX.tone === 'function') {
-      SFX.tone(1040, .16, 'triangle', .13, 260); SFX.tone(1320, .13, 'triangle', .1, 0, .11);
-    }
+    if (typeof SFX !== 'undefined' && SFX && typeof SFX.play === 'function') SFX.play('ui.vote.win');
     const vibrationEnabled = typeof Profile === 'undefined' || Profile.data?.vibration !== false;
     if (vibrationEnabled && navigator.vibrate) navigator.vibrate([35, 45, 70]);
     if (typeof onContinue !== 'function') return;
@@ -720,7 +718,7 @@ function showEventVoteResult(result = {}, onContinue) {
     const tick = () => {
       portraitOrder.forEach(element => element.classList.remove('spotlight'));
       portraitOrder[step % portraitOrder.length]?.classList.add('spotlight');
-      if (typeof SFX !== 'undefined' && SFX && typeof SFX.tone === 'function') SFX.tone(680, .055, 'triangle', .075);
+      if (typeof SFX !== 'undefined' && SFX && typeof SFX.play === 'function') SFX.play('ui.vote.tick');
       step++;
       if (step >= totalSteps) { eventVoteTimer(revealFinal, 460, revealSession); return; }
       const progress = step / Math.max(1, totalSteps - 1);
@@ -999,14 +997,19 @@ function updateCountdown(battle) {
   const counting = !!battle && battle.phase === 'count' && !battle.result;
   const n = counting ? Math.max(1, Math.ceil(battle.countT || 0)) : 0;
   if (n === countShown) return;
+  const wasCounting = countShown > 0;
   countShown = n;
-  if (!n) { el.classList.remove('on'); el.textContent = ''; return; }
+  if (!n) {
+    el.classList.remove('on'); el.textContent = '';
+    if (wasCounting && battle?.phase === 'fight' && typeof SFX !== 'undefined' && SFX.play) SFX.play('ui.fight');
+    return;
+  }
   el.textContent = String(n);
   // 숫자가 바뀔 때마다 튀어나오는 연출을 다시 튼다
   el.classList.remove('on');
   void el.offsetWidth;
   el.classList.add('on');
-  if (typeof SFX !== 'undefined' && SFX.ui) SFX.ui();
+  if (typeof SFX !== 'undefined' && SFX.play) SFX.play('ui.countdown');
 }
 
 function updateSkillbar(battle) {

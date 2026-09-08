@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07101c">
+  <meta name="description" content="바운스로얄의 무기, 스킬, 증강 효과음을 한곳에서 들어보세요.">
+  <title>사운드룸 · 바운스로얄</title>
+  <link rel="stylesheet" href="css/sound-lab.css">
+  <script src="js/icons.js" defer></script>
+  <script src="js/audio.js" defer></script>
+  <script src="js/sound-lab.js" defer></script>
+</head>
+<body>
+  <div class="studio-shell">
+    <header class="studio-header">
+      <a class="brand" href="index.html" aria-label="바운스로얄 게임으로 돌아가기">
+        <span class="brand-emblem" data-ui-icon="brand"></span>
+        <span>BOUNCE <strong>ROYALE</strong></span>
+      </a>
+      <a class="back-link" href="index.html"><span data-ui-icon="back"></span>게임으로</a>
+    </header>
+
+    <main>
+      <section class="studio-intro" aria-labelledby="studio-title">
+        <div>
+          <p class="eyebrow"><span></span> SOUND COLLECTION</p>
+          <h1 id="studio-title">전투의 소리,<br><span>하나씩 들어보세요.</span></h1>
+          <p class="intro-copy">무기의 날카로운 한 방부터 스킬이 터지는 순간까지.<br class="desktop-break"> 플레이 버튼을 눌러 바운스로얄의 효과음을 확인하세요.</p>
+        </div>
+        <div class="collection-stamp" aria-label="사운드 컬렉션">
+          <span class="stamp-orbit orbit-one"></span>
+          <span class="stamp-orbit orbit-two"></span>
+          <div class="stamp-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <p><strong id="total-count">—</strong><span>개의 전투 사운드</span></p>
+        </div>
+      </section>
+
+      <section class="playback-panel" aria-label="재생 조절">
+        <div class="now-playing">
+          <div class="live-visual" id="live-visual" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="now-copy"><p class="control-label" id="playing-label">READY TO PLAY</p><p id="now-title">어떤 소리부터 들어볼까요?</p></div>
+        </div>
+        <div class="playback-actions">
+          <button class="button-primary" id="play-all" type="button"><span class="play-triangle" aria-hidden="true"></span><span>전체 이어 듣기</span></button>
+          <button class="button-stop" id="stop-all" type="button" disabled><span class="stop-square" aria-hidden="true"></span>중지</button>
+        </div>
+        <div class="volume-control">
+          <button class="volume-toggle" id="mute-toggle" type="button" aria-label="효과음 음소거" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 4-6 5H2v6h3l6 5V4Z"/><path class="volume-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="volume-cross" d="m16 9 6 6m0-6-6 6"/></svg></button>
+          <label class="sr-only" for="volume">미리듣기 음량</label>
+          <input id="volume" type="range" min="0" max="100" value="55" step="1">
+          <output id="volume-value" for="volume">55%</output>
+        </div>
+      </section>
+      <p class="playback-status" id="playback-status" role="status" aria-live="polite">소리를 들으려면 재생 버튼을 눌러주세요.</p>
+
+      <section class="sound-collection" aria-labelledby="collection-title">
+        <div class="collection-heading">
+          <div><p class="eyebrow">THE LIBRARY</p><h2 id="collection-title">사운드 컬렉션 <span id="visible-count"></span></h2></div>
+          <label class="search-field" for="sound-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="sound-search" type="search" placeholder="차지샷, 돌진, 검기…" autocomplete="off" maxlength="100"><span class="sr-only">효과음 검색</span></label>
+        </div>
+        <div class="category-filters" id="category-filters" role="group" aria-label="효과음 분류"></div>
+        <div class="sound-grid" id="sound-grid"></div>
+        <div class="empty-state" id="empty-state" hidden><span data-ui-icon="watch"></span><h3>일치하는 소리가 없어요.</h3><p>다른 이름으로 검색하거나 분류를 바꿔보세요.</p><button class="button-secondary" id="reset-filters" type="button">모든 효과음 보기</button></div>
+        <noscript><p class="error-notice">효과음을 들으려면 브라우저에서 자바스크립트를 켜주세요.</p></noscript>
+      </section>
+    </main>
+    <footer class="studio-footer"><span>BOUNCE ROYALE <b>／</b> 사운드룸</span><p>게임에서 사용하는 효과음을 그대로 들려드립니다.</p></footer>
+  </div>
+</body>
+</html>

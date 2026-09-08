@@ -230,23 +230,49 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', resizeCanvas);
 
-/* main.js는 매 프레임 이 함수를 부른다. 실제 그리기는 씬의 update가 담당한다. */
-/* main.js가 매 프레임 넘겨주는 전투. 넘겨받는 김에 새로 생긴
- * 투사체·지뢰를 보고 발사음을 낸다 — 혼자 할 때나 멀티나 같은 자리다. */
+/* main.js는 실제로 보고 있는 전투만 넘긴다. 소리도 이 자리에서 소비해
+ * 로컬에서 동시에 계산 중인 다른 대진이나 타이틀 시연은 들리지 않는다. */
 function renderBattle(b) {
   pendingBattle = b;
-  watchFireSounds(b);
+  watchBattleSounds(b);
 }
 
-/* ---------------- 발사음 ----------------
- * 새로 생긴 투사체·지뢰를 찾아 그 종류의 소리를 낸다.
- *
- * 여기서 처리하는 이유: renderBattle은 혼자 할 때나 멀티에서나 똑같이
- * 매 프레임 불린다. 멀티 스냅샷도 투사체마다 uid와 kind를 싣고 오므로
- * 통신 규약을 건드리지 않고 두 모드가 같은 소리를 낸다.
- *
- * sim.js에서 쏘는 순간에 소리를 내면 서버에서만 울리고 클라이언트에는
- * 안 들린다 — 멀티에서 sim은 서버에서만 돈다. */
+/* ---------------- 전투 오디오 이벤트 ---------------- */
+let battleSoundKey = null, battleSoundMark = 0;
+const PLAYABLE_SOUND_AGE = 0.55;
+
+function watchBattleSounds(b) {
+  if (!b || b.demo) {
+    battleSoundKey = null; battleSoundMark = 0;
+    projMark = -1; mineMark = -1;
+    return;
+  }
+  const key = (b.soundSource || 'local') + ':' + (b.soundId == null ? 'legacy' : b.soundId)
+    + ':' + (b.fighters || []).map(f => f.uid).join(',');
+  const freshBattle = key !== battleSoundKey;
+  if (freshBattle) {
+    battleSoundKey = key;
+    battleSoundMark = 0;
+    projMark = -1; mineMark = -1;
+  }
+  if (!Array.isArray(b.soundEvents)) { watchFireSounds(b); return; }
+  const events = b.soundEvents;
+  const newest = events.reduce((n, e) => Math.max(n, e.seq || 0), battleSoundMark);
+  // 진행 중인 다른 경기를 처음 관전하면 과거 소리는 재생하지 않는다.
+  // 카운트다운부터 보고 있던 경기는 이 분기로 빠지지 않아 첫 발도 들린다.
+  if (freshBattle && b.phase !== 'count' && b.simT > 0.15) { battleSoundMark = newest; return; }
+  for (const e of events) {
+    if (!Number.isSafeInteger(e.seq) || e.seq <= battleSoundMark || typeof e.id !== 'string') continue;
+    battleSoundMark = e.seq;
+    const age = (b.simT || 0) - e.t;
+    if (age < -0.15 || age > PLAYABLE_SOUND_AGE || !Number.isFinite(age)) continue;
+    if (typeof SFX !== 'undefined' && typeof SFX.play === 'function') SFX.play(e.id);
+  }
+  // 음소거/오디오 미준비 상태에서도 소비해 나중에 밀린 소리가 터지지 않게 한다.
+  battleSoundMark = newest;
+}
+
+/* 구형 서버에만 쓰는 투사체 uid 기반 발사음 fallback. */
 let projMark = -1, mineMark = -1;
 
 function watchFireSounds(b) {

@@ -316,6 +316,7 @@ body{display:flex;align-items:center;justify-content:center}
         <label class="setting-row"><span class="setting-copy"><strong>닉네임</strong><small>게임에서 다른 플레이어에게 표시됩니다.</small></span><input class="text-input" id="settings-nickname" maxlength="12" value="플레이어"></label>
         <label class="setting-row"><span class="setting-copy"><strong>전체 음량</strong><small id="settings-volume-value">80%</small></span><input id="settings-volume" type="range" min="0" max="100" value="80"></label>
         <div class="setting-row"><span class="setting-copy"><strong>효과음</strong><small>타격과 UI 효과음을 켜거나 끕니다.</small></span><button class="toggle on" id="settings-mute" type="button" role="switch" aria-checked="true"></button></div>
+        <div class="setting-row"><span class="setting-copy"><strong>사운드룸</strong><small>무기·스킬·증강 효과음을 하나씩 들어보세요.</small></span><a class="backbtn" href="sound-lab.html" target="_blank" rel="noopener" style="width:auto;flex-shrink:0;padding:1.4cqw 2cqw;text-decoration:none;white-space:nowrap;font-size:2.7cqw" aria-label="사운드룸 열기 (새 탭)">미리듣기 ↗</a></div>
         <div class="setting-row"><span class="setting-copy"><strong>진동</strong><small>모바일 기기에서 충돌 피드백을 사용합니다.</small></span><button class="toggle on" id="settings-vibration" type="button" role="switch" aria-checked="true"></button></div>
       </div>
       <div class="center-actions"><button class="bigbtn" id="btn-settings-save" type="button">저장</button></div>
@@ -389,6 +390,7 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/config.js"></script>
 <script src="vendor/phaser.min.js"></script>
 <script src="js/data.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/matchmaking.js"></script>
 <script src="js/events.js"></script>

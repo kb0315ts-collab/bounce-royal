@@ -82,7 +82,7 @@ sandbox.window = sandbox;
 const context = vm.createContext(sandbox);
 vm.runInContext([
   read('js/data.js'), read('js/sim.js'), read('js/matchmaking.js'),
-  read('js/events.js'), read('js/main.js'),
+  read('js/events.js'), read('js/audio.js'), read('js/main.js'),
   'globalThis.__api = { Game, Battle };',
 ].join('\n'), context, { filename: 'bounce-royal-steer.test.bundle.js' });
 const { Game, Battle } = context.__api;

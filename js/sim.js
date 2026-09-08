@@ -21,6 +21,26 @@ const STEER_MAX_RAD = 50 * Math.PI / 180; // 최대 조향속도: 초당 50도
 const STEER_RAMP_TIME = 0.25;              // 입력이 최대 조향력에 도달하는 시간
 const STEER_BOUNCE_LOCK = 0.15;            // 벽 반사 직후에는 반사 방향을 우선한다
 let UID = 0;
+let SOUND_BATTLE_UID = 0; // 소리는 게임 엔티티 ID나 난수 흐름을 소비하지 않는다.
+const SOUND_EVENT_TTL = 1.2, SOUND_EVENT_CAP = 96;
+
+function battleSound(b, id, body, cooldown = 0) {
+  if (!b || b.demo || !Array.isArray(b.soundEvents)) return;
+  const t = b.simT || 0;
+  if (cooldown > 0) {
+    const key = id + ':' + (body && body.uid || 0);
+    const prev = b.soundCooldowns.get(key);
+    if (prev != null && t - prev < cooldown) return;
+    b.soundCooldowns.set(key, t);
+  }
+  b.soundEvents.push({ seq: ++b.soundSeq, id, x: body && body.x || 0, y: body && body.y || 0, t });
+  pruneBattleSounds(b);
+}
+
+function pruneBattleSounds(b) {
+  const cutoff = (b.simT || 0) - SOUND_EVENT_TTL;
+  while (b.soundEvents.length && (b.soundEvents[0].t < cutoff || b.soundEvents.length > SOUND_EVENT_CAP)) b.soundEvents.shift();
+}
 
 /* ---------------- utils ---------------- */
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -611,11 +631,11 @@ function shatterFx(b, x, y, r, color) {
   sparks(b, x, y, 16, color, 300);
   addFx(b, { type: 'shatter', x, y, r: R, color, dur: 0.05 });
 }
-function explodeFx(b, x, y, r, color = '#ffb14d') {
+function explodeFx(b, x, y, r, color = '#ffb14d', sound = 'battle.explosion') {
   addFx(b, { type: 'ring', x, y, r0: r * 0.2, r1: r, color, dur: 0.35, boom: true });
   sparks(b, x, y, 14, color, 260);
   b.shake = Math.min(14, b.shake + r / 14);
-  if (typeof SFX !== 'undefined') SFX.boom();
+  if (sound) battleSound(b, sound, { x, y });
 }
 function boltFx(b, x1, y1, x2, y2) {
   const segs = []; const n = 6;
@@ -637,6 +657,10 @@ class Battle {
     this.mapId = mapId;
     this.arena = new Arena(mapId);
     this.demo = !!opts.demo;
+    this.soundId = ++SOUND_BATTLE_UID;
+    this.soundSeq = 0;
+    this.soundEvents = [];
+    this.soundCooldowns = new Map();
     this.eventFfa = !!opts.eventFfa;
     this.eventPowerSupply = !!opts.powerSupply;
     this.eventTwoPillars = !!opts.twoPillars;
@@ -713,6 +737,7 @@ class Battle {
       vx: Math.cos(a), vy: Math.sin(a), r: 13 * statMult, hp: 30 * statMult, maxHp: 30 * statMult,
       dmg: 10 * statMult, spd: 205, cd: 0, spin: rand(0, TAU),
     });
+    if (this.phase === 'fight') battleSound(this, 'augment.summon', f);
   }
   spawnSplits(f) {
     for (const da of [-0.7, 0.7]) {
@@ -824,6 +849,10 @@ class Battle {
         // 끝날 때까지 아무도 안 건드린 쪽은 아무 방향으로나 내보낸다.
         for (const f of this.fighters) if (!f.aimTouched) this.setDir(f, rand(0, TAU));
         this.phase = 'fight'; this.simT = 0;
+        for (const f of this.fighters) {
+          if (f.rocketActive) battleSound(this, 'augment.rocket', f);
+          if (f.summons.length) battleSound(this, 'augment.summon', f);
+        }
       }
     } else if (this.phase === 'fight') {
       const dt = rdt * this.timeScale;
@@ -849,6 +878,7 @@ class Battle {
       if (this.endT <= 0) this.finished = true;
     }
     this.updateFx(fxDt);
+    pruneBattleSounds(this);
   }
 
   updateFx(rdt) {
@@ -1002,7 +1032,7 @@ class Battle {
       p.x += p.vx * projSpd * dt; p.y += p.vy * projSpd * dt;
       // 벽
       if (this.arena.reflectProj(p)) {
-        if (p.bounces > 0) { p.bounces--; sparks(this, p.x, p.y, 3, '#c9d6ff', 90); }
+        if (p.bounces > 0) { p.bounces--; sparks(this, p.x, p.y, 3, '#c9d6ff', 90); battleSound(this, 'augment.reflect', p.owner, 0.12); }
         else { sparks(this, p.x, p.y, 4, '#8a93b8', 80); projs.splice(i, 1); continue; }
       }
       // 본체 적중
@@ -1215,7 +1245,7 @@ function updateTimers(b, f, dt) {
   const T = f.timers;
   const prev = {
     actingDead: T.actingDead, fuse: T.fuse, det: T.det, dashPrep: T.dashPrep,
-    gunBarrage: T.gunBarrage,
+    gunBarrage: T.gunBarrage, balloon: T.balloon,
   };
   for (const k in T) if (T[k] > 0) T[k] = Math.max(0, T[k] - dt);
   if (T.gunBarrage < 1e-9) T.gunBarrage = 0;
@@ -1223,8 +1253,10 @@ function updateTimers(b, f, dt) {
   // 왁뿌볼 폭주 페이즈
   if (f.berserkPhase === 1 && T.berserk <= 0) {
     f.berserkPhase = 2;
+    battleSound(b, 'skill.rampage.end', f);
     popup(b, f.x, f.y - f.radius - 20, '추락…', '#ff8f8f');
   }
+  if (prev.balloon > 0 && T.balloon === 0) battleSound(b, 'skill.balloon.deflate', f);
   // 출혈
   if (f.bleed.stacks.length > 0) {
     // 가해자마다 초침이 하나다. 매초 한 번, 그 가해자가 쌓은 중첩 수만큼 들어간다.
@@ -1258,7 +1290,7 @@ function updateTimers(b, f, dt) {
   }
   // 폭탄 스킬
   if (prev.fuse > 0 && T.fuse === 0 && !f.mainDead && !f.dead) {
-    explodeAt(b, f, f.x, f.y, 100, 26 * f.st.dmg, 'auto');
+    explodeAt(b, f, f.x, f.y, 100, 26 * f.st.dmg, 'auto', false, 'skill.bomb.explode');
     popup(b, f.x, f.y - f.radius - 24, '시한폭발!', '#ffb14d', true);
   }
   // 지뢰 원격 폭파
@@ -1273,12 +1305,14 @@ function updateTimers(b, f, dt) {
     f.gun.burst = 0;
     f.gun.shotT = 0;
     f.gun.reloadT = WEAPONS.pistol.reload;
+    battleSound(b, 'weapon.pistol.reload', f);
   }
   // 단검 돌진 준비
   if (prev.dashPrep > 0 && T.dashPrep === 0 && f.dashPrepDir && !f.mainDead && !f.dead) {
     const nd = normDir(f.dashPrepDir.x, f.dashPrepDir.y);
     f.dash = { dx: nd.x, dy: nd.y, spd: 780, kind: 'dash' };
     T.dashT = 0.35; f.dashHit = new Set();
+    battleSound(b, 'skill.dagger.dash', f);
     addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 8, r1: 60, color: '#8ef', dur: 0.3 });
   }
   // 활 차지
@@ -1377,17 +1411,17 @@ function resolveFighterCollision(b, a, c) {
 function onWallBounce(b, f, n) {
   f.bounceTotal += n;
   if (f.steer) f.steer.lock = Math.max(f.steer.lock || 0, STEER_BOUNCE_LOCK);
-  if (typeof SFX !== 'undefined') SFX.bounce();
+  battleSound(b, 'battle.bounce', f, 0.055);
   if (f.flags.elastic) f.timers.elastic = 1;
   if (f.rocketActive) {
     f.rocketActive = false;
     popup(b, f.x, f.y - f.radius - 20, '로켓 종료', '#8ed8ff');
   }
   if (f.flags.wallClimb) healFighter(b, f, f.maxHp * 0.01, true);
-  if (f.flags.shockwave) explodeAt(b, f, f.x, f.y, 75, 7 * f.st.dmg, 'auto', true);
+  if (f.flags.shockwave) { battleSound(b, 'augment.shockwave', f); explodeAt(b, f, f.x, f.y, 75, 7 * f.st.dmg, 'auto', true); }
   if (f.flags.reflectCharge) {
     f.bounceRun += n;
-    if (f.bounceRun >= 3 && !f.charged) { f.charged = true; f.bounceRun = 0; addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 44, color: '#ffe08a', dur: 0.3 }); }
+    if (f.bounceRun >= 3 && !f.charged) { f.charged = true; f.bounceRun = 0; battleSound(b, 'augment.reflect', f); addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 44, color: '#ffe08a', dur: 0.3 }); }
   }
   while (f.flags.lightning && f.bounceTotal >= f.lightningNext) {
     spawnBolt(b, f);
@@ -1402,6 +1436,7 @@ function onWallBounce(b, f, n) {
         const nd = normDir(e.x - f.x, e.y - f.y);
         f.dash = { dx: nd.x, dy: nd.y, spd: 690, kind: 'rush' };
         f.timers.dashT = 0.55; f.dashHit = new Set();
+        battleSound(b, 'skill.basketball.rush', f);
         popup(b, f.x, f.y - f.radius - 24, '3바운드!', '#ffd24d', true);
         addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 10, r1: 70, color: '#ffd24d', dur: 0.35 });
       }
@@ -1413,6 +1448,7 @@ function tryStatic(b, a, c) {
   if (!a.flags.staticShock || a.staticCd > 0) return;
   if (c.mainDead || c.dead) return;
   a.staticCd = 0.6;
+  battleSound(b, 'augment.static', a);
   let dmg = 5 * a.st.dmg;
   if (a.flags.staticUp) dmg *= 1.6;
   if (a.flags.staticFast) dmg *= 0.55 + a.st.move / 320;
@@ -1550,10 +1586,11 @@ function updateWeapon(b, f, dt) {
           fireShotgun(b, f, g.burst);
           g.burst = 0;
           g.reloadT = wp.reload; g.focus = false;
+          battleSound(b, 'weapon.pistol.reload', f);
         } else {
           fireGun(b, f);
           g.burst--;
-          if (g.burst <= 0) { g.reloadT = wp.reload; g.focus = false; }
+          if (g.burst <= 0) { g.reloadT = wp.reload; g.focus = false; battleSound(b, 'weapon.pistol.reload', f); }
           else g.shotT = wp.shotGap;
         }
       }
@@ -1575,6 +1612,7 @@ function updateWeapon(b, f, dt) {
         blast: (big ? 88 : wp.blastR) * balloon,
         dmg: wp.dmg,
       });
+      battleSound(b, 'weapon.mine.place', f);
     }
   }
 }
@@ -1602,7 +1640,11 @@ function meleeHits(b, f, dt, override) {
         const key = blade + ':' + body.uid;
         if (f.meleeContact.has(key)) { contact.add(key); continue; }
         // 무적 등으로 피해가 들어가지 않았다면 접촉으로 치지 않고 다음 프레임에 다시 시도한다
-        if (weaponDamage(b, f, body, def.dmg) > 0) contact.add(key);
+        if (weaponDamage(b, f, body, def.dmg) > 0) {
+          contact.add(key);
+          f.sfxSlash++;
+          battleSound(b, f.weaponId === 'sword' ? 'weapon.sword.hit' : 'weapon.dagger.hit', body, 0.045);
+        }
       }
     }
   }
@@ -1610,6 +1652,7 @@ function meleeHits(b, f, dt, override) {
 }
 
 function fireBow(b, f) {
+  battleSound(b, 'weapon.bow.fire', f);
   const wp = WEAPONS.bow;
   // 세 갈래로 뿌리는 대신 발당 피해가 절반이다. 다 맞혀야 이득이 된다.
   const angs = f.flags.triple ? [f.weaponAngle - 0.21, f.weaponAngle, f.weaponAngle + 0.21] : [f.weaponAngle];
@@ -1620,6 +1663,7 @@ function fireBow(b, f) {
 }
 
 function fireGun(b, f) {
+  battleSound(b, 'weapon.pistol.fire', f);
   const wp = WEAPONS.pistol;
   const a = f.weaponAngle;
   spawnProj(b, f, { kind: 'bullet', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg: wp.dmg, r: 4, life: 2.5, weapon: true });
@@ -1629,6 +1673,7 @@ function fireGun(b, f) {
 /* 샷건 — 남은 탄창을 부채꼴로 한 번에 뿌린다. 쫓아가며 한 발씩 맞히는 대신
  * 한순간에 걸고, 빗나가면 통째로 빗나간다. */
 function fireShotgun(b, f, n) {
+  battleSound(b, 'weapon.shotgun.fire', f);
   const wp = WEAPONS.pistol;
   const count = Math.max(1, n);
   const SPREAD = 0.5;
@@ -1642,6 +1687,7 @@ function fireShotgun(b, f, n) {
 }
 
 function fireStaff(b, f) {
+  battleSound(b, 'weapon.staff.fire', f);
   const wp = WEAPONS.staff;
   // 정면이 비어 있다. 똑바로 굴러오는 상대는 오히려 두 발 다 비껴간다.
   const angs = f.flags.doubleMagic ? [f.weaponAngle - 0.26, f.weaponAngle + 0.26] : [f.weaponAngle];
@@ -1653,6 +1699,7 @@ function fireStaff(b, f) {
 
 function releaseCharge(b, f) {
   if (!f.charging || f.charging.t < 0.2) return false;
+  battleSound(b, 'skill.bow.release', f);
   spawnProj(b, f, {
     kind: 'charge', x: f.x + Math.cos(f.weaponAngle) * (f.radius + 10), y: f.y + Math.sin(f.weaponAngle) * (f.radius + 10),
     ang: f.weaponAngle, spd: 580, dmg: 30, r: 8, life: 3, pierce: true, pierceObstacles: true, weapon: true,
@@ -1669,6 +1716,9 @@ function spawnProj(b, owner, o) {
   o.uid = ++UID; o.owner = owner; o.vx = Math.cos(o.ang); o.vy = Math.sin(o.ang);
   o.bounces = o.bounces || 0; o.pierce = !!o.pierce; o.life = o.life || 4;
   b.projectiles.push(o);
+  if (o.kind === 'beam') battleSound(b, 'augment.beam', owner);
+  else if (o.kind === 'missile') battleSound(b, 'augment.missile', owner, 0.05);
+  else if (o.kind === 'shuriken') battleSound(b, 'augment.shuriken', owner);
   return o;
 }
 
@@ -1684,6 +1734,7 @@ function projectileHit(b, p, body) {
   }
   // 무기 강탈
   if (p.kind === 'orb' && owner.flags.steal && isFighterBody(body)) {
+    if (body.timers.weaponLock <= 0) battleSound(b, 'augment.steal', body);
     body.timers.weaponLock = 1;
     popup(b, body.x, body.y - body.radius - 34, '무기 강탈!', '#c9a0ff');
   }
@@ -1702,12 +1753,6 @@ function weaponDamage(b, f, body, baseDmg) {
   const dealt = dealDamage(b, f, body, raw, { kind: 'weapon' });
   if (dealt > 0) {
     onWeaponHitEffects(b, f, body);
-    // 벤 소리. 대검과 단검이 다르게 들려야 해서 무기를 그대로 넘긴다.
-    // 세는 것은 멀티 때문이다 — 거기선 이 함수가 서버에서 돌아 소리가 안 난다.
-    if (WEAPONS[f.weaponId] && WEAPONS[f.weaponId].type === 'melee') {
-      f.sfxSlash++;
-      if (typeof SFX !== 'undefined' && SFX.slash) SFX.slash(f.weaponId);
-    }
   }
   return dealt;
 }
@@ -1721,7 +1766,10 @@ function onWeaponHitEffects(b, f, body) {
       else bleed.stacks.push({ src: f, n: 1, t: 1 });
       bleed.n = bleed.stacks.reduce((sum, x) => sum + x.n, 0);
     }
-    if (f.flags.frost) body.frost = { n: Math.min(3, body.frost.n + 1), t: 3 };
+    if (f.flags.frost) {
+      if (!body.frost.n) battleSound(b, 'augment.freeze', body);
+      body.frost = { n: Math.min(3, body.frost.n + 1), t: 3 };
+    }
   }
   if (f.flags.warmonger) f.warmStacks = Math.min(5, f.warmStacks + 1);
   if (f.flags.rotMomentum) f.rotStacks = Math.min(8, f.rotStacks + 1);
@@ -1762,6 +1810,7 @@ function autoSystems(b, f, dt) {
       f.cd.flame = 0.18;
       const duration = 2 * (Fl.flameDur ? 1.5 : 1);
       b.flames.push({ owner: f, x: f.x, y: f.y, r: 16, life: duration, maxLife: duration, dps: 1 * (Fl.flameUp ? 1.3 : 1) });
+      battleSound(b, 'augment.flame', f, 0.6);
       if (b.flames.length > 60) b.flames.shift();
     }
   }
@@ -1777,7 +1826,7 @@ function autoSystems(b, f, dt) {
           addFx(b, { type: 'ring', x: body.x, y: body.y, r0: 44, r1: 12, color: '#b7e6d2', dur: 0.45 });
         }
       }
-      if (did) popup(b, f.x, f.y - f.radius - 30, '수면 가스!', '#b7e6d2');
+      if (did) { battleSound(b, 'augment.sleep', f); popup(b, f.x, f.y - f.radius - 30, '수면 가스!', '#b7e6d2'); }
     }
   }
   if (Fl.gravityWell) {
@@ -1791,7 +1840,7 @@ function autoSystems(b, f, dt) {
         e.vx = nd.x; e.vy = nd.y; did = true;
         addFx(b, { type: 'ring', x: e.x, y: e.y, r0: 50, r1: 8, color: '#8ef', dur: 0.4 });
       }
-      if (did) popup(b, f.x, f.y - f.radius - 30, '중력장!', '#8ef');
+      if (did) { battleSound(b, 'augment.gravity', f); popup(b, f.x, f.y - f.radius - 30, '중력장!', '#8ef'); }
     }
   }
 }
@@ -1823,6 +1872,7 @@ function spawnBolt(b, f) {
   const e = b.nearestEnemyMain(f);
   if (!e) return;
   const tx = e.x + rand(-110, 110), ty = e.y + rand(-110, 110);
+  battleSound(b, 'augment.lightning', { x: tx, y: ty });
   boltFx(b, tx, ty - 340, tx, ty);
   b.shake = Math.min(12, b.shake + 4);
   let hit = false;
@@ -1834,6 +1884,7 @@ function spawnBolt(b, f) {
     }
   }
   if (hit && f.flags.chainBolt) {
+    battleSound(b, 'augment.chain-lightning', { x: tx, y: ty });
     for (let i = 0; i < 2; i++) {
       const cx = tx + rand(-130, 130), cy = ty + rand(-130, 130);
       boltFx(b, tx, ty, cx, cy);
@@ -1849,19 +1900,22 @@ function spawnBolt(b, f) {
 /* ---------------- 지뢰/폭발 ---------------- */
 function explodeMine(b, m, scale = 1, damage = m.dmg) {
   const R = m.blast * scale;
-  explodeFx(b, m.x, m.y, R);
+  explodeFx(b, m.x, m.y, R, '#ffb14d', 'weapon.mine.explode');
   for (const e of b.enemiesOf(m.owner)) {
     for (const body of b.bodiesOf(e)) {
       if (dist(m.x, m.y, body.x, body.y) < R + bodyRadius(body)) {
         weaponDamage(b, m.owner, body, damage);
-        if (m.owner.flags.freezeMine && body.kind === 'main') body.timers.freeze = 2;
+        if (m.owner.flags.freezeMine && body.kind === 'main') {
+          if (body.timers.freeze <= 0) battleSound(b, 'augment.freeze', body);
+          body.timers.freeze = 2;
+        }
       }
     }
   }
 }
-function explodeAt(b, src, x, y, radius, dmg, kind, small) {
+function explodeAt(b, src, x, y, radius, dmg, kind, small, sound = 'battle.explosion') {
   if (small) addFx(b, { type: 'ring', x, y, r0: radius * 0.3, r1: radius, color: '#8ea6ff', dur: 0.25 });
-  else explodeFx(b, x, y, radius);
+  else explodeFx(b, x, y, radius, '#ffb14d', sound);
   for (const e of b.enemiesOf(src)) {
     for (const body of b.bodiesOf(e)) {
       if (dist(x, y, body.x, body.y) < radius + bodyRadius(body)) dealDamage(b, src, body, dmg, { kind });
@@ -1876,6 +1930,7 @@ function resolveHealthThresholds(b, f) {
     f.lastResistanceUsed = true;
     f.downPending = false;
     f.hp = 1;
+    battleSound(b, 'augment.last-stand', f);
     popup(b, f.x, f.y - f.radius - 30, '마지막 저항!', '#ffd24d', true);
     addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 8, r1: 65, color: '#ffd24d', dur: 0.35 });
   }
@@ -1908,7 +1963,7 @@ function dealDamage(b, src, body, raw, opts = {}) {
   if (src && src.player) src.player.totalDmg = (src.player.totalDmg || 0) + dmg;
   const val = Math.max(1, Math.round(dmg));
   popup(b, body.x + rand(-10, 10), body.y - br - 4, val, opts.kind === 'auto' ? '#c9d6ff' : '#ffffff');
-  if (typeof SFX !== 'undefined') SFX.hit();
+  battleSound(b, 'battle.hit', body, 0.04);
   sparks(b, body.x, body.y, 4, '#ffb0b0', 130);
   if (actorBody) {
     t.flash = 0.12;
@@ -1931,6 +1986,7 @@ function healFighter(b, f, amount, quiet) {
   const before = f.hp;
   const missing = Math.max(0, f.maxHp - before);
   f.hp = Math.min(f.maxHp, f.hp + amount);
+  if (f.hp - before >= 0.5) battleSound(b, 'augment.heal', f, 0.7);
   if (!quiet && f.hp - before >= 1) popup(b, f.x, f.y - f.radius - 6, '+' + Math.round(f.hp - before), '#7dffa8');
 }
 
@@ -1939,7 +1995,7 @@ function killBody(b, body, src) {
     const arr = body.owner.summons;
     const i = arr.indexOf(body); if (i >= 0) arr.splice(i, 1);
     sparks(b, body.x, body.y, 10, body.owner.color, 180);
-    if (body.owner.flags.minionRevenge) explodeAt(b, body.owner, body.x, body.y, 80, 20 * body.owner.st.dmg, 'auto');
+    if (body.owner.flags.minionRevenge) explodeAt(b, body.owner, body.x, body.y, 80, 20 * body.owner.st.dmg, 'auto', false, 'augment.minion-explode');
     return;
   }
   if (body.kind === 'split') {
@@ -1948,6 +2004,7 @@ function killBody(b, body, src) {
       body.lastStandUsed = true;
       body.downPending = false;
       body.timers.actingDead = 3;
+      battleSound(b, 'augment.last-stand', body);
       popup(b, body.x, body.y - 40, '최후의 3초!', '#ff8f8f', true);
       return;
     }
@@ -1961,13 +2018,14 @@ function killBody(b, body, src) {
     f.splitUsed = true; f.mainDead = true;
     b.spawnSplits(f);
     popup(b, f.x, f.y - 40, '분열!', '#ffd24d', true);
-    explodeFx(b, f.x, f.y, 70, f.color);
+    explodeFx(b, f.x, f.y, 70, f.color, 'augment.split');
     b.checkEnd();
     return;
   }
   if (f.flags.lastStand && !f.lastStandUsed) {
     f.lastStandUsed = true;
     f.timers.actingDead = 3;
+    battleSound(b, 'augment.last-stand', f);
     popup(b, f.x, f.y - 40, '최후의 3초!', '#ff8f8f', true);
     return;
   }
@@ -1979,7 +2037,7 @@ function finalDeath(b, f) {
   f.dead = true;
   f.deathAt = b.simT;
   shatterFx(b, f.x, f.y, f.radius, f.color || (f.owner && f.owner.color));
-  explodeFx(b, f.x, f.y, 90, f.color);
+  explodeFx(b, f.x, f.y, 90, f.color, 'battle.death');
   if (f.kind === 'split') {
     const root = f.owner;
     const i = root.splitBalls.indexOf(f);
@@ -2019,7 +2077,6 @@ function useSkill(b, f, slot) {
     if (f.skillUses.weapon <= 0 || !releaseCharge(b, f)) return false;
     f.skillUses.weapon--;
     f.sfxSkill++;
-    if (typeof SFX !== 'undefined' && SFX.skill) SFX.skill();
     return true;
   }
   if (f.skillUses[slot] <= 0) return false;
@@ -2043,7 +2100,7 @@ function useSkill(b, f, slot) {
     case 'wak':
       f.berserkPhase = 1; f.timers.berserk = 5;
       popup(b, f.x, f.y - f.radius - 24, '파괴 폭주!', '#ffa94d', true);
-      explodeFx(b, f.x, f.y, 60, '#ffa94d');
+      explodeFx(b, f.x, f.y, 60, '#ffa94d', null);
       break;
     case 'soft':
       f.timers.immune = 2;
@@ -2074,7 +2131,7 @@ function useSkill(b, f, slot) {
       f.charging = { t: 0, spin: 0 };
       popup(b, f.x, f.y - f.radius - 24, '차지 중…', '#ffe08a');
       f.sfxSkill++;
-      if (typeof SFX !== 'undefined' && SFX.skill) SFX.skill();
+      battleSound(b, 'skill.bow.charge', f);
       return true;
     }
     case 'pistol': {
@@ -2096,7 +2153,13 @@ function useSkill(b, f, slot) {
   }
   f.skillUses[slot]--;
   f.sfxSkill++;
-  if (typeof SFX !== 'undefined' && SFX.skill) SFX.skill();
+  const cue = {
+    cat: 'skill.cat.rewind', wak: 'skill.rampage.start', soft: 'skill.soft.guard',
+    bomb: 'skill.bomb.arm', bball: 'skill.basketball.arm', balloon: 'skill.balloon.inflate',
+    sword: 'skill.sword.spin', dagger: 'skill.dagger.prepare', pistol: 'skill.pistol.barrage',
+    staff: 'skill.staff.overload', mine: 'skill.mine.remote',
+  }[id];
+  if (cue) battleSound(b, cue, f);
   return true;
 }
 

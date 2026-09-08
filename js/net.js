@@ -208,20 +208,23 @@ const Net = {
       while (this.buffer.length > SNAP_BUFFER) this.buffer.shift();
       this.lastSnapAt = at;
     }
-    this.spawnFx(snap);
+    this.spawnFx(snap, !stale);
     if (!stale) this.emit('snapshot', snap);
   },
 
   /* 서버가 보낸 타격 효과 중 처음 보는 것만 클라이언트에서 한 번 재생한다.
    * 재생 자체는 로컬 타이밍으로 돌아가므로 20Hz 스냅샷과 무관하게 부드럽다. */
-  spawnFx(snap) {
+  spawnFx(snap, allowSound = true) {
+    // 새 서버의 오디오는 renderBattle에서 실제로 보고 있는 전투만 소비한다.
+    // 구형 스냅샷은 기존 소리 경로를 유지하되 늦은 패킷은 무음이다.
+    const legacySound = allowSound && !Array.isArray(snap.se);
     for (const p of snap.px || []) {
       if (this.seenPopups.has(p.u)) continue;
       this.seenPopups.add(p.u);
       this.localPopups.push({ x: p.x, y: p.y, txt: p.s, color: p.c, big: !!p.b, t: 0.9 });
       if (/^[0-9]+$/.test(p.s)) {          // 피해 숫자면 불꽃과 타격음
         this.burst(p.x, p.y, 4, '#ffb0b0', 130);
-        if (typeof SFX !== 'undefined' && SFX.hit) SFX.hit();
+        if (legacySound && typeof SFX !== 'undefined' && SFX.hit) SFX.hit();
       }
     }
     for (const e of snap.fx || []) {
@@ -232,7 +235,7 @@ const Net = {
         // m=1은 explodeFx가 만든 폭발 고리다. 폭발음은 여기서만 낸다.
         // 예전처럼 반경 차이로 짐작하면 큐브 획득 같은 큰 고리에도 폭발음이 났고,
         // 반대로 작은 폭발(반경 56 이하)은 소리가 나지 않았다.
-        if (e.m) { this.burst(e.x, e.y, 10, e.c, 240); if (typeof SFX !== 'undefined' && SFX.boom) SFX.boom(); }
+        if (e.m) { this.burst(e.x, e.y, 10, e.c, 240); if (legacySound && typeof SFX !== 'undefined' && SFX.boom) SFX.boom(); }
         else if (e.b - e.a > 45) this.burst(e.x, e.y, 10, e.c, 240);
       } else if (e.k === 's') {
         this.shatter(e.x, e.y, e.r, e.c);
@@ -240,7 +243,7 @@ const Net = {
         this.localFx.push({ type: 'bolt', segs: e.g.map(s => ({ x: s[0], y: s[1] })), color: e.c, dur: e.d, t: 0 });
       }
     }
-    this.replaySounds(snap);
+    if (legacySound) this.replaySounds(snap);
     if (this.seenPopups.size > 4000) this.seenPopups.clear();
     if (this.seenFx.size > 4000) this.seenFx.clear();
   },
@@ -577,6 +580,10 @@ function netBattleView(snap, players, seat) {
     arena: netArena(snap),
     phase: snap.ph,
     simT: snap.t,
+    soundId: snap.sd,
+    soundSource: 'server',
+    // 배열 존재 여부가 구형 서버 fallback과 신규 이벤트 경로를 가른다.
+    soundEvents: Array.isArray(snap.se) ? snap.se : undefined,
     countT: snap.cd || 0,
     overtime: snap.ot != null,
     otT: snap.ot != null ? snap.ot : 0,

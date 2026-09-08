@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>바운스로얄 · 오디오 렌더 검증</title>
+<style>
+body{font:15px/1.6 system-ui;background:#0b1423;color:#dae8f7;max-width:900px;margin:32px auto;padding:0 20px}button{font:inherit;padding:10px 18px;background:#75c9ff;border:0;border-radius:8px;cursor:pointer}pre{white-space:pre-wrap;font-size:13px}a{color:#75c9ff}
+</style>
+<h1>오디오 렌더 검증</h1>
+<p>실제 브라우저의 OfflineAudioContext로 각 효과음의 무음·비정상 값·클리핑과 동시 재생을 검사합니다. 소리가 스피커로 재생되지는 않습니다.</p>
+<button id="run">검증 시작</button> <a href="../sound-lab.html">사운드룸</a>
+<pre id="report" role="status">검증 대기 중</pre>
+<script src="../js/audio.js"></script>
+<script>
+'use strict';
+const report = document.getElementById('report');
+const run = document.getElementById('run');
+run.onclick = async () => {
+  run.disabled = true;
+  report.textContent = '브라우저 오프라인 렌더링 중…';
+  const results = [], failures = [], decoded = new Map();
+  try {
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Offline) throw new Error('OfflineAudioContext 미지원');
+    async function render(ids, fallback = false) {
+      const longest = Math.max(...ids.map(id => BounceRoyalAudio.catalog.find(s => s.id === id).duration));
+      const context = new Offline(2, Math.ceil((longest + .25) * 44100), 44100);
+      // The engine schedules on the same graph/audio clock. Only the offline
+      // context's suspended state is adapted; synthesis and mixing are unchanged.
+      const facade = new Proxy(context, { get(target, key) {
+        if (key === 'state') return 'running';
+        const value = Reflect.get(target, key, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      } });
+      function Context() { return facade; }
+      const engine = BounceRoyalAudio.create({ AudioContext:Context, volume:1,
+        document:{hidden:false}, fetch:async () => ({ok:false}) });
+      await engine.ensure();
+      if (!fallback) {
+        for (const name of ['bow','pistol','shotgun']) {
+          if (!decoded.has(name)) {
+            const response = await fetch('../assets/sfx/fire-' + name + '.mp3');
+            if (!response.ok) throw new Error('샘플 읽기 실패: ' + name);
+            decoded.set(name, await context.decodeAudioData(await response.arrayBuffer()));
+          }
+          engine.buffers.set(name, decoded.get(name));
+        }
+      }
+      for (const id of ids) {
+        if (!engine.play(id, {preview:true})) throw new Error('예약 실패: ' + id);
+      }
+      const buffer = await context.startRendering();
+      let peak = 0, energy = 0, invalid = 0;
+      for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+        for (const x of buffer.getChannelData(channel)) {
+          if (!Number.isFinite(x)) invalid++;
+          peak = Math.max(peak, Math.abs(x)); energy += x*x;
+        }
+      }
+      const rms = Math.sqrt(energy / (buffer.length * buffer.numberOfChannels));
+      engine.stopAll();
+      return {peak, rms, invalid};
+    }
+    async function check(label, ids, fallback = false) {
+      const r = await render(ids, fallback);
+      const ok = !r.invalid && r.peak > .0001 && r.peak < .98;
+      const line = `${ok ? 'PASS' : 'FAIL'} ${label} · peak ${r.peak.toFixed(4)} · RMS ${r.rms.toFixed(4)}`;
+      results.push(line);
+      if (!ok) failures.push(line);
+      report.textContent = results.join('\n');
+    }
+    for (const sound of BounceRoyalAudio.catalog) await check(sound.id, [sound.id]);
+    for (const id of ['weapon.bow.fire','weapon.pistol.fire','weapon.shotgun.fire']) await check(id + ' (fallback)', [id], true);
+    await check('16 simultaneous impacts', Array(16).fill('weapon.sword.hit'));
+    await check('16 simultaneous explosions', Array(16).fill('skill.bomb.explode'));
+    report.textContent = `${failures.length ? 'FAIL' : 'PASS'} · ${results.length}건 / 실패 ${failures.length}건\n\n` + results.join('\n');
+  } catch (error) { report.textContent += '\nERROR: ' + error.message; }
+  finally { run.disabled = false; }
+};
+</script>
+</html>

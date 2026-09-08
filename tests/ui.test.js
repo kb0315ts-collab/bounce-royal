@@ -288,6 +288,26 @@ test('라운드 시작 카운트다운은 3 · 2 · 1을 한가운데에 띄운�
   assert.equal(el.textContent, '');
 });
 
+test('카운트다운 소리는 숫자당 한 번, 전투 시작음은 전환 때만 재생한다', () => {
+  updateCountdown(null);
+  const played = [];
+  context.SFX = { play: id => played.push(id) };
+  try {
+    for (const left of [3, 2.6, 2, 1.4, 1, 0.3]) {
+      updateCountdown({ phase: 'count', countT: left });
+    }
+    updateCountdown({ phase: 'fight' });
+    updateCountdown({ phase: 'fight' });
+    assert.deepEqual(played, ['ui.countdown', 'ui.countdown', 'ui.countdown', 'ui.fight']);
+    updateCountdown(null);
+    updateCountdown({ phase: 'fight' });
+    assert.equal(played.length, 4, '진행 중인 경기 관전으로 시작음이 재생되면 안 된다');
+    updateCountdown({ phase: 'count', countT: 3 });
+    updateCountdown(null);
+    assert.equal(played.at(-1), 'ui.countdown', '카운트 중 화면 이탈은 전투 시작이 아니다');
+  } finally { delete context.SFX; }
+});
+
 /* 초상화 캔버스가 칸보다 큰 크기로 그려지면, 브라우저가 칸에 맞춰
  * 눌러 넣으면서 공이 찌그러진다. 상단 참가자 탭이 실제로 그랬다 —
  * 칸은 8cqw(약 32px)인데 하한 72로 그려 세로가 44%로 눌렸다. */
