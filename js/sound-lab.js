@@ -22,12 +22,13 @@
   }
 
   const groups = [
+    {name:'이번 수정', color:'#b7e89a'},
     {name:'전체', color:'#7bd8ff'}, {name:'무기', color:'#79d8ff'},
     {name:'무기 스킬', color:'#b69cff'}, {name:'캐릭터 스킬', color:'#83ddc0'},
     {name:'증강', color:'#ffc58a'}, {name:'전투', color:'#ff9fa7'},
     {name:'인터페이스', color:'#87b9ff'},
   ];
-  const catalog = engine.catalog.filter(item => item && typeof item.id === 'string' && typeof item.name === 'string');
+  const catalog = engine.catalog.filter(item => item && !item.internal && typeof item.id === 'string' && typeof item.name === 'string');
   const sounds = new Map(catalog.map(item => [item.id, item]));
   let savedVolume = 55;
   try {
@@ -35,7 +36,8 @@
     if (saved !== null && Number.isFinite(Number(saved))) savedVolume = Math.min(100, Math.max(0, Number(saved)));
   } catch (_) { /* Listening remains available when browser storage is disabled. */ }
   const audio = engine.create({volume:savedVolume / 100, muted:false});
-  let selectedGroup = '전체';
+  let selectedGroup = '이번 수정';
+  const inGroup = (item, group) => group === '전체' || (group === '이번 수정' ? item.revised : item.group === group);
   let generation = 0;
   let activeId = null;
   let activeVariant = 'current';
@@ -75,7 +77,7 @@
     activeVariant = variant;
     busy = isBusy;
     const item = sounds.get(id);
-    elements.now.textContent = item ? item.name + (variant === 'previous' ? ' · 직전 시안' : '') : '어떤 소리부터 들어볼까요?';
+    elements.now.textContent = item ? item.name + (variant === 'previous' ? ' · 업데이트 전' : '') : '어떤 소리부터 들어볼까요?';
     elements.label.textContent = isBusy ? 'LOADING SOUND' : item ? (sequenceIndex >= 0 ? `이어 듣기 ${sequenceIndex + 1} / ${catalog.length}` : item.group + ' · 재생 중') : 'READY TO PLAY';
     elements.visual.classList.toggle('is-playing', !!item && !isBusy);
     elements.stop.disabled = !item && sequenceIndex < 0;
@@ -86,7 +88,7 @@
       card.classList.toggle('is-playing', playing);
       for (const button of card.querySelectorAll('.sound-play')) {
         const thisPlaying = playing && button.dataset.variant === variant;
-        const label = button.dataset.variant === 'previous' ? '직전 시안' : '게임 적용음';
+        const label = button.dataset.variant === 'previous' ? '업데이트 전' : '게임 적용음';
         button.setAttribute('aria-pressed', String(thisPlaying));
         button.setAttribute('aria-label', `${sounds.get(card.dataset.soundId).name} ${label} ${thisPlaying ? '중지' : '재생'}`);
         button.querySelector('.play-label').textContent = thisPlaying ? '재생 중' : label;
@@ -138,12 +140,12 @@
       if (!played) throw new Error('playback-failed');
       showPlayback(item.id, false, variant);
       const seqText = sequenceIndex >= 0 ? ` (${sequenceIndex + 1}/${catalog.length})` : '';
-      setStatus(variant === 'previous' ? `${item.name} · 직전의 전자음 중심 시안입니다. 현재 게임에는 적용되지 않습니다.` : `${item.name}${seqText} · ${item.description || '효과음을 재생합니다.'}`);
+      setStatus(variant === 'previous' ? `${item.name} · 이번 업데이트 전 버전입니다.` : `${item.name}${seqText} · ${item.description || '효과음을 재생합니다.'}`);
       clearTimeout(activeTimer);
       activeTimer = setTimeout(() => {
         if (token !== generation) return;
         showPlayback(null);
-        if (sequenceIndex < 0) setStatus(`${item.name} · ${variant === 'previous' ? '직전 시안' : '게임 적용음'} 재생이 끝났어요. 다시 눌러 비교해 보세요.`);
+        if (sequenceIndex < 0) setStatus(`${item.name} · ${variant === 'previous' ? '업데이트 전' : '게임 적용음'} 재생이 끝났어요. 다시 눌러 비교해 보세요.`);
       }, durationOf(item, variant) * 1000);
       return true;
     } catch (_) {
@@ -167,17 +169,16 @@
     void playOne(item, token, ready, variant);
   }
 
-  async function previewChargeShot() {
+  async function previewPair(first, second, delay) {
     const token=cancelPlayback();
     if(!checkAudible()) return;
     const ready=audio.ensure();
-    if(!await playOne(sounds.get('skill.bow.charge'),token,ready)) return;
+    if(!await playOne(sounds.get(first),token,ready)) return;
     if(token!==generation) return;
-    // 1.05 seconds is one possible player release timing, not a change to the
-    // game's charge rules. The release cancels the remaining preparation tail.
+    // Illustrative player input timing only. The release interrupts preparation.
     sequenceTimer=setTimeout(()=>{
-      if(token===generation) void playOne(sounds.get('skill.bow.release'),token,Promise.resolve(true));
-    },1050);
+      if(token===generation) void playOne(sounds.get(second),token,Promise.resolve(true));
+    },delay);
   }
 
   async function playSequence(index, token, ready) {
@@ -198,7 +199,7 @@
   function renderFilters() {
     elements.filters.replaceChildren();
     for (const group of groups) {
-      const count = group.name === '전체' ? catalog.length : catalog.filter(item => item.group === group.name).length;
+      const count = catalog.filter(item => inGroup(item, group.name)).length;
       if (!count && group.name !== '전체') continue;
       const button = make('button', 'filter-button' + (selectedGroup === group.name ? ' is-selected' : ''), group.name);
       button.type = 'button';
@@ -217,7 +218,7 @@
 
   function renderCards() {
     const query = elements.search.value.trim().toLocaleLowerCase().replace(/\s+/g, '');
-    const visible = catalog.filter(item => (selectedGroup === '전체' || item.group === selectedGroup) && (!query || `${item.name} ${item.signature || ''} ${item.description || ''} ${item.group || ''}`.toLocaleLowerCase().replace(/\s+/g, '').includes(query)));
+    const visible = catalog.filter(item => inGroup(item, selectedGroup) && (!query || `${item.name} ${item.signature || ''} ${item.description || ''} ${item.group || ''}`.toLocaleLowerCase().replace(/\s+/g, '').includes(query)));
     elements.grid.replaceChildren();
     elements.count.textContent = String(visible.length);
     elements.empty.hidden = visible.length > 0;
@@ -242,20 +243,24 @@
       const bottom = make('div', 'card-bottom');
       const meta = make('span', 'sound-meta');
       meta.append(make('span', 'sound-duration', durationOf(item).toFixed(1) + '초'));
-      const source = item.restored ? '원래 소리 복원' : item.source === 'CC0 폴리 + 디자인' ? '실제 녹음 편집' : '새 음색';
+      const source = item.revised ? '이번 수정' : item.restored ? '원래 소리 복원' : item.source === 'CC0 폴리 + 디자인' ? '녹음 편집' : '새 음색';
       if (source) meta.append(make('span', 'meta-dot'), make('span', '', source));
       const choices = make('div','sound-choices');
       for (const variant of ['current','previous']) {
         const play = make('button', 'sound-play' + (variant==='previous' ? ' sound-compare' : ''));
         play.type='button';play.dataset.variant=variant;
         const mark=make('span','play-mark play-triangle');mark.setAttribute('aria-hidden','true');
-        play.append(mark,make('span','play-label',variant==='previous'?'직전 시안':'게임 적용음'));
+        play.append(mark,make('span','play-label',variant==='previous'?'업데이트 전':'게임 적용음'));
         play.addEventListener('click',()=>preview(item,variant));choices.append(play);
       }
       bottom.append(meta,choices);
       if(item.id==='skill.bow.charge') {
         const combo=make('button','charge-preview','충전 → 발사 이어 듣기');combo.type='button';
-        combo.addEventListener('click',()=>void previewChargeShot());bottom.append(combo);
+        combo.addEventListener('click',()=>void previewPair('skill.bow.charge','skill.bow.release',1500));bottom.append(combo);
+      }
+      if(item.id==='skill.dagger.dash') {
+        const combo=make('button','charge-preview','준비 → 돌진 이어 듣기');combo.type='button';
+        combo.addEventListener('click',()=>void previewPair('skill.dagger.prepare','skill.dagger.dash',1000));bottom.append(combo);
       }
       const progress = make('span', 'sound-progress');
       progress.setAttribute('aria-hidden', 'true');

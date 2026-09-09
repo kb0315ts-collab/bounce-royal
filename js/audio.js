@@ -19,6 +19,7 @@
   sound('weapon.dagger.hit', '단검 · 날카로운 베기', '무기', '검보다 짧고 높은 칼날 소리로 빠른 접촉을 구분합니다.', 'dagger', [noise(5100,1700,.10,.23), tone(1850,960,.08,.035,'triangle'), tone(420,170,.06,.025)], { priority:1, variation:.05 });
   sound('weapon.bow.fire', '활 · 화살 발사', '무기', '활시위의 탄성과 가느다란 바람을 함께 냅니다.', 'bow', [sample('bow',.30,.18,noise(2400,650,.14,.22)), tone(440,150,.10,.036,'triangle'), noise(4900,2100,.12,.055,'highpass',.018)], { priority:1, variation:.035 });
   sound('weapon.pistol.fire', '권총 · 발사', '무기', '짧은 발사음에 낮은 탄력을 더해 연사 중에도 선명합니다.', 'pistol', [sample('pistol',.26,.13,noise(3600,1100,.055,.22,'lowpass')), tone(160,60,.065,.085), noise(2700,800,.045,.045,'bandpass',.008)], { gap:.035, priority:1, variation:.025 });
+  sound('weapon.pistol.barrage-shot', '회전 난사 · 한 발', '무기 스킬', '실제 연사 발사 시점에만 재생됩니다.', 'pistol', [noise(3800,750,.095,.20,'lowpass')], { gap:.025, priority:2, internal:true });
   sound('weapon.pistol.reload', '권총 · 재장전', '무기', '탄창을 넣고 장전하는 두 번의 기계적인 클릭입니다.', 'pistol', [noise(2100,700,.055,.13), tone(340,240,.05,.042,'triangle'), noise(3900,1100,.075,.16,'bandpass',.21), tone(570,310,.055,.035,'triangle',.21)], { gap:.25 });
   sound('weapon.shotgun.fire', '산탄 · 발사', '무기', '권총보다 넓은 파열음과 두툼한 저음을 냅니다.', 'pistol', [sample('shotgun',.34,.24,noise(2700,450,.19,.3,'lowpass')), tone(130,43,.17,.14), noise(4800,1200,.12,.075,'bandpass',.015)], { gap:.09 });
   sound('weapon.staff.fire', '지팡이 · 마법탄', '무기', '살짝 어긋난 두 음이 둥글고 푸른 마력의 울림을 만듭니다.', 'staff', [tone(212,136,.29,.065,'triangle',0,.018), tone(216,140,.31,.046,'sine',.008,.02), tone(970,360,.16,.024,'sine'), noise(1900,520,.20,.048,'bandpass',0,.02)], { priority:1, variation:.018 });
@@ -51,18 +52,15 @@
   sound('augment.shuriken', '표창 · 투척', '증강', '가늘고 높은 금속 회전음으로 미사일과 구별됩니다.', 'aug-shuriken', [noise(6400,1900,.135,.20), tone(2800,1500,.11,.025,'sine'), tone(4200,2250,.085,.013,'sine',.025)], { gap:.07, priority:1, variation:.045 });
   sound('augment.lightning', '번개 구름 · 낙뢰', '증강', '날카로운 전기 파열 뒤 낮은 천둥이 빠르게 남습니다.', 'aug-lightning', [noise(6100,1600,.095,.30,'highpass'), tone(74,39,.31,.13), noise(2900,230,.33,.16,'lowpass',.025), tone(1320,170,.085,.044,'triangle')], { priority:3, gap:.12 });
   sound('augment.chain-lightning', '연쇄 번개 · 전이', '증강', '두 번 튀는 전기음으로 번개 적중 후 이어지는 추가 번개를 표현합니다.', 'aug-chainBolt', [noise(5300,1300,.075,.19,'highpass'), tone(1140,380,.09,.048,'triangle'), noise(6600,1700,.085,.18,'highpass',.075), tone(1520,510,.105,.044,'triangle',.075)], { gap:.085 });
-  sound('augment.flame', '화염흔적 · 점화', '증강', '작은 불꽃이 붙는 바람과 부드러운 불길 소리입니다.', 'aug-flame', [noise(1300,490,.30,.16,'lowpass',0,.025), noise(4800,1700,.12,.077,'highpass'), tone(95,49,.17,.045)], { gap:.32, priority:0, variation:.04 });
   sound('augment.static', '전기 충돌 · 정전기', '증강', '작고 빠른 전기 스파크가 톡 터집니다.', 'aug-staticShock', [noise(5100,2100,.075,.15,'highpass'), tone(1220,240,.07,.033,'triangle')], { gap:.09, priority:1, variation:.04 });
   sound('augment.shockwave', '충격파 · 방출', '증강', '둥근 저음과 넓게 확장되는 바람이 밀려나갑니다.', 'aug-shockwave', [tone(155,34,.35,.14), noise(2400,380,.34,.21,'lowpass',.015,.035), tone(520,140,.15,.038,'triangle')], { priority:2, gap:.12 });
   sound('augment.sleep', '수면가스 · 기절', '증강', '가스가 퍼지고 두 음이 나른하게 낮아집니다.', 'aug-sleepGas', [noise(1800,650,.46,.12,'bandpass',0,.09), tone(740,570,.38,.046,'sine',.02,.025), tone(555,420,.36,.035,'sine',.18,.04)], { priority:3, gap:.3 });
   sound('augment.gravity', '중력장 · 흡인', '증강', '낮은 공명과 빨려드는 공기가 무게감을 만듭니다.', 'aug-gravityWell', [tone(66,98,.51,.082,'sine',0,.075), tone(101,147,.48,.037,'triangle',.025,.08), noise(3400,400,.49,.12,'bandpass',0,.07)], { priority:2, gap:.35 });
-  sound('augment.summon', '꼬마볼 · 소환', '증강', '가벼운 탄성음 위로 작은 마법 방울이 떠오릅니다.', 'aug-miniBall', [tone(310,590,.18,.065), tone(770,1120,.23,.038,'sine',.07), noise(1500,3400,.16,.047,'bandpass',0,.035)], { priority:2, gap:.15 });
   sound('augment.split', '분열 · 복제', '증강', '중심이 갈라진 뒤 서로 다른 두 높이의 공명으로 나뉩니다.', 'aug-split', [noise(1900,700,.17,.12), tone(260,150,.15,.055), tone(520,820,.27,.05,'sine',.08), tone(780,1230,.30,.037,'sine',.115)], { priority:3, gap:.2 });
   sound('augment.minion-explode', '복수하는 부하 · 폭발', '증강', '작은 공이 팽팽하게 터지는 높은 폭발음입니다.', 'aug-minionRevenge', [tone(260,50,.21,.105), noise(3600,500,.23,.24,'lowpass'), tone(1400,260,.11,.032,'triangle')], { priority:2, gap:.10 });
   sound('augment.last-stand', '최후의 3초 · 발동', '증강', '체력이 0이 된 뒤에도 3초간 행동할 수 있는 마지막 기회를 낮은 균열과 상승음으로 알립니다.', 'aug-lastStand', [tone(95,280,.35,.09,'triangle',0,.04), noise(2700,400,.32,.18), tone(420,1120,.28,.05,'sine',.10,.03)], { priority:3, gap:.25 });
   sound('augment.heal', '회복 · 생명력', '증강', '맑고 부드러운 두 음이 위로 피어납니다.', 'aug-meditate', [tone(660,680,.27,.04,'sine',0,.025), tone(990,1020,.33,.032,'sine',.075,.035), noise(2300,4600,.20,.025,'bandpass',.035,.05)], { priority:1, gap:.20 });
-  sound('augment.freeze', '빙결 지뢰 · 냉기', '증강', '얇은 얼음이 맺히듯 높은 결정음과 차가운 바람입니다.', 'aug-m_freeze', [tone(2350,2200,.25,.029,'sine'), tone(3520,3300,.19,.018,'sine',.03), noise(6200,2200,.22,.083,'highpass',0,.02)], { priority:2, gap:.15 });
-  sound('augment.steal', '무기 강탈 · 흡수', '증강', '낮아지는 흡입음이 밝은 강탈 신호로 끝납니다.', 'aug-s_steal', [tone(940,210,.28,.046,'triangle',0,.02), noise(2900,480,.26,.10), tone(1180,1390,.22,.034,'sine',.24)], { priority:3, gap:.2 });
+  sound('augment.frost', '냉기 · 적중', '증강', '냉기의 첫 무기 적중에 짧은 결정음이 들립니다.', 'aug-frost', [tone(2350,2200,.25,.029,'sine'), tone(3520,3300,.19,.018,'sine',.03), noise(6200,2200,.22,.083,'highpass',0,.02)], { priority:2, gap:.15 });
   sound('augment.reflect', '반사 · 튕겨내기', '증강', '밝은 금속 접촉음이 즉시 반대쪽으로 튀어오릅니다.', 'aug-reflectCharge', [tone(1240,1900,.17,.047,'sine'), noise(3300,5600,.10,.11,'bandpass'), tone(610,920,.13,.034,'triangle')], { priority:2, gap:.085 });
 
   sound('battle.hit', '전투 · 피해', '전투', '무기 소리를 가리지 않는 짧고 둥근 타격음입니다.', 'onhit', [tone(200,77,.072,.062), noise(1100,380,.045,.065,'lowpass')], { gap:.065, priority:0, variation:.11 });
@@ -79,24 +77,28 @@
   sound('ui.vote.tick', '이벤트 · 추첨 이동', '인터페이스', '빛이 다른 플레이어로 옮겨갈 때 울리는 작은 클릭입니다.', 'watch', [tone(960,690,.054,.035,'sine'), noise(3300,1700,.022,.021)], { priority:3, gap:.035 });
   sound('ui.vote.win', '이벤트 · 당첨', '인터페이스', '선택된 플레이어를 밝은 세 음과 반짝임으로 강조합니다.', 'ranked', [tone(784,784,.24,.045,'triangle'), tone(1046,1046,.30,.042,'triangle',.11), tone(1568,1568,.43,.032,'sine',.22), tone(2093,2093,.33,.015,'sine',.255)], { priority:5, gap:.5 });
 
-  // Keep the rejected first pass available for honest A/B comparison. The game
-  // always uses current; merely previewing another take cannot change gameplay.
-  const previousById = new Map(definitions.map(def => [def.id, {...def}]));
+  // The listening room loads the deployed 605185b design for exact A/B. It is
+  // intentionally not an extra script download on the main game's hot path.
   const design = root.BounceRoyalSoundDesign || (typeof require === 'function' ? require('./audio-design.js') : {});
+  const previousDesign = root.BounceRoyalPreviousSoundDesign || (typeof require === 'function' ? require('./audio-design-previous.js') : {});
+  const previousById = new Map(definitions.map(def => [def.id, {...def, ...(previousDesign[def.id] || design[def.id] || {})}]));
   for (const def of definitions) if (design[def.id]) Object.assign(def, design[def.id]);
   const layerDuration = l => Math.max(l.trim || l.dur,l.fallback?.dur || 0) / (l.rate || 1) + (l.delay || 0);
-  const durationOf = def => Math.round((Math.max(...def.layers.map(layerDuration)) + .025) * 1000) / 1000;
+  const durationOf = def => Math.round((Math.max(...(def.previewLayers || def.layers).map(layerDuration)) + .025) * 1000) / 1000;
   const byId = new Map(definitions.map(def => [def.id, def]));
   const catalog = Object.freeze(definitions.map(def => Object.freeze({
     id:def.id, name:def.name, group:def.group, description:def.description, icon:def.icon,
     duration:durationOf(def), previousDuration:durationOf(previousById.get(def.id)),
-    variants:Object.freeze(['current','previous']), restored:!!def.restored, signature:def.signature || '',
-    source:def.layers.some(l => l.kind === 'sample') ? (def.restored ? '원본 샘플' : 'CC0 폴리 + 디자인') : def.restored ? '원래 음색 복원' : '절차 합성',
+    variants:Object.freeze(['current','previous']), restored:!!def.restored, revised:!!def.revised, internal:!!def.internal, signature:def.signature || '',
+    source:def.source || (def.layers.some(l => l.kind === 'sample') ? (def.restored ? '원본 샘플' : 'CC0 폴리 + 디자인') : def.restored ? '원래 음색 복원' : '절차 합성'),
   })));
   const sampleFiles = Object.freeze({ bow:'fire-bow.mp3', pistol:'fire-pistol.mp3', shotgun:'fire-shotgun.mp3',
     bowDraw:'foley/bow-draw.wav',bowRelease:'foley/bow-release.wav',bowReleaseAlt:'foley/bow-release-alt.wav',
     bladeAir:'foley/blade-air.wav',bladeScrape:'foley/blade-scrape.wav',bladeScrapeAlt:'foley/blade-scrape-alt.wav',
-    mechanism:'foley/mechanism.wav',arrowPass:'foley/arrow-pass.wav' });
+    mechanism:'foley/mechanism.wav',arrowPass:'foley/arrow-pass.wav',
+    actionDraw:'foley/action-bow-draw.wav',actionRelease:'foley/action-bow-release.wav',actionMine:'foley/action-mine-place.wav',
+    actionDash:'foley/action-dagger-dash.wav',actionSpin:'foley/action-sword-spin.wav',actionFall:'foley/action-fall.wav',
+    actionBarrageStart:'foley/action-barrage-start.wav',actionBarrageShot:'foley/action-barrage-shot.wav',actionBarragePreview:'foley/action-barrage-preview.wav' });
   const fireIds = Object.freeze({ arrow:'weapon.bow.fire', bullet:'weapon.pistol.fire', shotgun:'weapon.shotgun.fire', orb:'weapon.staff.fire', mine:'weapon.mine.place', charge:'skill.bow.release', beam:'augment.beam', missile:'augment.missile', shuriken:'augment.shuriken' });
   const aliases = Object.freeze({ 'fire-bow':'weapon.bow.fire', 'fire-pistol':'weapon.pistol.fire', 'fire-shotgun':'weapon.shotgun.fire' });
 
@@ -202,7 +204,7 @@
       const id = aliases[rawId] || rawId;
       const def = (options.variant === 'previous' ? previousById : byId).get(id);
       if (!def) return false;
-      return this._playDefinition(def, options);
+      return this._playDefinition(options.preview && def.previewLayers ? {...def,layers:def.previewLayers} : def, options);
     }
     _playDefinition(def, options) {
       if (this._muted || this._volume <= 0 || !this.ctx || this.ctx.state !== 'running' || (this._document && this._document.hidden)) return false;
@@ -355,7 +357,7 @@
       const def = (options.variant === 'previous' ? previousById : byId).get(aliases[id] || id);
       // Gameplay never waits for network I/O. In the listening room, briefly
       // prefer the finished sample layer over a first-click fallback instead.
-      if (def && this.loadPromise && def.layers.some(layer => layer.kind === 'sample' && !this.buffers.has(layer.name) && !this.sampleFailures.includes(layer.name))) await this._waitForSamples();
+      if (def && this.loadPromise && (def.previewLayers || def.layers).some(layer => layer.kind === 'sample' && !this.buffers.has(layer.name) && !this.sampleFailures.includes(layer.name))) await this._waitForSamples();
       if (version !== this._previewVersion) return false;
       return this.play(id, { preview:true, priority:10, variant:options.variant });
     }

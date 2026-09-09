@@ -29,11 +29,11 @@
 
 | 게임 파일 (`foley/`) | 원본 녹음 | 추출 구간(초) | 사용 |
 |---|---|---|---|
-| bow-draw.wav | English Longbow Draw.wav | 0.04–1.38 | 차지 샷 시위 당기기 |
-| bow-release.wav | English Longbow Shoot.wav | 0.065–0.49 | 차지 샷 발사 |
+| bow-draw.wav | English Longbow Draw.wav | 0.04–1.38 | 새 장력음의 배경 소재·이전 버전 비교 |
+| bow-release.wav | English Longbow Shoot.wav | 0.065–0.49 | 새 시위 발사음의 접촉 소재·이전 버전 비교 |
 | bow-release-alt.wav | English Longbow Shoot.wav | 1.20–1.63 | 발사 변주 |
 | blade-air.wav | Katana Swing.wav | 0.31–0.72 | 단검 돌진·믹서기 풍절 |
-| blade-scrape.wav | Katana Sheath Fast.wav | 2.42–2.88 | 단검 준비·강탈 마찰 |
+| blade-scrape.wav | Katana Sheath Fast.wav | 2.42–2.88 | 단검 준비·돌진 칼끝 마찰 |
 | blade-scrape-alt.wav | Katana Sheath Fast.wav | 5.51–5.98 | 마찰 변주 |
 | mechanism.wav | Crossbow Lever Trigger.wav | 0.66–1.55 | 재장전·잠금 기구 질감 |
 | arrow-pass.wav | Scythian Recurve Arrow Passby.wav | 0.69–1.66 | 되돌아가기의 역방향 바람 |
@@ -45,7 +45,7 @@
 
 ## 원래 소리를 지키는 공유 사운드 뱅크
 
-현재 게임과 사운드룸은 `js/audio.js`의 같은 효과음 59종을 사용한다.
+현재 게임과 사운드룸은 `js/audio.js`의 같은 효과음 정의를 사용한다.
 `js/audio-design.js`가 현재 음색을 정의한다. 기존 MP3 세 개는 **추가 합성 레이어 없이**
 보존했고, 검·단검·표창·미사일·검기·지팡이 등은 `878ceab`의 필터 이동,
 Q, 길이, 어택을 기준으로 복원했다. 마스터 믹싱/피크 보호는 공통으로 유지된다.
@@ -58,7 +58,35 @@ Q, 길이, 어택을 기준으로 복원했다. 마스터 믹싱/피크 보호�
 - 잦은 피격·벽 반사는 작고 짧게, 중요한 스킬은 더 넓고 선명하게 구성했다.
 - 동시 재생은 기본 16개이며, 중요도가 낮은 소리부터 제한한다.
 - 전체 음량·압축기·피크 보호·동일 효과음 간격 제한을 공유하고, 화면 이탈 시 중지한다.
-- 사운드룸의 **직전 시안**은 `524a896`의 전자음 중심 버전이다. 비교만 가능하며 게임 설정을 바꾸지 않는다.
+- 사운드룸의 **업데이트 전**은 `js/audio-design-previous.js`에 보관한 `605185b`의 실제 배포 버전이다. 비교만 가능하며 게임 설정을 바꾸지 않는다.
+
+## 동작별 효과음 재설계
+
+`node tools/design-action-foley.js`로 기존 CC0 소재와 직접 작성한 신호처리를
+오프라인 합성한다. 이것들은 녹음 소재를 가공하고 물성 표현을 더한 효과음이다.
+새로 현장에서 녹음했거나 실물의 소리를 그대로 들려준다는 뜻은 아니다.
+재현 확인: `node tools/design-action-foley.js --check`.
+
+| 파일 (`foley/`) | 길이 | 구성 |
+|---|---:|---|
+| action-bow-draw.wav | 1.680초 | 불규칙한 줄 마찰·장력 진동 + 낮춘 장궁 녹음 질감 |
+| action-bow-release.wav | 0.580초 | 시위 녹음의 접촉 + 감쇠하는 줄 배음 + 화살 통과 |
+| action-mine-place.wav | 0.340초 | 케이스 바닥 접촉 + 기계 잠금쇠 두 동작 |
+| action-dagger-dash.wav | 0.380초 | 칼바람 가속·통과 + 짧은 칼끝 마찰 |
+| action-sword-spin.wav | 1.040초 | 0.5초 주기의 두 회전, 가까운 날·먼 바람의 차이 |
+| action-barrage-start.wav | 0.240초 | 금속 걸쇠 해제 |
+| action-barrage-shot.wav | 0.125초 | 짧은 격발 파열 + 약실 공명 + 복귀 장치 |
+| action-barrage-preview.wav | 1.580초 | 사운드룸 전용, 기본 간격 0.12초의 1.5초 연사 |
+| action-fall.wav | 0.620초 | 탄성 있는 공의 붕괴·짧은 공기 배출·작은 후속 접촉 |
+
+9개 파일 합계 **421,836바이트**. 32kHz 모노 16bit PCM이며 스마트폰에서
+재생 시 추가 물리 합성 연산을 하지 않는다. 새 파일들은 공통 압축기와 피크 보호를
+통과하며, 이전 검·표창·미사일 등 승인된 소리는 그대로다.
+
+게임의 회전 난사는 발사 이벤트가 올 때에만 한 발씩 재생한다. 연사 시연 파일은
+게임 재생 경로에서 사용하지 않으므로 기절하거나 전투가 끝난 뒤 가짜 총성이 남지 않는다.
+화염흔적·꼬마볼 소환·무기강탈·빙결지뢰는 전용 소리 없이 기존 효과만 적용한다.
+일반 지뢰 폭발음과 냉기 증강의 첫 적중음은 유지한다.
 
 `tools/audio-check.html`은 브라우저의 OfflineAudioContext로 실제 합성 결과를
 렌더링해 무음·비정상 값·클리핑과 16개 동시 재생을 점검한다.
@@ -67,7 +95,7 @@ Q, 길이, 어택을 기준으로 복원했다. 마스터 믹싱/피크 보호�
 ## 소리를 바꾸고 싶으면
 
 `js/audio-design.js`의 음색 정의를 바꾸면 게임과 `sound-lab.html`의 게임 적용음에
-함께 반영된다. `js/audio.js`의 기존 정의는 직전 시안 비교용으로 보관한다.
+함께 반영된다. `js/audio-design-previous.js`는 업데이트 전 비교용으로 보관한다.
 `tone`은 공명, `noise`는 마찰·공기·파열, `sample`은 녹음 레이어다.
 `filterPath`/`freqPath`/`gainPath`는 시간에 따른 재질·장력·리듬의 변화를 표현한다.
 전투 재생 시점은 `js/sim.js`의 `battleSound` 호출에서 정하며,

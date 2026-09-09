@@ -737,7 +737,6 @@ class Battle {
       vx: Math.cos(a), vy: Math.sin(a), r: 13 * statMult, hp: 30 * statMult, maxHp: 30 * statMult,
       dmg: 10 * statMult, spd: 205, cd: 0, spin: rand(0, TAU),
     });
-    if (this.phase === 'fight') battleSound(this, 'augment.summon', f);
   }
   spawnSplits(f) {
     for (const da of [-0.7, 0.7]) {
@@ -851,7 +850,6 @@ class Battle {
         this.phase = 'fight'; this.simT = 0;
         for (const f of this.fighters) {
           if (f.rocketActive) battleSound(this, 'augment.rocket', f);
-          if (f.summons.length) battleSound(this, 'augment.summon', f);
         }
       }
     } else if (this.phase === 'fight') {
@@ -1663,7 +1661,7 @@ function fireBow(b, f) {
 }
 
 function fireGun(b, f) {
-  battleSound(b, 'weapon.pistol.fire', f);
+  battleSound(b, f.timers.gunBarrage > 0 ? 'weapon.pistol.barrage-shot' : 'weapon.pistol.fire', f);
   const wp = WEAPONS.pistol;
   const a = f.weaponAngle;
   spawnProj(b, f, { kind: 'bullet', x: f.x + Math.cos(a) * (f.radius + 8), y: f.y + Math.sin(a) * (f.radius + 8), ang: a, spd: wp.projSpeed, dmg: wp.dmg, r: 4, life: 2.5, weapon: true });
@@ -1734,7 +1732,6 @@ function projectileHit(b, p, body) {
   }
   // 무기 강탈
   if (p.kind === 'orb' && owner.flags.steal && isFighterBody(body)) {
-    if (body.timers.weaponLock <= 0) battleSound(b, 'augment.steal', body);
     body.timers.weaponLock = 1;
     popup(b, body.x, body.y - body.radius - 34, '무기 강탈!', '#c9a0ff');
   }
@@ -1767,7 +1764,7 @@ function onWeaponHitEffects(b, f, body) {
       bleed.n = bleed.stacks.reduce((sum, x) => sum + x.n, 0);
     }
     if (f.flags.frost) {
-      if (!body.frost.n) battleSound(b, 'augment.freeze', body);
+      if (!body.frost.n) battleSound(b, 'augment.frost', body);
       body.frost = { n: Math.min(3, body.frost.n + 1), t: 3 };
     }
   }
@@ -1810,7 +1807,6 @@ function autoSystems(b, f, dt) {
       f.cd.flame = 0.18;
       const duration = 2 * (Fl.flameDur ? 1.5 : 1);
       b.flames.push({ owner: f, x: f.x, y: f.y, r: 16, life: duration, maxLife: duration, dps: 1 * (Fl.flameUp ? 1.3 : 1) });
-      battleSound(b, 'augment.flame', f, 0.6);
       if (b.flames.length > 60) b.flames.shift();
     }
   }
@@ -1906,7 +1902,6 @@ function explodeMine(b, m, scale = 1, damage = m.dmg) {
       if (dist(m.x, m.y, body.x, body.y) < R + bodyRadius(body)) {
         weaponDamage(b, m.owner, body, damage);
         if (m.owner.flags.freezeMine && body.kind === 'main') {
-          if (body.timers.freeze <= 0) battleSound(b, 'augment.freeze', body);
           body.timers.freeze = 2;
         }
       }

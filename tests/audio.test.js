@@ -5,7 +5,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { create, catalog } = require('../js/audio.js');
+const { create, catalog, samples } = require('../js/audio.js');
 
 class Param {
   constructor(value = 0) { this.value = value; this.events = []; }
@@ -80,7 +80,7 @@ test('all catalog sounds schedule bounded finite sources using synthesis fallbac
   const engine = newEngine();
   await engine.ensure();
   await engine.loadPromise;
-  assert.ok(catalog.length >= 59);
+  assert.ok(catalog.length > 0);
   assert.equal(new Set(catalog.map(item => item.id)).size,catalog.length);
   assert.ok(Object.isFrozen(catalog));
   for (const item of catalog) {
@@ -100,7 +100,7 @@ test('all catalog sounds schedule bounded finite sources using synthesis fallbac
   }
   engine.stopAll();
   assert.equal(engine.voices.size,0);
-  assert.equal(engine.sampleFailures.length,11);
+  assert.equal(engine.sampleFailures.length,Object.keys(samples).length);
 });
 
 test('zero volume, mute and runtime volume adjustments control every layer', async () => {
@@ -217,8 +217,8 @@ test('approved original samples remain unlayered while failed files retain their
   const engine = newEngine({ fetch:async url => { requests.push(url); return { ok:!url.includes('shotgun'), arrayBuffer:async () => new ArrayBuffer(1) }; } });
   await engine.ensure();
   await engine.loadPromise;
-  assert.equal(requests.length,11);
-  assert.equal(engine.buffers.size,10);
+  assert.equal(requests.length,Object.keys(samples).length);
+  assert.equal(engine.buffers.size,Object.keys(samples).length-1);
   engine.fire('arrow');
   let voice = [...engine.voices][0];
   assert.ok(voice.sources.some(source => source.buffer && source.buffer.sample));
@@ -252,10 +252,40 @@ test('approved sword and projectile sweep signatures match the pre-update recipe
 
 test('comparison preview never changes the sound used by gameplay', async () => {
   const engine=newEngine();await engine.ensure();
-  await engine.preview('weapon.sword.hit',{variant:'previous'});
-  assert.equal([...engine.voices][0].sources.length,3);
-  engine.stopAll();engine.play('weapon.sword.hit');
+  await engine.preview('skill.bow.charge',{variant:'previous'});
+  assert.equal([...engine.voices][0].sources.length,2);
+  engine.stopAll();engine.play('skill.bow.charge');
   assert.equal([...engine.voices][0].sources.length,1);
+});
+
+test('removed cues stay silent even for old snapshots; revised sounds have exact pre-update comparisons', async () => {
+  const engine=newEngine();await engine.ensure();
+  for(const id of ['augment.flame','augment.summon','augment.steal','augment.freeze']) {
+    assert.equal(engine.play(id),false,id);
+    assert.equal(await engine.preview(id,{variant:'previous'}),false,id);
+    assert.ok(!catalog.some(item=>item.id===id));
+  }
+  assert.equal(catalog.filter(item=>item.revised && !item.internal).length,7);
+  const previous=require('../js/audio-design-previous.js');
+  assert.equal(previous['weapon.mine.place'].layers[0].kind,'tone');
+  assert.equal(previous['skill.bow.charge'].layers[0].name,'bowDraw');
+});
+
+test('barrage audition includes a full burst, gameplay only schedules the start cue and real individual shots', async () => {
+  const engine=newEngine();await engine.ensure();
+  engine.play('skill.pistol.barrage');
+  let voice=[...engine.voices][0];
+  assert.equal(voice.sources.length,1);
+  assert.ok(voice.endTime < .3,'The gameplay start must not schedule fake future shots');
+  engine.stopAll();await engine.preview('skill.pistol.barrage');
+  voice=[...engine.voices][0];
+  assert.equal(voice.sources.length,2);
+  assert.ok(voice.endTime > 1.5 && voice.endTime < 1.7);
+  engine.stopAll();
+  assert.ok(voice.sources.every(source=>source.disconnected));
+  assert.equal(engine.voices.size,0);
+  engine.play('weapon.pistol.barrage-shot');
+  assert.ok([...engine.voices][0].endTime < .2);
 });
 
 test('Foley playback keeps the complete recording and cleans reverse/alternate layers', async () => {

@@ -58,7 +58,7 @@ test('배경에서 계산하는 전투는 무음이고 보이는 전투만 이�
   assert.ok(ids(b).includes('weapon.staff.fire'));
 });
 
-test('count부터 본 로켓·소환 등장음과 첫 발은 fight 전환에 유실되지 않는다', () => {
+test('count부터 본 로켓과 첫 발은 유실되지 않으며 꼬마볼은 소환음 없이 등장한다', () => {
   const r = runtime(), b = r.battle({ augments: ['rocketStart', 'miniBall'] });
   // 목록 ID와 별개로 현재 적용된 전투 상태를 확인해 발동시킨다.
   b.fighters[0].rocketActive = true;
@@ -68,7 +68,10 @@ test('count부터 본 로켓·소환 등장음과 첫 발은 fight 전환에 유
   r.fireBow(b, b.fighters[0]);
   r.renderBattle(b);
   assert.equal(r.played.filter(id => id === 'augment.rocket').length, 1);
-  assert.equal(r.played.filter(id => id === 'augment.summon').length, 1);
+  assert.equal(r.played.filter(id => id === 'augment.summon').length, 0);
+  assert.ok(b.fighters[0].summons.length > 0);
+  b.spawnSummon(b.fighters[0]);
+  assert.ok(!ids(b).includes('augment.summon'),'전투 중 추가 소환도 무음');
   assert.equal(r.played.filter(id => id === 'weapon.bow.fire').length, 1);
 });
 
@@ -221,12 +224,12 @@ test('검기는 칼날 접촉음과 별개이며 샷건·다중 투사체는 일
   assert.equal(ids(b).filter(id => id === 'weapon.bow.fire').length, 1);
 });
 
-test('화염 연속 생성은 소유자별로 조절되고 팽창·폭주의 종료음은 한 번만 난다', () => {
+test('화염은 점화음 없이 생성되고 팽창·폭주의 종료음은 한 번만 난다', () => {
   const r = runtime(), b = r.battle({ charId: 'balloon' }), f = b.fighters[0];
   b.phase = 'fight'; f.flags.flame = 1; f.cd.flame = 0;
   for (let i = 0; i < 5; i++) { b.simT = i * 0.18; r.autoSystems(b, f, 0.18); }
   assert.equal(b.flames.length, 5);
-  assert.equal(ids(b).filter(id => id === 'augment.flame').length, 2);
+  assert.equal(ids(b).filter(id => id === 'augment.flame').length, 0);
   r.useSkill(b, f, 'char'); r.updateTimers(b, f, 5.01); r.updateTimers(b, f, 0.1);
   assert.equal(ids(b).filter(id => id === 'skill.balloon.deflate').length, 1);
   const wak = r.battle({ charId: 'wak' }), w = wak.fighters[0]; wak.phase = 'fight';
@@ -234,7 +237,7 @@ test('화염 연속 생성은 소유자별로 조절되고 팽창·폭주의 종
   assert.equal(ids(wak).filter(id => id === 'skill.rampage.end').length, 1);
 });
 
-test('실제 치료와 빙결·강탈 진입에서만 소리 나고 연속 적중은 상태음을 반복하지 않는다', () => {
+test('치료음은 유지하고 빙결지뢰·무기강탈은 전용 소리 없이 효과가 적용된다', () => {
   const r = runtime(), b = r.battle(), f = b.fighters[0], e = b.fighters[1];
   b.phase = 'fight';
   r.healFighter(b, f, 5);
@@ -246,11 +249,33 @@ test('실제 치료와 빙결·강탈 진입에서만 소리 나고 연속 적�
   f.flags.freezeMine = 1;
   const mine = { owner:f, x:e.x, y:e.y, blast:62, dmg:1 };
   r.explodeMine(b, mine); r.explodeMine(b, mine);
-  assert.equal(ids(b).filter(id => id === 'augment.freeze').length, 1);
+  assert.equal(ids(b).filter(id => id === 'augment.freeze' || id === 'augment.frost').length, 0);
+  assert.equal(e.timers.freeze, 2);
+  assert.equal(ids(b).filter(id => id === 'weapon.mine.explode').length, 2,'일반 지뢰 폭발음은 유지');
   f.flags.steal = 1;
   const orb = r.spawnProj(b, f, { kind:'orb', x:e.x, y:e.y, r:9, ang:0, dmg:1, weapon:true });
   r.projectileHit(b, orb, e); r.projectileHit(b, orb, e);
-  assert.equal(ids(b).filter(id => id === 'augment.steal').length, 1);
+  assert.equal(ids(b).filter(id => id === 'augment.steal').length, 0);
+  assert.equal(e.timers.weaponLock, 1);
+  f.flags.frost = 1;
+  r.projectileHit(b, orb, e);
+  assert.equal(ids(b).filter(id => id === 'augment.frost').length, 1,'별개의 냉기 적중음은 유지');
+});
+
+test('회전 난사는 실제 발사한 탄환만 전용 발사음으로 연결하고 종료 후 평타음으로 돌아간다', () => {
+  const r=runtime(),b=r.battle({weaponId:'pistol'}),f=b.fighters[0];
+  r.renderBattle(b);b.phase='fight';
+  assert.equal(r.useSkill(b,f,'weapon'),true);
+  assert.deepEqual(ids(b),['skill.pistol.barrage']);
+  r.updateWeapon(b,f,.25);
+  const shots=b.projectiles.filter(p=>p.kind==='bullet').length;
+  assert.ok(shots>=2);
+  assert.equal(ids(b).filter(id=>id==='weapon.pistol.barrage-shot').length,shots);
+  assert.equal(ids(b).filter(id=>id==='weapon.pistol.fire').length,0);
+  r.renderBattle(r.netBattleView(snapshot(b),[],0));
+  assert.equal(r.played.filter(id=>id==='weapon.pistol.barrage-shot').length,shots);
+  f.timers.gunBarrage=0;r.fireGun(b,f);
+  assert.equal(ids(b).filter(id=>id==='weapon.pistol.fire').length,1);
 });
 
 test('모든 전투 이벤트 ID가 공용 효과음 카탈로그의 실제 재생 항목과 대응한다', () => {
