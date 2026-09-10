@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="bounce-royal-render-target" content="720x1280">
-<meta name="theme-color" content="#070a14">
+<meta name="theme-color" content="#79dec0">
 <title>바운스 로얄 · Bounce Royale</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Jua&family=Do+Hyeon&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/Jua-Regular.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="css/casual-fonts.css">
 <style>
 :root{
   --bg:#050812;--panel:#10172a;--panel2:#0a1020;--panel3:#18223b;
@@ -233,6 +233,7 @@ body{display:flex;align-items:center;justify-content:center}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
 </style>
 <link rel="stylesheet" href="css/visual-polish.css">
+<link rel="stylesheet" href="css/casual-renewal.css">
 </head>
 <body>
 <main id="app" aria-label="바운스 로얄 720×1280 세로 게임 화면" data-render-target="720x1280">
@@ -267,17 +268,17 @@ body{display:flex;align-items:center;justify-content:center}
       <div class="who"><div class="nick" id="title-nickname">플레이어</div><div class="rating"><span id="title-tier">브론즈 I</span> · <span id="title-rating">1000 RP</span></div></div>
       <button class="iconbtn title-settings-mini" id="btn-title-settings" type="button" aria-label="설정" data-ui-icon="settings"></button>
     </div>
-    <div class="title-brand"><div class="title-crown" data-ui-icon="brand"></div><div class="logo">바운스<br>로얄</div><div class="title-en">BOUNCE ROYALE</div><div class="title-season">SEASON 01 · 반사의 시작</div></div>
+    <div class="title-brand"><div class="title-crown" data-ui-icon="brand"></div><div class="logo"><span>바운스</span><span>로얄</span></div><div class="title-en">BOUNCE ROYALE</div><div class="title-season">튕겨라! 마지막 공이 남을 때까지</div></div>
     <nav class="hub-menu" aria-label="메인 메뉴">
-      <button class="hub-main ranked" id="btn-ranked" type="button"><span class="hub-ico" data-ui-icon="ranked"></span><span class="hub-copy"><strong>경쟁전</strong><small>랭크를 걸고 랜덤 매칭</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
-      <button class="hub-main friendly" id="btn-friendly" type="button"><span class="hub-ico" data-ui-icon="friendly"></span><span class="hub-copy"><strong>친선전</strong><small>친구·AI와 함께 플레이</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
+      <button class="hub-main ranked" id="btn-ranked" type="button"><span class="hub-ico" data-ui-icon="ranked"></span><span class="hub-copy"><strong>경쟁전</strong><small>승리를 향해!</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
+      <button class="hub-main friendly" id="btn-friendly" type="button"><span class="hub-ico" data-ui-icon="friendly"></span><span class="hub-copy"><strong>친선전</strong><small>친구·AI와 한 판</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
       <div class="hub-subnav">
         <button class="hub-small" data-menu="bag" id="btn-bag" type="button"><span class="hub-ico" data-ui-icon="bag"></span><span class="hub-copy"><strong>가방</strong><small>장착 캐릭터와 보유 항목</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
         <button class="hub-small" data-menu="codex" id="btn-codex" type="button"><span class="hub-ico" data-ui-icon="codex"></span><span class="hub-copy"><strong>도감</strong><small>캐릭터·무기·증강 정보</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
         <button class="hub-small" data-menu="settings" id="btn-settings" type="button"><span class="hub-ico" data-ui-icon="settings"></span><span class="hub-copy"><strong>설정</strong><small>닉네임·사운드·진동</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
       </div>
     </nav>
-    <div class="build-tag">720 × 1280 PORTRAIT BUILD</div>
+    <div class="build-tag">공은 자동으로! 승부는 내 손으로!</div>
     <button id="btn-start" type="button" tabindex="-1">게임 시작</button>
   </section>
 
@@ -350,7 +351,7 @@ body{display:flex;align-items:center;justify-content:center}
     <header class="screen-head"><span></span><h2 id="event-title">이벤트 투표</h2><span class="head-extra">3개 중 1개</span></header>
     <div class="phase-timer hidden" id="event-timer"><i></i><b></b></div>
     <div class="event-body">
-      <div class="event-kicker">ROUND 3 COMPLETE</div>
+      <div class="event-kicker">3라운드 완료 · 새로운 변수!</div>
       <div class="subt" id="event-sub">이번 게임에 적용할 이벤트를 하나 선택하세요.</div>
       <div class="event-cards" id="event-cards" role="list" aria-label="이벤트 선택지"></div>
       <div id="event-status" role="status" aria-live="polite">네 명이 각각 한 표를 행사합니다.</div>
@@ -379,7 +380,7 @@ body{display:flex;align-items:center;justify-content:center}
   </section>
 
   <section class="screen hidden" id="scr-intro">
-    <div class="intro-kicker">MATCH FOUND</div><div class="intro-title">참가 플레이어</div><div id="intro-players"></div><div class="intro-count" id="intro-countdown">3</div>
+    <div class="intro-kicker">매칭 완료!</div><div class="intro-title">이번 판의 주인공</div><div id="intro-players"></div><div class="intro-count" id="intro-countdown">3</div>
   </section>
 
   <div id="player-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="player-modal-title">

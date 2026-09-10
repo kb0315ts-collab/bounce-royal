@@ -77,11 +77,13 @@
   sound('ui.vote.tick', '이벤트 · 추첨 이동', '인터페이스', '빛이 다른 플레이어로 옮겨갈 때 울리는 작은 클릭입니다.', 'watch', [tone(960,690,.054,.035,'sine'), noise(3300,1700,.022,.021)], { priority:3, gap:.035 });
   sound('ui.vote.win', '이벤트 · 당첨', '인터페이스', '선택된 플레이어를 밝은 세 음과 반짝임으로 강조합니다.', 'ranked', [tone(784,784,.24,.045,'triangle'), tone(1046,1046,.30,.042,'triangle',.11), tone(1568,1568,.43,.032,'sine',.22), tone(2093,2093,.33,.015,'sine',.255)], { priority:5, gap:.5 });
 
-  // The listening room loads the deployed 605185b design for exact A/B. It is
+  // The listening room loads the deployed 511fb88 design for exact A/B. It is
   // intentionally not an extra script download on the main game's hot path.
   const design = root.BounceRoyalSoundDesign || (typeof require === 'function' ? require('./audio-design.js') : {});
-  const previousDesign = root.BounceRoyalPreviousSoundDesign || (typeof require === 'function' ? require('./audio-design-previous.js') : {});
-  const previousById = new Map(definitions.map(def => [def.id, {...def, ...(previousDesign[def.id] || design[def.id] || {})}]));
+  const previousDesign = root.BounceRoyalPreviousSoundDesign || (typeof require === 'function' ? require('./audio-design-previous.js') : null);
+  // An archive can intentionally leave a cue on its original base definition.
+  // Only pages that do not load the archive fall back to the current design.
+  const previousById = new Map(definitions.map(def => [def.id, {...def, ...(previousDesign ? previousDesign[def.id] || {} : design[def.id] || {})}]));
   for (const def of definitions) if (design[def.id]) Object.assign(def, design[def.id]);
   const layerDuration = l => Math.max(l.trim || l.dur,l.fallback?.dur || 0) / (l.rate || 1) + (l.delay || 0);
   const durationOf = def => Math.round((Math.max(...(def.previewLayers || def.layers).map(layerDuration)) + .025) * 1000) / 1000;
@@ -98,7 +100,9 @@
     mechanism:'foley/mechanism.wav',arrowPass:'foley/arrow-pass.wav',
     actionDraw:'foley/action-bow-draw.wav',actionRelease:'foley/action-bow-release.wav',actionMine:'foley/action-mine-place.wav',
     actionDash:'foley/action-dagger-dash.wav',actionSpin:'foley/action-sword-spin.wav',actionFall:'foley/action-fall.wav',
-    actionBarrageStart:'foley/action-barrage-start.wav',actionBarrageShot:'foley/action-barrage-shot.wav',actionBarragePreview:'foley/action-barrage-preview.wav' });
+    actionBarrageStart:'foley/action-barrage-start.wav',actionBarrageShot:'foley/action-barrage-shot.wav',actionBarragePreview:'foley/action-barrage-preview.wav',
+    casualDraw:'casual/bow-draw.wav',casualRelease:'casual/bow-release.wav',casualPistol:'casual/pistol.wav',casualShotgun:'casual/shotgun.wav',
+    casualMine:'casual/mine-place.wav',casualDash:'casual/dagger-dash.wav',casualFall:'casual/fall.wav',casualBarragePreview:'casual/barrage-preview.wav' });
   const fireIds = Object.freeze({ arrow:'weapon.bow.fire', bullet:'weapon.pistol.fire', shotgun:'weapon.shotgun.fire', orb:'weapon.staff.fire', mine:'weapon.mine.place', charge:'skill.bow.release', beam:'augment.beam', missile:'augment.missile', shuriken:'augment.shuriken' });
   const aliases = Object.freeze({ 'fire-bow':'weapon.bow.fire', 'fire-pistol':'weapon.pistol.fire', 'fire-shotgun':'weapon.shotgun.fire' });
 

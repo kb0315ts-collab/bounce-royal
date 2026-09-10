@@ -25,11 +25,11 @@ const authors = {
   willdabeast: { name:'Willdabeast', url:'http://wjbstories.blogspot.com' },
 };
 const palette = {
-  health:['#effff4','#78e9aa'], attack:['#fff5da','#ffc271'],
-  speed:['#e2fcff','#61d3f7'], magic:['#f4eeff','#b29aff'],
-  defense:['#f2fbff','#9ebde9'], electric:['#fffbd8','#f1d15f'],
-  fire:['#ffecca','#ff995e'], cold:['#edffff','#80e5ec'],
-  utility:['#eaf3ff','#8eb7ff'], curse:['#ffe9ef','#f593b4'],
+  health:['#b0ffb1','#43c68e'], attack:['#ffe88a','#ffa948'],
+  speed:['#97f3ff','#3abbdc'], magic:['#ddb7ff','#9974e7'],
+  defense:['#dbe8ff','#80addf'], electric:['#fff686','#f3bd35'],
+  fire:['#ffd381','#ff8350'], cold:['#c5ffff','#56cfd8'],
+  utility:['#bedbff','#71aafa'], curse:['#ffc2d2','#eb769a'],
 };
 const badges = {
   heal:'<path d="M397 357v80m-40-40h80"/>',
@@ -73,9 +73,9 @@ for (const id of ids) {
   let badge = '';
   if (choice.badge) {
     if (!badges[choice.badge]) throw Error('Unknown badge: ' + id);
-    badge = '<circle cx="397" cy="397" r="86" fill="#0b1b30" stroke="' + palette[choice.tone][1] + '" stroke-width="10"/><g fill="none" stroke="' + palette[choice.tone][0] + '" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">' + badges[choice.badge] + '</g>';
+    badge = '<circle cx="397" cy="407" r="86" fill="#243747"/><circle cx="397" cy="397" r="86" fill="' + palette[choice.tone][0] + '" stroke="#243747" stroke-width="12"/><g fill="none" stroke="#243747" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">' + badges[choice.badge] + '</g>';
   }
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="ink" x1="0" y1="0" x2=".35" y2="1"><stop stop-color="' + palette[choice.tone][0] + '"/><stop offset="1" stop-color="' + palette[choice.tone][1] + '"/></linearGradient></defs><g fill="url(#ink)">' + shapes + '</g>' + badge + '</svg>\n';
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="ink" x1="0" y1="0" x2=".35" y2="1"><stop stop-color="' + palette[choice.tone][0] + '"/><stop offset="1" stop-color="' + palette[choice.tone][1] + '"/></linearGradient></defs><g fill="url(#ink)" stroke="#243747" stroke-width="11" stroke-linejoin="round" paint-order="stroke fill">' + shapes + '</g>' + badge + '</svg>\n';
   fs.writeFileSync(path.join(output, id + '.svg'), svg);
   manifest[id] = {
     file:'assets/icons/augments/' + id + '.svg',
@@ -83,7 +83,7 @@ for (const id of ids) {
     author:authors[author].name, authorUrl:authors[author].url,
     license:'CC BY 3.0', licenseUrl:'https://creativecommons.org/licenses/by/3.0/',
     tone:choice.tone, reason:choice.reason,
-    modifications:'Recolored; scaled' + (choice.layout ? '; ' + choice.layout + ' composition' : '') + (choice.layout === 'split' ? '; original fracture mark added' : '') + (choice.badge ? '; original ' + choice.badge + ' badge added' : ''),
+    modifications:'Casual color gradient; charcoal outline; scaled' + (choice.layout ? '; ' + choice.layout + ' composition' : '') + (choice.layout === 'split' ? '; original fracture mark added' : '') + (choice.badge ? '; original ' + choice.badge + ' badge added' : ''),
     sourceSha256:hash(original), sha256:hash(svg),
   };
 }

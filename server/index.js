@@ -35,6 +35,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8',
+  '.ttf': 'font/ttf', '.woff2': 'font/woff2',
   '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.png': 'image/png', '.ico': 'image/x-icon',
   '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav',
 };
@@ -59,7 +60,7 @@ const server = http.createServer((req, res) => {
      * 코드·마크업은 매번 물어보게 하고(no-cache), 소리·그림처럼 갈아 끼울
      * 일이 드문 것만 하루 캐시한다. */
     const ext = path.extname(file);
-    const stable = ['.mp3', '.ogg', '.mp4', '.png', '.jpg', '.jpeg', '.webp'].includes(ext);
+    const stable = ['.mp3', '.ogg', '.mp4', '.png', '.jpg', '.jpeg', '.webp', '.ttf', '.woff2'].includes(ext);
     res.writeHead(200, {
       'Content-Type': MIME[ext] || 'application/octet-stream',
       'Cache-Control': stable ? 'public, max-age=86400' : 'no-cache',

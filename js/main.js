@@ -442,8 +442,9 @@ function setRefreshButton(count, onRefresh) {
 
 // 'video'를 'live'로 바꾸면 기존 실시간 타이틀 전투로 즉시 복귀한다.
 const TITLE_DEMO_MODE = 'video';
+// The deployed broadcast clips remain in assets/title-demos for easy rollback.
 const TITLE_DEMO_CLIPS = Array.from({ length: 6 }, (_, i) =>
-  `assets/title-demos/title-demo-${String(i + 1).padStart(2, '0')}.mp4`);
+  `assets/title-demos-casual/title-demo-${String(i + 1).padStart(2, '0')}.mp4?v=casual1`);
 const TitleDemo = {
   video: $('title-demo-video'), active: false, failed: false, clipIndex: -1,
   init() {
@@ -1035,16 +1036,17 @@ const Game = {
  * ============================================================ */
 const TITLE_RECORDING_MODE = new URLSearchParams(location.search).get('recordTitle') === '1';
 const TITLE_RECORDING_SCENARIOS = [
-  [['cat','sword',['s_beam','s_giant']],['wak','dagger',['d_dual','d_bleed']],['soft','pistol',['p_shotgun','p_mag']],['bomb','staff',['s_double','s_bounce']]],
+  [['cat','sword',['w_beam','w_giant']],['wak','dagger',['d_dual','d_bleed']],['soft','pistol',['p_shotgun','p_mag']],['bomb','staff',['s_double','s_bounce']]],
   [['balloon','bow',['b_triple','b_homing']],['bball','mine',['m_big','m_freeze']],['cat','staff',['s_double','s_steal']],['wak','pistol',['p_shotgun','p_bayonet']]],
-  [['bomb','mine',['m_big','missile','missilePlus']],['soft','bow',['b_triple','shuriken']],['balloon','sword',['s_beam','satellite']],['bball','staff',['s_double','lightning']]],
+  [['bomb','mine',['m_big','missile','missilePlus']],['soft','bow',['b_triple','shuriken']],['balloon','sword',['w_beam','satellite']],['bball','staff',['s_double','lightning']]],
   [['wak','pistol',['p_shotgun','p_mag','flame']],['cat','bow',['b_triple','b_homing']],['bomb','dagger',['d_dual','d_phase']],['soft','mine',['m_big','m_heal']]],
-  [['bball','sword',['s_beam','desperateSpin']],['balloon','staff',['s_double','s_bounce']],['wak','mine',['m_big','missile']],['cat','pistol',['p_shotgun','satellite']]],
+  [['bball','sword',['w_beam','desperateSpin']],['balloon','staff',['s_double','s_bounce']],['wak','mine',['m_big','missile']],['cat','pistol',['p_shotgun','satellite']]],
   [['soft','dagger',['d_dual','d_bleed']],['bomb','bow',['b_triple','b_kb']],['bball','pistol',['p_shotgun','p_bayonet']],['balloon','mine',['m_big','flame']]],
 ];
 
 function setupTitleRecording() {
-  let scenarioIndex = 0;
+  const requestedScenario = Number(new URLSearchParams(location.search).get('titleScenario'));
+  let scenarioIndex = Number.isInteger(requestedScenario) && requestedScenario >= 0 && requestedScenario < TITLE_RECORDING_SCENARIOS.length ? requestedScenario : 0;
   const colors = ['#4da6ff', '#ff6879', '#6bd968', '#ffd24d'];
   document.body.classList.add('title-recording');
   const style = document.createElement('style');
@@ -1064,7 +1066,7 @@ function setupTitleRecording() {
       gamble: false, trollCondition: false, damageRewardMult: 1,
       wins: 0, losses: 0, streak: 0, rounds: 0, totalDmg: 0,
     }));
-    Game.demo = new Battle('circle', players, { demo: true });
+    Game.demo = new Battle('diamond', players, { demo: true });
     Game.demo.phase = 'fight';
     Game.demo.simT = 0;
     renderBattle(Game.demo);
@@ -1074,6 +1076,9 @@ function setupTitleRecording() {
     Game.demo.update(1 / 30);
     renderBattle(Game.demo);
   };
+  window.BounceRoyalTitleRecording = Object.freeze({
+    restart() { scenarioIndex = (scenarioIndex + TITLE_RECORDING_SCENARIOS.length - 1) % TITLE_RECORDING_SCENARIOS.length; $('title-recording-next').click(); },
+  });
   $('title-recording-next').click();
 }
 

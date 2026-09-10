@@ -9,9 +9,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "단단한 갑옷으로 감싼 체력",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "3117ad29d27aaca280dad267316cc717cb6ec43489684c086ff1723f23546845",
-    "sha256": "207673281fa801af3f42dc19cc5428c7c0eafd5f0400655882124b04e5bc406b"
+    "sha256": "cb7423b1cf47e2cb703d7ebad765177904a7b75935d1f5dee5273d5532899ef1"
   },
   "atk15": {
     "file": "assets/icons/augments/atk15.svg",
@@ -23,9 +23,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "무기를 두드려 강화하는 대장장이",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "6744cedbef10ee3f3e1e6b8bb74c74396fc4fabd60e76313e764a76568992c03",
-    "sha256": "d373e419d4b98794444c1c4fa48d3ba13110f110e72bcf36bd1c97bf43142808"
+    "sha256": "f5d6555402aff8a0ea1e5a9f5e6559f9b615de6309ca240bf97eb72350b7a0da"
   },
   "dmg10": {
     "file": "assets/icons/augments/dmg10.svg",
@@ -37,9 +37,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "급소를 꿰뚫어 보는 눈",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "7b384cba2f0ffee633bde1959b6a42969f7543e3e67339b714eb3bc5e92efdc2",
-    "sha256": "62af1a45314aef8ebccbd6deac9601f21c6b13fe431e3c86009b35a5a9f3cf58"
+    "sha256": "48927b2ea336f70a30a783854e07c06f163184741a8e0a3ff1a745e4c1189c77"
   },
   "rot15": {
     "file": "assets/icons/augments/rot15.svg",
@@ -51,9 +51,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "속도선이 붙은 빠른 공격",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "30b975e175be1c7bd75fafa253707b14321e39d472fa0927cb05376c5e89d1d8",
-    "sha256": "ac2fbbf6db1fca9f0fae6ade636bb7a49281c529c6d2923d1c6bd9e5e4d0b24f"
+    "sha256": "8ddec2f0252725d34af0510402a9e73d4c6cc808a4b9beb56309a856f1203182"
   },
   "move15": {
     "file": "assets/icons/augments/move15.svg",
@@ -65,9 +65,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "날개 달린 가벼운 발",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "fd13e5f82957375a79a5d59d32691fb98e04491079f79f614e60bddb541197ba",
-    "sha256": "27508ffaca1f6b6c4c90b5311d79eecb5567e00f52f4cb8ddd096fa4b5081ed0"
+    "sha256": "c6fe9c31500095c8fb0c3e51ff987adabdb98fb353f1eead098ddcf3aabe28c2"
   },
   "lifesteal": {
     "file": "assets/icons/augments/lifesteal.svg",
@@ -79,9 +79,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "상대에게서 끌어오는 생명력",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "74af60cc53b1870adcfbdb4d896f91fef782eb74a55228f57cedf994e93bb900",
-    "sha256": "8eb493045a36ccfabafc721b0c18d60dd82ce807e1e425eafef1292b25127f25"
+    "sha256": "2ac1cd8c323cff6e7b3361a16e3fb08e0f95272a2101b143c6e8b1163898b978"
   },
   "giant": {
     "file": "assets/icons/augments/giant.svg",
@@ -93,9 +93,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "바깥으로 커지는 크기",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "6f10ea4b21a75b453c3e53a326183e3d6ac707ce8a7cf1e4f1f9aeda81cb20c0",
-    "sha256": "40e7b6eece2df25c0d8209239b6ffd582efb26b5ee6d8aace747d8575aae9967"
+    "sha256": "ac03eb0a43139dfcee5a0a0f45a79c32512da4710378f6d40a1416bbb76a8230"
   },
   "tiny": {
     "file": "assets/icons/augments/tiny.svg",
@@ -107,9 +107,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "안쪽으로 줄어드는 크기",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "12e6596094cbd9c737138fb39a59229a0437c65edb46c9bbffbed65f570cdf15",
-    "sha256": "c3c83a34991c09c7f649e6e602e28acf81cd1646f3d833bd53af3bddc3075c33"
+    "sha256": "2f5ba7b4d0bf53cfcfb4b7bb4c8f14fa48f69ce1e07bd3ba56b68fbd220613bd"
   },
   "elastic": {
     "file": "assets/icons/augments/elastic.svg",
@@ -121,9 +121,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "탄성으로 진동하는 구체",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "c13ae94367c6345698adfe865ad45d9906d4d407015367394b48047897472bee",
-    "sha256": "d93f2314a2e5dda1b6b584bd433fa6659d1a0a27ee2307abb90bc5cc883e58d5"
+    "sha256": "32faad67fe4c0c482f39e230fbb697cffc40b9a9debc88cb3fd9729d297ebac0"
   },
   "warmup": {
     "file": "assets/icons/augments/warmup.svg",
@@ -135,9 +135,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "점점 달아오르는 불씨",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "98d8f67ef15252068cbdcd61e5a9e23d8d0d5d26f00a5f00157fb93a3615ccdf",
-    "sha256": "5cf7f2128b660f57d1405fdf11c828e2de8fa95b04d5dff75eda75b3ce330efd"
+    "sha256": "0d70dbf8406e9519b87c4b427e72fa813b1bdf57492a42d29812905bb80bb296"
   },
   "accelRot": {
     "file": "assets/icons/augments/accelRot.svg",
@@ -149,9 +149,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "시간에 따라 빨라지는 기계",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "f5382c0e215bb9a0e7a24ecf24d7d8d22a68aa2a7bc57c3abeb05c38cce279de",
-    "sha256": "7d3848931d3488cca81f4f0db6370e8f41f70ff40caabaccb08dc50e3c35e6f3"
+    "sha256": "1858d94f9736230174bd800ccf966852b63074c0c5e93ace467ab7275727760a"
   },
   "speedster": {
     "file": "assets/icons/augments/speedster.svg",
@@ -163,9 +163,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "속도를 올려 전력 질주",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "c402d64e4d75e53afa07087531990a0dcc6cbee59f81c7fd125030cc268567b2",
-    "sha256": "e2eb27cdd7d330e8b604622b400fc060d92a8d74f3a186d07ed5d0cca9f888bf"
+    "sha256": "64ec969b1e1d2e2a5cbbadd724693e65ba375376daf776644b2bface447ae8f5"
   },
   "meditate": {
     "file": "assets/icons/augments/meditate.svg",
@@ -177,9 +177,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "차분한 명상과 회복",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "b7d196aa0ede322e14f43ac3822ca0a8e2d670edfc27d19b138ff830c7ce9442",
-    "sha256": "3154962f5041676616456662d41ce46197c67e0b257c842911c776266f07845a"
+    "sha256": "7d2b405479668be5b2c9ba9cbd4a900aa0a032f3bdfa3bc0f4b6c82470c15b60"
   },
   "marathoner": {
     "file": "assets/icons/augments/marathoner.svg",
@@ -191,9 +191,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "긴 전투를 버티는 심장",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "c40f5c15e371093475f43e6bad7b38ebc533c2fd3cf43c59de90278b51229fb4",
-    "sha256": "f637406e52b377e37fed81ab4647f79cb7aceaff480110c2be50dabf9f928319"
+    "sha256": "75dfda9371c790d0d26dc75d7afde64df045d2e7e0a5be0248a24f5a28873ff6"
   },
   "rampage20": {
     "file": "assets/icons/augments/rampage20.svg",
@@ -205,9 +205,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "후반에 깨어나는 폭주",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "1805b5bfdfc390bec30940b05e28b554a30fea3d98394d1409cc592ca4a74068",
-    "sha256": "cdf56ad2deaa30be15a266e6e5fb717b454ab3f47c5c7852e5cbaf953e3346b7"
+    "sha256": "4af3585b163d72f643f835f19410e15bc3b88308dd139bc0c0121017791e4cf2"
   },
   "firstStrike": {
     "file": "assets/icons/augments/firstStrike.svg",
@@ -219,9 +219,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "번개처럼 먼저 내지르는 칼",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "21515f99d2d2dfb99d4d73e3c080b2c097e26e4378106eb9d94f91dbaeac016d",
-    "sha256": "3a43055e0c553a1a9beca9e6b6fcf15c5eab7097cb8219bcadce78917101bbb6"
+    "sha256": "8cfadcfa67b3d79ace4f81fb1fddc3e45dbf9965d770f3e5b982b1ce6105bb52"
   },
   "rocketStart": {
     "file": "assets/icons/augments/rocketStart.svg",
@@ -233,9 +233,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "fire",
     "reason": "전투 시작과 함께 분사하는 로켓",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "240c9dc9fb0785f0c7771fd05fbcf5f763c963cc27be8b2803775115f444412c",
-    "sha256": "d4334616dd5c8d24554fb693caae68a635dab9b4c99e9b1cf07d1bdb41f0440c"
+    "sha256": "9a0ee2405925b978053979b933dceb172551ddf3e1dd2b8f2365b5668fe9456c"
   },
   "ironDefense": {
     "file": "assets/icons/augments/ironDefense.svg",
@@ -247,9 +247,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "defense",
     "reason": "주변 공격을 막는 두꺼운 방패",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "847458e9df3f8710755b26ff6c672aca108f5dd1e914215fddd0dcecc1b043e1",
-    "sha256": "7b512df0527631ed638cbe8db8ed7b4e16b03679b4c5f1c8e36ddbff251c04b9"
+    "sha256": "a29b647387971d964bd1e858e9456d4d0c7be5be516913543a8011d9ba15f41d"
   },
   "berserker": {
     "file": "assets/icons/augments/berserker.svg",
@@ -261,9 +261,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "상처 속에서도 강해지는 전투 주먹",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "078d78d3ae49943b3d459f43bf686cfe240170a99c6a1969ff5bd947afcd04e8",
-    "sha256": "d0162abd4d619ddb4d6f13e93367ada38c74b8f7c9f7548ec55a2c91bfeb1303"
+    "sha256": "bbdfa44de56bb52d08bf24cd8071961d54399461cddba312d1ddbdb5bc17490d"
   },
   "escapeInstinct": {
     "file": "assets/icons/augments/escapeInstinct.svg",
@@ -275,9 +275,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "위기를 피해 빠르게 이탈",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "8b84cd59b209b4d44e0296b12ccf3f3850b2d2f065111dbd8824dff01b0edf48",
-    "sha256": "42a456241fe2df9ce7563735ea50b0cdefe9e4d1cd218f54aacee1e7d89dc4d7"
+    "sha256": "3ff3fa39077f14258e27df38e62094b13eab02ddb9c1abc59773a5ad989275b7"
   },
   "lastResistance": {
     "file": "assets/icons/augments/lastResistance.svg",
@@ -289,9 +289,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "마지막 생명을 유지하는 장치",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "40893377d4ea8909e5d4c4b0180a8ad5c84886643aa46b7fec2a4b88a1f76c89",
-    "sha256": "2f0bc01c6879616a772be20b2d43edb2c9417e63c332d2063c96184c5e9d1731"
+    "sha256": "19c3038c24db4ad6b27e9f3116a921df715fba7b730cd937819e6bc493b77d59"
   },
   "survivalInstinct": {
     "file": "assets/icons/augments/survivalInstinct.svg",
@@ -303,9 +303,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "위급할 때 발동하는 치유",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "048f6d215b07f0f47819cb3d6e57a8397899748a57294ea4cea4a9d936ef6ed6",
-    "sha256": "49d623a0250d879a559e166a899d738c8c73939241a30f6dc72ed5b5d9c584c1"
+    "sha256": "fba1d3348a767653f9bd51576afec74b3c60e37807f8254977b582f0abc54549"
   },
   "winMomentum": {
     "file": "assets/icons/augments/winMomentum.svg",
@@ -317,9 +317,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "승리의 월계관과 우승컵",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "3d9982536129893bbdd8b82bb4676415d0b5db8878105b90eff2a81d1295c0fe",
-    "sha256": "476ed152aaae1af2aad25c33753dc28cbed9930a1d5d7861f2fe03a262c84d2d"
+    "sha256": "bfe8b8f6218647b6b29f79e451228ea81519ad6dfd4c9499d85077f115196fd3"
   },
   "bloodRush": {
     "file": "assets/icons/augments/bloodRush.svg",
@@ -331,9 +331,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "연승의 기세를 이어가는 피빛 칼날",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "430f92df91565fde56a4c6d297cd2936bbd3967a40b8297d2ad62e578575a649",
-    "sha256": "c3a4363b15ef4b0587e5714b6e95e01214a1cef71064bdf0734e085b9f91e51e"
+    "sha256": "d1dd542aac16bcf1af3b99b25c60315cb8bb834c3ef478ba49cb8201cf890675"
   },
   "vengeance": {
     "file": "assets/icons/augments/vengeance.svg",
@@ -345,9 +345,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "패배의 상처를 공격으로 되돌림",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "c596d5939bd6d1ac8d054c440c19df5c2b8f2aabda85b902902c51929ce9589e",
-    "sha256": "ce6261c1ba52ca68ef4ec4a9f2aab52238a0cfa5fea41bbdcb168a96408b27f9"
+    "sha256": "2291519ec8d9dac7d6d6239b536716a25f03369ab520d3a0d02108b051033719"
   },
   "learnLoss": {
     "file": "assets/icons/augments/learnLoss.svg",
@@ -359,9 +359,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "패배를 딛고 보강하는 방어력",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "2f2e8a07fbc84dc39614f43aac3afb6f2d2a3595d6c91fa9ad21b046bbb56b5c",
-    "sha256": "05425b2e58c76f2abedf947062280256e1c8db81b69e14831fffbb3388fb56e9"
+    "sha256": "5176886e09a927f5ded7cb671353963c62a9a1e96bdb2b910f542b69d3cad552"
   },
   "survivor": {
     "file": "assets/icons/augments/survivor.svg",
@@ -373,9 +373,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "잘려도 다시 자라나는 생명",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "4838e2e4c429071f21481d5b5cdf16e1d4aab9bfd6268222e8546d47ee676a44",
-    "sha256": "86e752bdfc2bd6770b6dea80a2c7940d66a6026879a39897f7fe8f8f3b9852ee"
+    "sha256": "40ae515e42b0329b22f49df60f8e7b8af4307e086840830b43fca95e5a0f44ea"
   },
   "battleExp": {
     "file": "assets/icons/augments/battleExp.svg",
@@ -387,9 +387,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "전투 경험이 쌓이는 책",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "611606e8da1cc36a019028379ddeed14468690582947069308d7b1ce33d9905b",
-    "sha256": "971f3f7e63625fe8072943e61071ce934e8af6f1a52b4ed0214414e96577dde3"
+    "sha256": "7c85a265eed96de6332122429220d1ef54e7fcf449df6905672211012a401f2c"
   },
   "seasonedExp": {
     "file": "assets/icons/augments/seasonedExp.svg",
@@ -401,9 +401,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "라운드마다 쌓이는 노련함",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "ea7c3dd82a6e5397a2c558286565c7ddfbe8a9fc9fe82739be8eb6aca695b4e0",
-    "sha256": "69df715a79848d6b31390f1b2c57968c01f0671f94f9537b88aec21bee505969"
+    "sha256": "1c6603b0574445807d5b338422ca724fd4b575cebdd351b3fdaf97acbb8b763e"
   },
   "fallenPower": {
     "file": "assets/icons/augments/fallenPower.svg",
@@ -415,9 +415,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "코인을 잃은 강자의 왕관",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "355660a1397fe377e3689beae318e2ff9f31e149f2517c517271e235e70203a3",
-    "sha256": "e8b7664c96c8ef9617f0a627ca655df66bbe5934e5bac03042a40bee3db0142f"
+    "sha256": "58121a639c7f3bad5ff85d8963eb09d97d6e397df7169cb7344938b80ed2839b"
   },
   "brink": {
     "file": "assets/icons/augments/brink.svg",
@@ -429,9 +429,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "마지막 코인으로 버티는 벼랑 끝",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "d0416cf097bcc84a72547cfd71a26bf7fe7ef31c97f8244732624686693cdaf9",
-    "sha256": "6ef0da8e6480233925deb29b1298420017b29f924d8edfc1f6ba126a080f3148"
+    "sha256": "c40529fb4f9e2f062b0982960bf5051c6dfb12855e744429fb51486ef6512bab"
   },
   "trollCondition": {
     "file": "assets/icons/augments/trollCondition.svg",
@@ -443,9 +443,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "승패를 뒤집는 트롤의 조건",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "5c40515ef7e09611dcc07f036a4c50e0830a7dc3cdf0fc439387d4f4af2839df",
-    "sha256": "f531a3541879bc1007bfec31534f4b7cf6e827b2d42980979261371d74133eda"
+    "sha256": "e18a360cb502dd282b39876a03f702360435afc9f55644dfc0d515ae150e25dd"
   },
   "devilDeal": {
     "file": "assets/icons/augments/devilDeal.svg",
@@ -457,9 +457,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "힘의 대가를 요구하는 악마",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "3eb9729192e4dc693c63f29f7f7125573300a9d1fe457258e15cfde53d824a22",
-    "sha256": "e2e9a850edeac5817006c4fb4926edba44361f5b8069fd7aa8d12ce39e78d461"
+    "sha256": "93d3b7064f88246e2ee712c97cfb48c2b03dfae9f71ee91ddd1d26c0b22bc3d4"
   },
   "gamble": {
     "file": "assets/icons/augments/gamble.svg",
@@ -471,9 +471,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "utility",
     "reason": "승패에 거는 주사위",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "0cf7fce62271ee08ab6eb3a0c617b99e02ded95c9ab50860eeece066cf88704e",
-    "sha256": "ebeb46479a1a7379c3b82acc25d9d9ba4f6bd91da27bd1e61d1d76787291d635"
+    "sha256": "2419053e3f34dcb2a626d62fa2ae4781c0c366a549b95bc7ddc5abf1eaff6ab1"
   },
   "glass": {
     "file": "assets/icons/augments/glass.svg",
@@ -485,9 +485,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "날카롭지만 깨지기 쉬운 칼날",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "137e3855fae79abff5d77b4995308144acc38905dfc1250e2b50cc8e2db135a3",
-    "sha256": "517a193c90a1ff5c4b30499e28da9d915b6bf2254b317e1770438e35138a41de"
+    "sha256": "7d258e729599db8b0f4d2b12f4b8fb99a5f79ab556e70a88042c4056977d0736"
   },
   "brute": {
     "file": "assets/icons/augments/brute.svg",
@@ -499,9 +499,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "느리지만 강력한 근육",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "4eca1f030bb5d324caded6dc2d84cdaace4c5806fa59d191c4d2747d39aa117c",
-    "sha256": "984449da9fc8f56a020581f51a53d1f72d785262ac8d1ae2f6f9b631b87c2ecd"
+    "sha256": "82b2949be8732ced8e646e988d46b56161204d662e18bb4ea8497f8256804d41"
   },
   "bloodWeapon": {
     "file": "assets/icons/augments/bloodWeapon.svg",
@@ -513,9 +513,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "체력을 소모하는 피 묻은 검",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "62a03af18b240eb82bca3064df89bd2a243312db448936bbc1a16234de2cea6f",
-    "sha256": "48f78e7e29834fe7ecdeefc8ee7eab4ee1b31ffcdcd512072b3cf4b382a8c4f5"
+    "sha256": "679c221bf26b4de7289a1cfb55f159fb4855efdf83b30cf88e24f118b95ddf0d"
   },
   "reflectCharge": {
     "file": "assets/icons/augments/reflectCharge.svg",
@@ -527,9 +527,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "electric",
     "reason": "반사로 힘을 모으는 궤적",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "f642928136805eab3ee5620c5813226a618179a477e823971ee186394bab9921",
-    "sha256": "c4ee481987f3d071fbc85ce72791e879c3244c5f577c2578ee660ca292befc0b"
+    "sha256": "8667c2d660d5403b9c2285e1cc66a8218c10dde18fa3cf8f00ddf63e879b3145"
   },
   "wallClimb": {
     "file": "assets/icons/augments/wallClimb.svg",
@@ -541,9 +541,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "벽 접촉과 회복 십자",
-    "modifications": "Recolored; scaled; original heal badge added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; original heal badge added",
     "sourceSha256": "c02e61e3e8fb4bc10e0ffb62c08cd811e75c592f85b89c51b7d5dfe73fe622b6",
-    "sha256": "2fb19e9a185db10a3efddf9bf1acc98da8fbff24476bc79ba78051c80af05e11"
+    "sha256": "b7c41e4d79ea04fbeb6e67a22d43b9a4a0c45d96e1f32e31536c1234a44b2389"
   },
   "shockwave": {
     "file": "assets/icons/augments/shockwave.svg",
@@ -555,9 +555,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "충돌점에서 퍼지는 충격파",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "346e35354c7e6a867aeb266ae73e544fdb8990a0d98e40e19c3ee8e05e031c82",
-    "sha256": "48b6218644bf362ef7be8150e3df38883134c10c988f4e7a444b514a03b3e90a"
+    "sha256": "58852ce19d9bf964c8f7ee2a6f98672963aebacf45bf6373d21e87f4c7c8417d"
   },
   "collisionMania": {
     "file": "assets/icons/augments/collisionMania.svg",
@@ -569,9 +569,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "서로 강하게 부딪히는 공",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "1394186cf3cdaa283412596c6a67cddc883ff126093ce0032ab13051c6023e45",
-    "sha256": "f870f7937a6c23161805e533b5e565f841ae3753f6f9daaf37c6426818b2b42b"
+    "sha256": "4b816334cb30080c2d7dc10174873bc9e6f9067cb7f2c9fa1d1c489b87c6458e"
   },
   "staticShock": {
     "file": "assets/icons/augments/staticShock.svg",
@@ -583,9 +583,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "electric",
     "reason": "접촉 순간 발생하는 작은 방전",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "49d4a332e159add1382ec8b37bfa5865450ddea58565023f54f2dd57ca6fe127",
-    "sha256": "3a3ada12432ee8167fa2fb1e9b9e3e0040a0a60ab4bdc7e9ed907b3ee31d498f"
+    "sha256": "bde60f0e3b189ccf439a0cc02cc4e6ee938435f0fba7581ea3d44ed23df5aa1c"
   },
   "staticUp": {
     "file": "assets/icons/augments/staticUp.svg",
@@ -597,9 +597,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "electric",
     "reason": "굵고 강한 전기 방전",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "05af6c8b6e446638ec5c50915eaf1d844bd4a36327b21ebac9b95908f9726e07",
-    "sha256": "c25424f3bd9d2ba441d919e084d3ff0e85592d245d0b6da6cca58fb6a2c24252"
+    "sha256": "64236833e529fa177f4f5af8a1f7e1b7c42f2b72c1c2aa597a49334d9deee034"
   },
   "staticFast": {
     "file": "assets/icons/augments/staticFast.svg",
@@ -611,9 +611,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "electric",
     "reason": "속도가 붙은 번개",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "d0386b704a3aee9702df4448874a39de3ef8c0b4b4f49370a88b4742eb256c4c",
-    "sha256": "1c5dd8992f5fe391985e7637d664bc9f7a12925d23d450bb684119045b45e0b2"
+    "sha256": "8de650bcbb02bce8bbb55b07aff496ca505314832c6e8a34a9d32bd15d8b69f0"
   },
   "sleepGas": {
     "file": "assets/icons/augments/sleepGas.svg",
@@ -625,9 +625,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "가스에 잠드는 기절 상태",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "94d242afc344aaba7625a28591f0e9c84c54914c9ef71379e287e71b26cc08a5",
-    "sha256": "6ce7f7df91508c8a304695bd25cb7119a458bb2b1c1ba9ea4ccb8dbf1c91f64c"
+    "sha256": "f8c0303aa77f672b82e8e29c3ef13c5a22265eba5594760ed094e6ad07977183"
   },
   "frost": {
     "file": "assets/icons/augments/frost.svg",
@@ -639,9 +639,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "cold",
     "reason": "적중할 때 맺히는 얼음",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "dba52702fa31b624a1a796bfdd1fc916f0cfe5f35474dda10bd964ee6bb8b31c",
-    "sha256": "0c1c0f79180d3b145037740ac766732d7321d545284908f000556c777a496f21"
+    "sha256": "a8e3cecbca097d1436609ac732735fb9000fb6711c6b3ae6f1c1cffd60b5fe71"
   },
   "gravityWell": {
     "file": "assets/icons/augments/gravityWell.svg",
@@ -653,9 +653,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "중심으로 끌어당기는 힘",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "40e98071c69804af3dd6b2dc54c09abe41ed42c13f2db6232dd79a2f672be63b",
-    "sha256": "58c18377d72f9ad5d6c489b71e5ad599814bb7595c58957e33c0dc8b8bec76f9"
+    "sha256": "0a2b043c8fbcbe13dbdf28916d450c68f256a389f50bb66e806ac97bbf0faeab"
   },
   "missile": {
     "file": "assets/icons/augments/missile.svg",
@@ -667,9 +667,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "적을 향해 날아가는 유도탄",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "043b9ae8b08bab00283fb4331e591a5fdd1bdb002483e59ac10d1d8b0a5c049e",
-    "sha256": "f2c838894fd28f335cc3d3290d512a492956e6846c17f1c19436c1243256c603"
+    "sha256": "3a3fd656515aa17bb606db4707e67e198d8636a0c1eea83bf96f78e244b4653d"
   },
   "missilePlus": {
     "file": "assets/icons/augments/missilePlus.svg",
@@ -681,9 +681,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "여러 발로 늘어난 미사일",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "9408664a7086afcc9507a94ff500ca00ab6a15ae2d106be0a387b29f391c20d8",
-    "sha256": "5c294bbd45208eb659bc4426ef2dec68211bfe06a3b11d326c6826797bb12053"
+    "sha256": "742e0dcf8d5f57bbe1ee8482fb4aa745ac61221c45949aa92228f705b790d79c"
   },
   "missileUp": {
     "file": "assets/icons/augments/missileUp.svg",
@@ -695,9 +695,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "fire",
     "reason": "파열력이 커진 고폭 탄두",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "62c089e9d212a72e8c3633c8c59a58eb9d1ea57684bb9453a537902b4b0c23c7",
-    "sha256": "e6d0f5919f0f1b29eb57f6c56b0fd7241d7f8b046e8db0aba00e5f5faa065515"
+    "sha256": "d6316589158afa6a3f141f3ce031cf33ea2664573f549c119fa5830546ae8a8b"
   },
   "flame": {
     "file": "assets/icons/augments/flame.svg",
@@ -709,9 +709,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "fire",
     "reason": "이동 뒤에 남는 불꼬리",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "518d90b0e4a60a940fa81cec7b42c5ddf81b0ba62ce8792fa19afbbcbcbcae4d",
-    "sha256": "faeac1e0a667b5e8ab2bcccac0368159563d520c230c0956d9dc065aca65917c"
+    "sha256": "1f7fd0270633b740573fb49ac8763ba80b63789679c6678657c033fdeca5c389"
   },
   "flameUp": {
     "file": "assets/icons/augments/flameUp.svg",
@@ -723,9 +723,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "fire",
     "reason": "땅 위로 강하게 솟는 불길",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "7a57a2c01deeb5cf5ba3a7704a874a6a807541a1fbf21694fe308033c569e969",
-    "sha256": "f226887d192f3a6ed3ceec49ddc494f3c3fd4d1322c3d82f3125ccd74a751d71"
+    "sha256": "e94d1c119a95171f17789274710c85e96648730587a2dd4948ea305ce001cb61"
   },
   "flameDur": {
     "file": "assets/icons/augments/flameDur.svg",
@@ -737,9 +737,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "fire",
     "reason": "길게 번져 남아 있는 불꽃",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "f87dda6fd628985a44da5ebc4eac645a6a15416e4e92f8173a033663dd8c8595",
-    "sha256": "d4dfbe0eb7943b35c5edef538657083939d7fcf7eb3ffa3a8de9adedc38d7a8e"
+    "sha256": "a163a0f557588010e8289377c7769cd01b627bf69c353c4d6a19f52740b858eb"
   },
   "lightning": {
     "file": "assets/icons/augments/lightning.svg",
@@ -751,9 +751,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "electric",
     "reason": "구름에서 떨어지는 번개",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "0cab66bfaaefc4e0ff13c17441a630e93904de84902f71a3a2ae79f0f1e46c30",
-    "sha256": "4cda3ca3441f0826968efa604c0c540cf4b63ac0fd4ec9031afba8f6815597c2"
+    "sha256": "ffefa77b7737c514cdb2c57d3458d350ea480f4164692490cf60cba9b51c125b"
   },
   "chainBolt": {
     "file": "assets/icons/augments/chainBolt.svg",
@@ -765,9 +765,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "electric",
     "reason": "다음 대상으로 이어지는 번개",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "1f3b102550256aea178772b279ade22e3e4e2f2ddd3dbe518ced9b4b893c7154",
-    "sha256": "261cfc9a178b71a4f2fa0fa4bca860c2b6c72acc863fafd45dc0cfe361167b89"
+    "sha256": "5a18ef95dc03f4ef7026fed08783078ed21f5ab644d9cc5597d9d1fbcb67b34a"
   },
   "shuriken": {
     "file": "assets/icons/augments/shuriken.svg",
@@ -779,9 +779,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "defense",
     "reason": "기본 네 갈래 표창",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "8a80056442cb6edbfabfe707aea0d80b467bb03b05fa8c27efc47989887b592e",
-    "sha256": "e117ae4b6f691ffbd8082a340b6b4b8347a55db1ee77cfcf867fd29f8389a2d8"
+    "sha256": "ba956c370448cb1047b38fb7a452d49220cb644a84ca86e709c523dcaf292459"
   },
   "shurikenSpd": {
     "file": "assets/icons/augments/shurikenSpd.svg",
@@ -793,9 +793,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "속도선이 붙은 날아가는 표창",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "fc46f2026acd5318d66ded2a217793a132e82dc33fa6ca4e6735ce9d967ab44e",
-    "sha256": "041ab4980b5449545de09222a4c145e9aa64b3a7ef15d85216a97de20197e6ea"
+    "sha256": "5e3a02443f615dc59bcbc58eae93842a804539df167d8007913b2bbc02a8e9ef"
   },
   "shurikenUp": {
     "file": "assets/icons/augments/shurikenUp.svg",
@@ -807,9 +807,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "더 날카로워진 표창 날",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "10bc61dd91ac8f20c76f1e74950dd5fe46d1d626f12e8a8e8602ef8436ffd116",
-    "sha256": "9c7564b5970d38abb785401c5d9db277a4171a3d50545996f84f5bbdeb382ea9"
+    "sha256": "052c58455d5020f67cf22145d728f43f39331fefcef188f0db10f3bc2773049a"
   },
   "satellite": {
     "file": "assets/icons/augments/satellite.svg",
@@ -821,9 +821,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "중심 주변을 공전하는 구체",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "c9b4f935eef974f5a9f33a9d38f736e50c92d27b88f480ba970e024486ba72be",
-    "sha256": "c3d6a1de45fdd91a76cde6709399f2d5fa5b3c00a53afbbec2f85d4028d42865"
+    "sha256": "72f19d944499b525090f3c008628241e39dadaba5296f0f9467017b223d21684"
   },
   "satellitePlus": {
     "file": "assets/icons/augments/satellitePlus.svg",
@@ -835,9 +835,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "여러 위성체가 있는 궤도",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "1c6c647903b0c6a0f96e38248045d715579a1733db4806d27f7d11e05143e06c",
-    "sha256": "2c05b6317848b715d82a280e1608aee7496233a5b25b6d1c7f67b762f9e4f22b"
+    "sha256": "a3b25aceb88665c8c5359e6dbf7eb78a77c81e6a6e9270d538af7a12050a7c34"
   },
   "miniBall": {
     "file": "assets/icons/augments/miniBall.svg",
@@ -849,9 +849,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "작은 아군 구체",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "7c73b6c25f32b8f4241ff292e27feb386e26b591353f49698500e448de7500fe",
-    "sha256": "60b76d3ddbf9e4f60fac6b979b2aa6abcdc8a35560fbd9c0b78d7ea3f5b5571b"
+    "sha256": "ad5005f02cc0244ca5d62afa9482e4c8f08eba3f29578871a7c1d94f2ba2191e"
   },
   "twins": {
     "file": "assets/icons/augments/twins.svg",
@@ -863,9 +863,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "나란히 등장하는 두 꼬마볼",
-    "modifications": "Recolored; scaled; pair composition",
+    "modifications": "Casual color gradient; charcoal outline; scaled; pair composition",
     "sourceSha256": "7c73b6c25f32b8f4241ff292e27feb386e26b591353f49698500e448de7500fe",
-    "sha256": "a0c910856fee320c8234c6a81297ba0312cbad794dbdf85ea4f971b92cb7db78"
+    "sha256": "6d80e938f070263b5cc67e6283f20c83897ec7c7d88048df011d765611fc04bf"
   },
   "legion": {
     "file": "assets/icons/augments/legion.svg",
@@ -877,9 +877,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "강화된 공들의 군단",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "35d21e12f1f52df73a225a877d3ae244ce798435ac428c00dba9e8890824db68",
-    "sha256": "d9fe12e0f3af9834d6451a78a15c07b5aeba61a06cb639130e60c5b83a724266"
+    "sha256": "b5876ee8aabf7b830bf0f0281a99d1dbf54f5659603f3fa84d7a2a9bb678b1f3"
   },
   "minionRevenge": {
     "file": "assets/icons/augments/minionRevenge.svg",
@@ -891,9 +891,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "fire",
     "reason": "폭발하며 파열하는 소환 구체",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "ebbe2988bb35233c93e28bb6660b7898aa27dbcc3d10f9788b880cd4127ada8c",
-    "sha256": "c6008125e2346d82b934db1052ec75ab33f48ed8ac60e6dad64186b69b11d189"
+    "sha256": "9d9a5c82b14ed2d3f619dda54311e07f7330c081ba853c06d2f20360fc730b56"
   },
   "split": {
     "file": "assets/icons/augments/split.svg",
@@ -905,9 +905,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "갈라진 틈을 사이에 둔 똑같은 두 복제 공",
-    "modifications": "Recolored; scaled; split composition; original fracture mark added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; split composition; original fracture mark added",
     "sourceSha256": "7c73b6c25f32b8f4241ff292e27feb386e26b591353f49698500e448de7500fe",
-    "sha256": "3c6838ad9445317e4e130fb3e283c37e8e4f0881bfda146f6fc37d06920cc9da"
+    "sha256": "8166ecaca0f955cf5eeb4dc36ee06d4082c01838543f111eb2164405e9b355dc"
   },
   "lastStand": {
     "file": "assets/icons/augments/lastStand.svg",
@@ -919,9 +919,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "마지막으로 남은 3초",
-    "modifications": "Recolored; scaled; original three badge added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; original three badge added",
     "sourceSha256": "775ad3ed96331d4257c73c887f79a96b11357ce93444ef47b66f598e6eb4f4b5",
-    "sha256": "ad95fbe0cafed88fbad10a96b8dbc8c3685c698291276e7eb1346767d8e48055"
+    "sha256": "40e830452f170e4bd15c132dc8ac6334e39befd352b99748c3023839cf1fc8d6"
   },
   "warmonger": {
     "file": "assets/icons/augments/warmonger.svg",
@@ -933,9 +933,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "적중할수록 강해지는 무기",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "6c2938d97e1b1c15fd6b0a46455a19e3a9b40320cf92c6e6ac9428d4995644ff",
-    "sha256": "def557957a0953cf40284c4acff4acec3066c397c2faedb23e149db38a70628e"
+    "sha256": "eda3940601780ccd96e933597146b107d600acc5d1546368348b0580b3a9b4dc"
   },
   "rotMomentum": {
     "file": "assets/icons/augments/rotMomentum.svg",
@@ -947,9 +947,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "계속 빨라지는 연속 공격",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "9369398c68910f6a747fbfcd56ae813a2bffa1d73599d28887084914abbca860",
-    "sha256": "b8f8919b23c83b7dc715f2b9091507c1c2b1a0e9099d1a0c076d25392394e5a3"
+    "sha256": "5bc004eb9c7db53d57092a9b02ce85e2179547358aa2214d3e59e465d7a8519c"
   },
   "chase": {
     "file": "assets/icons/augments/chase.svg",
@@ -961,9 +961,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "목표를 향해 좁혀오는 추격",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "023dfa7538b9ec4b917f16aff1db620e146995d43ee8ff87974c81c9f8d09e33",
-    "sha256": "158892847ae9e7a86c4dc903b57746d0a02650b048c1c5a25df310bd4dc59307"
+    "sha256": "04e242983b0f8986af5c36d78e839e8475cff565337c38748342f4871cf643cb"
   },
   "vampiric": {
     "file": "assets/icons/augments/vampiric.svg",
@@ -975,9 +975,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "공격과 함께 회복하는 흡혈",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "dc5f11a43fc361f84531a8606b3aa5ad8920a5673f33dc9f84681eda05d1a10d",
-    "sha256": "1496dd0388819dbd29d6151a520197e162228782de38a8e9b4f258653f480c49"
+    "sha256": "9cd5d34d6eef63c9af405ecdd5d1d294a56601df2e41e0339d5e43c1ff5773d5"
   },
   "mark": {
     "file": "assets/icons/augments/mark.svg",
@@ -989,9 +989,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "같은 적에게 다섯 번 쌓는 표식",
-    "modifications": "Recolored; scaled; original five badge added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; original five badge added",
     "sourceSha256": "dcc4e1d99284bd416132856bb8e9775ff4a5c05689de63508ccab6fd87faedac",
-    "sha256": "6ea25ded5a9c7b0e9f9f9eb37eae87a2eb21fb7ba71740b4f9cc2da1913715de"
+    "sha256": "4985e31c215a30588e116efecd3fd792d4bbab9a1834ad4c2e238d7ef9fe8886"
   },
   "counter": {
     "file": "assets/icons/augments/counter.svg",
@@ -1003,9 +1003,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "상대 공격을 맞받아치는 칼",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "dd1342ef3051b294e45a33bb8458e28e0f1d28a8a5e97c4bb1ec394d04790766",
-    "sha256": "d5721b42990846db7bd3f0d35e7e311cca7085e48cb2d234acf735aaecc047cb"
+    "sha256": "7cac6cc1e03702cd37742439d78e003975b077dc007a18225bc73b54d18c80b4"
   },
   "hitCharge": {
     "file": "assets/icons/augments/hitCharge.svg",
@@ -1017,9 +1017,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "electric",
     "reason": "타격을 받으며 축적하는 힘",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "25e21988d979e8f1fd9426cdd78709e66a658782da55f25d175a8685292f0650",
-    "sha256": "3413983c8b2b7899b0b79f7693aafca1693047325376d41991775cd71ee17284"
+    "sha256": "57123be67f3252eca7d76391290bee9a8ba430716dd8f010be5b8458d49bbe92"
   },
   "autoExpert": {
     "file": "assets/icons/augments/autoExpert.svg",
@@ -1031,9 +1031,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "utility",
     "reason": "자동 장치와 짧아지는 주기",
-    "modifications": "Recolored; scaled; original clock badge added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; original clock badge added",
     "sourceSha256": "cb39d49ca14c2c46ea7d0dcc9ddccfa040293a0216940079bc9598e2ba0352d2",
-    "sha256": "985f2aa28c8c18e5d64370096a6b2132b4ba54fcd63f99f0639833d6e04ff8ce"
+    "sha256": "095fef35ef4c51167f14ea4c95396a86c0f4565cff05fe0d9cd7509e2fd939e6"
   },
   "speedPower": {
     "file": "assets/icons/augments/speedPower.svg",
@@ -1045,9 +1045,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "속도를 피해로 바꾸는 날개",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "8aa3e407d66e85ca9e6a3447cee9f08648e393b304c6f0d892802f3ebe47b9cb",
-    "sha256": "40f7606ef11200f0b974fc545b8ce55567c509aea74a07d045654897d1e00d8d"
+    "sha256": "07f4dc861d761b66c8be52ef4efa1ed36708e0822e2ff3825242d9bd3b496421"
   },
   "w_giant": {
     "file": "assets/icons/augments/w_giant.svg",
@@ -1059,9 +1059,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "넓고 두꺼운 대검 날",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "cdc7e9388edc4e626bbbc904ba76aaf013ad329cc9e6c38ec762240a35d82cfc",
-    "sha256": "831c5ef386075365950c5bed4df69dd7636d99d8c25645043c508a5e244db178"
+    "sha256": "0da6f159cb62de7cc224aab97446af7cb31c69c3b972febb49ccec482e11504b"
   },
   "w_beam": {
     "file": "assets/icons/augments/w_beam.svg",
@@ -1073,9 +1073,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "검에서 뻗어나가는 넓은 칼날 파동",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "cd4ea817cf4e4f9dd95fd30983951b0157795d832e5139cc28dfaca20c44beea",
-    "sha256": "191496db2b79924afc0ee712dfa08a362f2776dbd3ffa48405b5c9d84507e8d4"
+    "sha256": "2d1a15e40178f221b56707d58cf3e5241392b04dd0b3b58fe8841afd58a05cbe"
   },
   "desperateSpin": {
     "file": "assets/icons/augments/desperateSpin.svg",
@@ -1087,9 +1087,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "필사적으로 회전하는 검",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "1625677acc4989b59d66bf2d9ec6e5b6b5c9fce73e334fd14a17c6c12e38fad0",
-    "sha256": "17ca9da92e8b094ccfb958dd5f436fedc5a51a9e089fcfcfcb91ed501b1b33f5"
+    "sha256": "9e1dc0f1a0dddd1cd29c322f7677ebdc2c26ccc37f51a4013bc5d614ad06cb47"
   },
   "d_dual": {
     "file": "assets/icons/augments/d_dual.svg",
@@ -1101,9 +1101,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "양손에 든 두 칼날",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "89f5e94a664f13c2784268ac1c5012df7d7d3b6e2a1a6bcfc509afe4057b41f5",
-    "sha256": "5030edb237f6f3da0fceb70cd2ed93d4801c84e3f26d4c9492b5fd8d2667f544"
+    "sha256": "89f2e7348fcd23aa517f2599609b518559a893c231b08f959426dc0798bea10e"
   },
   "d_phase": {
     "file": "assets/icons/augments/d_phase.svg",
@@ -1115,9 +1115,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "공격을 통과시키는 유체 상태",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "1bffadcbcb0ea4686547783af6adfa55f25d2a4cdc784536b4cd8872907e7576",
-    "sha256": "1fa23787696792c9e44b84496bffe25ae9bee93aab0691faf8cfe687f8c9bd7e"
+    "sha256": "1118000bdad599a8e2b17da34826d200468f7e900d71ae5d12435148c5147d44"
   },
   "d_bleed": {
     "file": "assets/icons/augments/d_bleed.svg",
@@ -1129,9 +1129,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "curse",
     "reason": "시간에 따라 피가 흐르는 상처",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "2d2203ec5284018f8e583a4bb8342fd63a4ae4de195c91de42f69f52e444d2a8",
-    "sha256": "2e4f8cbe558d2edacad780cd03d21ffa2fbdbb6387ce062b59ee3fc5c966731a"
+    "sha256": "1b72da57c93ecdc26c8140c8e5951a7f6e2b10771094822f5e29fdd5bbc76dea"
   },
   "b_triple": {
     "file": "assets/icons/augments/b_triple.svg",
@@ -1143,9 +1143,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "세 방향으로 펼쳐지는 정확히 세 개의 화살",
-    "modifications": "Recolored; scaled; triple composition",
+    "modifications": "Casual color gradient; charcoal outline; scaled; triple composition",
     "sourceSha256": "f215ba6a6903b67b349bff46815123e2788b2333a7d96aeacae8d9697d8bab87",
-    "sha256": "0ba79135edb7bd1dfabc9ff60c50e377ee22ceb92f13c0042f74ab03038ffe44"
+    "sha256": "acdc38ad65721f91ec442c1cc009e0eb7419242bd0edf936104a8086a17aa6ee"
   },
   "b_homing": {
     "file": "assets/icons/augments/b_homing.svg",
@@ -1157,9 +1157,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "speed",
     "reason": "목표를 향해 휘어지는 화살",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "93f70fcd03f02ebe37f858040b1af4017573cdfe88b22bd7ab1ca3974ac3f639",
-    "sha256": "95cfc0984e7d26f1d57da2e9e7ae7432d52326f1d42c3c0837d710d0903c2dd7"
+    "sha256": "bea962ff46f135ff1fd081584e6a007356afc34b8d26b07602fa69b9916f91b8"
   },
   "b_kb": {
     "file": "assets/icons/augments/b_kb.svg",
@@ -1171,9 +1171,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "defense",
     "reason": "상대를 밀어내는 화살 충돌",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "ac5190afb0390e07056727b7e82a2b2353820428a21253721b4d86acb0b19202",
-    "sha256": "fe6a8754e58d4afabdc7c0cf8d5a40d0c19492c61414ddd61148ad76583ea54d"
+    "sha256": "78501f73fd34ea0e89194e8001853058460842d4a76d83739937ceb6f0988c64"
   },
   "p_shotgun": {
     "file": "assets/icons/augments/p_shotgun.svg",
@@ -1185,9 +1185,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "산탄을 발사하는 샷건",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "f4b1c44330558b737fa57b212f6d4258ffcc93439022e364b3c0b1b27dd5ffe5",
-    "sha256": "c286a9ffe2270291b8a0fad534f5041b378b4004b4d5b830844fd7ca86514073"
+    "sha256": "dcd0d5fde3fa1e01dc77505214c72a3bfc6ccf2eec9147613b3e2b652c4704f9"
   },
   "p_mag": {
     "file": "assets/icons/augments/p_mag.svg",
@@ -1199,9 +1199,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "utility",
     "reason": "탄환이 많이 든 탄창",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "2ae3d442d10841e0bc21a839463eb189d6a007b4fe5aa69c1e783899a7e1b6a8",
-    "sha256": "ad95a9fc6c41d2ce3adc97ff84a78d20bc3c3d623d158a4eb26072dd9c7dc3e5"
+    "sha256": "98fa432b66087179a2feec1e8199ba8979ebe4ba9591e5592c88f78e3707b50c"
   },
   "p_bayonet": {
     "file": "assets/icons/augments/p_bayonet.svg",
@@ -1213,9 +1213,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "총에 붙은 근접 칼날",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "50091036169bef25fa32b52e1d022bb3316cc085adb9ed786f8d56d4441f0fe7",
-    "sha256": "ab3dff45afa50732867c5b765d569157033cd5ccc06ea9fe7f96dc6c30169e33"
+    "sha256": "8b212701780fa565c198f4c122ea1f907ffc96d14f49b5d80c81c5f0b8369f15"
   },
   "s_double": {
     "file": "assets/icons/augments/s_double.svg",
@@ -1227,9 +1227,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "양옆으로 갈라지는 두 마법탄",
-    "modifications": "Recolored; scaled; pair composition",
+    "modifications": "Casual color gradient; charcoal outline; scaled; pair composition",
     "sourceSha256": "67c803ffee16e1f3630594a3087ac4e86222cfb0ae26609135cf534b469fdca5",
-    "sha256": "33710a2dace6438a98b7a350cbf0947d03a416dfa8280e2deefed8a12bec57c7"
+    "sha256": "185b6513f9f82dc4ec170cca2eacdf1cc8e9c803a24a5daf0b13be77bfa664af"
   },
   "s_steal": {
     "file": "assets/icons/augments/s_steal.svg",
@@ -1241,9 +1241,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "무기를 빼앗는 손",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "dc99a5ab95c80af38109760985be139d4f988e7031a2550b6b0ae864f554148e",
-    "sha256": "c81dae749461f656d6ca931ed4390408a8d035afa15dea606da5db6e15d479b6"
+    "sha256": "b28d336c13113c131beff14ddf1878b1623cbc9a5ad032ae7d4e5d2ea407e6e0"
   },
   "s_bounce": {
     "file": "assets/icons/augments/s_bounce.svg",
@@ -1255,9 +1255,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "magic",
     "reason": "반사 궤적과 추가 반사",
-    "modifications": "Recolored; scaled; original two badge added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; original two badge added",
     "sourceSha256": "c99e4b6edc105da22bca8dda44dc0349ef104b44341c06de97844025445b886c",
-    "sha256": "0e8f31838842f3607d0598d80268583c9d033c03a33c660aa3c4e32762ed71c2"
+    "sha256": "ae69b5a2920aed9e0e96838fd92a586639f1a2b64c65eb845e4438751e05dc3e"
   },
   "m_big": {
     "file": "assets/icons/augments/m_big.svg",
@@ -1269,9 +1269,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "attack",
     "reason": "범위가 커진 원반 지뢰",
-    "modifications": "Recolored; scaled",
+    "modifications": "Casual color gradient; charcoal outline; scaled",
     "sourceSha256": "b6e157ae69a0cb43721378465efe6240671cec9c05901288c16b61b2af95f65e",
-    "sha256": "c4439e2f6cd4e089db2f0a4e2f1bfb3ea6ea9addde678df0be6b9aee6d4a9534"
+    "sha256": "c62edfc783ab848380b671abba739e5fbc0fb5af8bf42fd4467e351512278251"
   },
   "m_heal": {
     "file": "assets/icons/augments/m_heal.svg",
@@ -1283,9 +1283,9 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "health",
     "reason": "지뢰와 회복 십자",
-    "modifications": "Recolored; scaled; original heal badge added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; original heal badge added",
     "sourceSha256": "b6e157ae69a0cb43721378465efe6240671cec9c05901288c16b61b2af95f65e",
-    "sha256": "360bb55365245618a653da6405cc3cf07f1cd5c90b49bfc090edd7e8a48a4668"
+    "sha256": "760f264c37fd0d570d0724dd205f136e893ef6d023e9ea67e4fb8be3db7fcd79"
   },
   "m_freeze": {
     "file": "assets/icons/augments/m_freeze.svg",
@@ -1297,8 +1297,8 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
     "tone": "cold",
     "reason": "지뢰와 빙결 결정",
-    "modifications": "Recolored; scaled; original snow badge added",
+    "modifications": "Casual color gradient; charcoal outline; scaled; original snow badge added",
     "sourceSha256": "b6e157ae69a0cb43721378465efe6240671cec9c05901288c16b61b2af95f65e",
-    "sha256": "315c15ed21e25e5375a7e8b1c1595c36b935c61fceee33cd616a9fdb5e7d1905"
+    "sha256": "cce5fd1be6da69499a6788d33ee6a5a803ce39760d11ae0ceb1c5d3b069d46fa"
   }
 }

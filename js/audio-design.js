@@ -1,113 +1,190 @@
 'use strict';
-/* Sound direction, separate from playback. Original textures are deliberately
- * protected. Foley is edited CC0 material, not a claim of recording it ourselves.
- * Time paths are fractions of one layer's duration; levels are linear gain. */
+/* Casual arena mix: short material attacks, buoyant characters, friendly UI.
+ * The approved sword/shuriken/missile air textures remain exact. New WAVs are
+ * authored offline edits of credited CC0 material, not new field recordings. */
 (function(root) {
   const T=(f,to,dur,gain,wave='sine',delay=0,attack=.003)=>({kind:'tone',f,to,dur,gain,wave,delay,attack});
-  const N=(f,to,dur,gain,q=.8,delay=0,attack=.008,filter='bandpass')=>({kind:'noise',f,to,dur,gain,q,delay,attack,filter});
+  const N=(f,to,dur,gain,q=.8,delay=0,attack=.004,filter='bandpass')=>({kind:'noise',f,to,dur,gain,q,delay,attack,filter});
   const S=(name,dur,gain,fallback,delay=0)=>({kind:'sample',name,dur,gain,fallback,delay,flat:true});
   const D={};
-  function set(id,signature,description,layers,restored=false) { D[id]={signature,description,layers,restored,variation:0}; }
-  // Match the approved 878ceab sweep, Q, attack and duration. No electronic
-  // sine impact is superimposed on these approved blade/projectile textures.
+  function set(id,signature,description,layers,retained=false) {
+    D[id]={signature,description,layers,restored:retained,revised:!retained,variation:0,
+      source:retained?'승인된 칼날·바람 재질 유지':layers.some(l=>l.kind==='sample')?'캐주얼 폴리 편집':'캐주얼 물성 합성'};
+  }
   const swish=(f0,f1,q,vol,dur,attack,delay=0)=>({...N(f0,f1,dur,vol*(q>=4?5:3.2)/.72,q,delay,attack),noiseRateVariation:.08});
   const whoosh=(pitch,vol,dur,delay=0)=>({...N(420*pitch,700*pitch,dur,vol*6/.72,5.5,delay,dur*.2),filterPath:[[0,420*pitch],[.65,2400*pitch],[1,700*pitch]],noiseRateVariation:.1});
-  const oldTone=(f,dur,wave,vol,to=f,delay=0)=>({...T(f,to,dur,vol/.72,wave,delay),attack:0,floor:.001/.72});
   const sword=()=>swish(1900,500,2.3,.12,.25,.012);
   const dagger=()=>swish(2700,1250,4.5,.075,.085,.01);
-  set('weapon.sword.hit','스겅 — 넓고 묵직한 칼날','마음에 들었던 원래 검 소리. 금속 마찰 같은 거친 칼바람을 그대로 되살렸습니다.',[sword()],true);
-  set('weapon.dagger.hit','샥 — 짧고 날카로운 칼날','원래 단검의 짧고 좁은 베기음을 보존했습니다.',[dagger()],true);
-  set('weapon.bow.fire','기존 활 발사음','직접 골라 두었던 활 샘플을 추가 전자음 없이 재생합니다.',[S('bow',.28,.5/.72,whoosh(1.2,.08,.14))],true);
-  set('weapon.pistol.fire','기존 권총 발사음','직접 골라 두었던 권총 샘플을 보존합니다.',[S('pistol',.08,.4/.72,whoosh(1.5,.05,.08))],true);
-  set('weapon.shotgun.fire','기존 산탄 발사음','직접 골라 두었던 산탄 샘플을 보존합니다.',[S('shotgun',.15,.55/.72,whoosh(.7,.11,.2))],true);
-  for(const id of ['weapon.bow.fire','weapon.pistol.fire','weapon.shotgun.fire']) D[id].variation=.06;
-  set('weapon.staff.fire','지이잉 — 낮게 떨리는 마력','원래 지팡이의 두 톱니파가 만드는 낮고 거친 맥놀이를 복원했습니다.',[1,1.012].map(m=>({...T(128*m,128*m*.82,.3,.042/.72,'sawtooth',0,.03),filter:{type:'lowpass',f:900,to:320,q:1.2}})),true);
-  set('weapon.mine.place','착, 철칵 — 접지와 잠금','낮은 바닥 접촉 뒤 금속 잠금쇠가 두 번 맞물립니다.',[
-    S('actionMine',.34,.47,N(1700,650,.075,.18,.8)),
-  ]);
-  set('augment.shuriken','휘릭 — 가볍게 스치는 표창','원래 표창의 올라갔다 내려오는 휘릭 소리입니다. 금속 전자음을 덧씌우지 않았습니다.',[whoosh(1.55,.075,.12)],true);
-  set('augment.missile','후우릭 — 낮고 긴 미사일','원래 유도미사일의 낮고 묵직한 휘릭거림을 복원했습니다.',[whoosh(.7,.1,.26)],true);
-  set('augment.beam','쉬익 — 베어 날리는 검기','원래 검기의 공기를 가르는 소리를 복원했습니다.',[whoosh(1,.1,.18)],true);
-  set('battle.bounce','통 — 짧은 벽 반사','원래 벽 반사음을 보존해 전투의 칼바람을 가리지 않습니다.',[oldTone(130,.05,'sine',.07)],true);
-  set('battle.hit','작은 타격 피드백','베기음을 덮지 않도록 원래 타격음의 짧은 질감을 낮게 유지합니다.',[oldTone(215,.06,'square',.045)],true);
-  set('battle.explosion','부웅 — 원래 폭발 피드백','기본 폭발음은 원래의 짧은 저음을 보존합니다.',[oldTone(90,.3,'sawtooth',.16,35)],true);
-  set('skill.activate','원래 스킬 활성화음','기존 공통 스킬 신호입니다.',[oldTone(420,.16,'sine',.11,680)],true);
-  set('ui.click','원래 메뉴 클릭','기존 메뉴 버튼의 작은 선택음입니다.',[oldTone(700,.06,'triangle',.1)],true);
-  set('ui.countdown','원래 준비 신호','기존 준비 카운트다운의 선택음입니다.',[oldTone(700,.06,'triangle',.1)],true);
-  set('ui.coin','띵딩 — 원래 코인 소리','원래 코인의 두 음을 보존했습니다.',[oldTone(880,.08,'triangle',.1),oldTone(1320,.1,'triangle',.08,1320,.07)],true);
-  set('ui.win','원래 승리 멜로디','기존 승리 멜로디와 리듬을 보존했습니다.',[523,659,784,1046].map((f,i)=>oldTone(f,.16,'triangle',.12,f,i*.12)),true);
-  set('ui.lose','원래 패배 멜로디','기존 패배 멜로디와 리듬을 보존했습니다.',[400,330,262].map((f,i)=>oldTone(f,.2,'sawtooth',.08,f,i*.14)),true);
-  set('ui.fight','원래 전투 시작 신호','기존 시작 신호를 보존했습니다.',[oldTone(540,.05,'triangle',.05,400)],true);
+  const click=(f,g,at=0)=>({...N(f,f*.7,.023,g,1.1,at,.001),gainPath:[[0,0],[.04,g],[.22,g*.28],[1,0]]});
+  const elastic=(f,dur,g,at=0)=>({...T(f,f*.57,dur,g,'sine',at,.001),freqPath:[[0,f*1.5],[.10,f*.72],[.23,f],[.48,f*.64],[1,f*.57]]});
+  const bell=(f,dur,g,at=0)=>T(f,f*.997,dur,g,'sine',at,.001);
+  const reed=(f,dur,g,at=0)=>({...T(f,f,dur,g,'triangle',at,.004),filter:{type:'lowpass',f:f*4,to:f*2,q:.7}});
+  const wood=(f,g,at=0)=>({...T(f,f*.85,.065,g,'triangle',at,.001),filter:{type:'bandpass',f:f*2.4,to:f*1.8,q:1.4}});
+  const crack=(at=0,g=.14)=>N(5200,1600,.026,g,.6,at,.001,'highpass');
 
-  // Offline-edited recordings + excited string/material modes. These are
-  // authored sound effects, not unmodified field recordings (or claimed as such).
-  set('skill.bow.charge','그그긱… 끼리릭 — 줄을 팽팽하게','줄이 마찰하며 당겨지고, 장력이 커질수록 잘게 떨리는 소리가 조여듭니다.',[
-    S('actionDraw',1.68,.36,{...N(1150,2300,1.68,.18,2.8,0,.045),gainPath:[[0,.0001],[.1,.06],[.28,.16],[.36,.035],[.60,.20],[.69,.08],[.84,.18],[1,.0001]]}),
+  // Protected signatures: one material layer, never buried under an extra ding.
+  set('weapon.sword.hit','스겅! · 묵직한 칼날','익숙한 검의 거친 금속 마찰과 넓은 칼바람을 그대로 유지합니다.',[sword()],true);
+  set('weapon.dagger.hit','샥! · 재빠른 칼끝','짧고 좁게 스치는 단검의 기존 칼날 질감을 유지합니다.',[dagger()],true);
+  set('augment.shuriken','휘릭! · 작은 회전','올라갔다 내려오는 표창의 짧은 휘릭 소리를 유지합니다.',[whoosh(1.55,.075,.12)],true);
+  set('augment.missile','후우릭! · 길게 추적','표창보다 낮고 길게 도는 미사일의 익숙한 바람을 유지합니다.',[whoosh(.7,.1,.26)],true);
+  set('augment.beam','쉬익! · 날아가는 검기','검기의 날카로운 바람 재질을 유지해 칼날과 자연스럽게 이어집니다.',[whoosh(1,.1,.18)],true);
+
+  set('weapon.bow.fire','툭, 슉! · 가벼운 화살','기존 활 발사의 짧은 접촉음을 보존해 강한 차지 샷과 대비시켰습니다.',[S('bow',.28,.5/.72,whoosh(1.2,.08,.14))]);
+  set('weapon.pistol.fire','팍, 찰칵! · 또렷한 한 발','짧은 약실 파열과 가벼운 장전기 복귀음으로 연사를 또렷하게 만듭니다.',[S('casualPistol',.11,.57,N(3400,850,.075,.22,.9,0,.001,'lowpass'))]);
+  set('weapon.shotgun.fire','퍼팍! · 넓은 산탄','권총보다 넓은 파열과 나무통 같은 속 빈 울림이 짧게 터집니다.',[S('casualShotgun',.24,.64,N(2700,460,.20,.28,.8,0,.002,'lowpass'))]);
+  for(const id of ['weapon.bow.fire','weapon.pistol.fire','weapon.shotgun.fire']) D[id].variation=.04;
+  set('weapon.pistol.reload','차칵, 철컥 · 탄창 교체','긴 마찰을 줄이고 금속 걸쇠 두 동작을 가볍고 또렷하게 들려줍니다.',[
+    {...S('mechanism',.89,.26,N(2800,1300,.10,.11,2.8)),offset:.04,trim:.17,rate:1.35},
+    {...S('mechanism',.89,.30,N(3500,1700,.07,.12,3)),offset:.46,trim:.10,rate:1.5,delay:.19},
   ]);
-  set('skill.bow.release','트윙—피슝! 튕긴 시위와 화살','시위가 짧게 튕기며 떨리고, 가늘고 빠른 화살 바람이 앞으로 빠져나갑니다.',[
-    S('actionRelease',.58,.70,whoosh(1.15,.11,.38)),
+  set('weapon.staff.fire','뾰옹 · 둥근 마법탄','속이 빈 마법 방울이 튀어나오며 낮고 부드러운 공명을 남깁니다.',[
+    {...T(420,175,.21,.064,'triangle',0,.003),freqPath:[[0,310],[.08,510],[.28,300],[1,175]],filter:{type:'lowpass',f:1800,to:540,q:1}},
+    bell(1050,.13,.018,.014),N(2300,1000,.06,.045,2),
   ]);
-  set('skill.dagger.prepare','찰칵, 스르릉 — 날을 당김','실제 칼날과 칼집이 마찰하는 소리입니다. 낮은 타격음 대신 금속의 긁힘이 먼저 들립니다.',[
-    {...S('bladeScrape',.47,.30,swish(3400,1200,4,.055,.32,.015)),alternates:['bladeScrapeAlt']}
+  set('weapon.mine.place','톡, 딸칵 · 지뢰 준비','작은 케이스가 놓인 뒤 두 잠금쇠가 맞물리는 짧고 장난감 같은 기계음입니다.',[S('casualMine',.23,.52,N(1900,900,.085,.18,1.2))]);
+  set('weapon.mine.explode','파팡! · 지면 폭발','바닥에서 터지는 짧은 파열과 둥근 공기 충격으로 무게를 표현합니다.',[
+    crack(0,.16),N(2300,420,.23,.26,.75,0,.002,'lowpass'),
+    {...T(165,62,.24,.12,'triangle'),filter:{type:'lowpass',f:780,to:240,q:.7}},
+    click(2200,.035,.075),
   ]);
-  set('skill.dagger.dash','쐐액! 빠르게 스치는 칼끝','짧게 치솟는 바람 사이로 날카로운 칼끝이 스쳐 지나갑니다.',[
-    S('actionDash',.38,.50,swish(5100,700,2.8,.11,.35,.015)),
+
+  set('skill.bow.charge','기리릭… · 시위 당기기','두 번 당기는 줄 마찰과 마지막 팽팽한 떨림을 밝고 짧게 편집했습니다.',[
+    S('casualDraw',1.22,.43,{...N(1300,2900,1.22,.16,2.5,0,.02),gainPath:[[0,0],[.12,.1],[.34,.16],[.41,.045],[.67,.18],[.88,.14],[1,0]]}),
   ]);
-  set('skill.sword.spin','후와악—후와악 — 이어지는 회전','두 바퀴의 칼바람이 끊기지 않고 이어집니다. 검이 가까이 지날 때마다 날 소리가 두드러집니다.',[
-    S('actionSpin',1.04,.40,{...N(950,650,1.04,.20,1.8),filterPath:[[0,950],[.14,3600],[.45,700],[.62,3600],[1,500]],gainPath:[[0,.0001],[.12,.24],[.42,.035],[.61,.24],[1,.0001]]}),
+  set('skill.bow.release','트윙—피슝! · 차지 발사','실제 시위 접촉을 바탕으로 탄력 있는 줄 배음과 빠른 화살 바람을 더했습니다.',[S('casualRelease',.37,.78,whoosh(1.15,.12,.32))]);
+  set('skill.dagger.prepare','찰칵—스릉 · 돌진 준비','금속 칼집에서 날을 꺼내는 마찰을 짧게 압축해 출발을 예고합니다.',[
+    {...S('bladeScrape',.47,.32,swish(3400,1200,4,.055,.27,.012)),rate:1.35,trim:.40,alternates:['bladeScrapeAlt']},
   ]);
-  set('weapon.pistol.reload','철컥…차칵 — 장전 장치','실제 금속 기구의 잠금과 작동음을 잘라 재장전의 두 동작으로 구성했습니다.',[
-    S('mechanism',.89,.34,N(3100,800,.12,.16,3)),
-    {...N(2900,1400,.035,.11,5,.16,.001),gainPath:[[0,.11],[.2,.04],[1,.0001]]}
+  set('skill.dagger.dash','쐐액! · 관통 돌진','거친 칼끝이 빠르게 지나가는 밝은 바람. 폭발음 없이도 속도가 들립니다.',[S('casualDash',.28,.66,swish(5100,700,2.8,.11,.28,.008))]);
+  set('skill.sword.spin','스겅—스겅! · 두 바퀴','승인된 검의 칼날 질감을 두 번 크게 휘둘러 회전 동작을 강조합니다.',[
+    sword(),{...sword(),delay:.5},N(1200,620,.70,.035,1.2,.12,.04),
   ]);
-  set('skill.pistol.barrage','철칵, 드드드! — 회전 연사','잠금쇠가 풀린 뒤 짧고 단단한 총성이 이어집니다. 미리듣기에는 1.5초 기본 연사도 함께 들립니다.',[
-    S('actionBarrageStart',.24,.40,N(2800,800,.1,.16,2)),
+  set('skill.pistol.barrage','차칵! · 회전 난사','짧은 금속 걸쇠가 풀립니다. 실제 총성은 각 탄환 발사에 맞춰 재생됩니다.',[
+    {...S('actionBarrageStart',.24,.34,N(2900,1400,.09,.16,1.8)),rate:1.2,trim:.24},
   ]);
   D['skill.pistol.barrage'].name='권총 · 회전 난사';
   D['skill.pistol.barrage'].previewLayers=[...D['skill.pistol.barrage'].layers,
-    S('actionBarragePreview',1.58,.64,{...N(2400,1200,1.58,.1,2),gainPath:[[0,.15],[.06,.001],[.08,.15],[.14,.001],[.16,.15],[.22,.001],[.24,.15],[.30,.001],[.32,.15],[.38,.001],[.40,.15],[.46,.001],[.48,.15],[.54,.001],[.56,.15],[.62,.001],[.64,.15],[.7,.001],[.72,.15],[.78,.001],[.8,.15],[.86,.001],[.88,.15],[.94,.001],[1,.0001]]}),
+    S('casualBarragePreview',1.56,.59,{...N(3000,1200,1.56,.13,1.4),gainPath:[[0,.15],[.06,0],[.08,.15],[.14,0],[.16,.15],[.22,0],[.24,.15],[.30,0],[.32,.15],[.38,0],[.40,.15],[.46,0],[.48,.15],[.54,0],[.56,.15],[.62,0],[.64,.15],[.70,0],[.72,.15],[.78,0],[.80,.15],[.86,0],[.88,.15],[.94,0],[1,0]]}),
   ];
-  set('weapon.pistol.barrage-shot','팍, 차칵 — 짧은 연사탄','회전 난사 중 실제 탄환을 발사한 순간마다 재생되는 짧은 총성입니다.',[
-    S('actionBarrageShot',.125,.448,N(3800,750,.095,.20,.7,0,.001,'lowpass')),
+  set('weapon.pistol.barrage-shot','팍! · 난사 중 한 발','회전 난사의 실제 발사 순간에만 재생하는 짧고 마른 격발음입니다.',[S('casualPistol',.11,.49,N(3400,850,.075,.20,.9,0,.001,'lowpass'))]);
+  set('skill.staff.overload','포로롱—뾰앙 · 마력 팽창','마법 방울이 세 단계로 부풀어 오르며 부드러운 유리 공명이 펼쳐집니다.',[
+    elastic(260,.20,.064),elastic(390,.23,.056,.09),elastic(520,.32,.046,.19),
+    bell(1568,.39,.024,.22),bell(2352,.29,.009,.27),
+  ]);
+  set('skill.mine.remote','삑, 삑! · 원격 신호','짧은 두 신호와 기계 클릭으로 폭파 예약을 알립니다. 실제 폭발은 지뢰가 터질 때 들립니다.',[
+    {...T(1420,1420,.042,.036,'square'),filter:{type:'lowpass',f:2600,to:2400,q:.7}},
+    {...T(1900,1900,.045,.030,'square',.08),filter:{type:'lowpass',f:3500,to:3000,q:.7}},click(2700,.10,.16),
   ]);
 
-  // Material / rhythm families, rather than the same pitch sweep on every cue.
-  const crack=(delay,gain=.19)=>({...N(6000,2200,.025,gain,.5,delay,.001,'highpass'),gainPath:[[0,gain],[.16,gain*.4],[1,.0001]]});
-  const air=(dur,gain,delay=0)=>N(1900,650,dur,gain,1.2,delay,.03);
-  const rumble=(dur,gain,delay=0)=>({...N(230,55,dur,gain,.65,delay,.007,'lowpass'),gainPath:[[0,.0001],[.02,gain],[.15,gain*.5],[.24,gain*.75],[.48,gain*.18],[1,.0001]]});
-  set('weapon.mine.explode','팍—푸르릉 — 지면 폭발','마른 격발 파열과 짧은 저역 공기 진동으로 땅에서 터지는 폭발을 만듭니다.',[crack(0,.25),N(2100,160,.35,.30,.7,.004,.005,'lowpass'),rumble(.55,.32)]);
-  set('skill.mine.remote','삑삑—콰르릉 — 동시 격발','원격 장치의 두 신호 뒤, 넓은 폭발과 작은 파편이 흩어집니다.',[T(1400,1400,.042,.045,'square'),T(1900,1900,.038,.035,'square',.065),crack(.125,.25),rumble(.65,.42,.13),N(2800,140,.48,.30,.7,.13,.004,'lowpass'),crack(.24,.075),crack(.35,.03)]);
-  set('skill.bomb.arm','치지직…틱틱틱 — 도화선','불꽃 같은 불규칙한 마찰과 점점 촘촘해지는 점화 소리입니다.',[N(4100,6200,.82,.10,.6,0,.015,'highpass'),...[0,.25,.44,.59,.70,.78].map((t,i)=>({...crack(t,.035+i*.006),dur:.018}))]);
-  set('skill.bomb.explode','콰앙—화르륵 — 시한폭발','단단한 첫 파열 뒤 낮은 공기 충격과 불길이 남습니다. 짧은 둥 소리로 끝나지 않습니다.',[crack(0,.33),N(3700,190,.44,.38,.8,0,.003,'lowpass'),rumble(.85,.46,.008),N(1200,350,.62,.11,1.3,.10,.02),crack(.15,.06)]);
-  set('augment.rocket','푸슉—쏴아 — 로켓 분사','점화 파열 다음에 긴 고압 분사음이 뻗습니다. 유도미사일의 휘릭 소리와 구분됩니다.',[crack(0,.12),{...N(550,2900,.63,.26,2,0,.04),gainPath:[[0,.0001],[.12,.20],[.35,.24],[.72,.15],[1,.0001]],filterPath:[[0,550],[.22,2200],[.65,3300],[1,850]]},rumble(.38,.13)]);
-  set('augment.lightning','짜직—크르릉 — 낙뢰','날카로운 전기 아크가 불규칙하게 갈라진 뒤 낮은 천둥이 따라옵니다.',[crack(0,.3),crack(.027,.2),crack(.076,.15),crack(.14,.07),rumble(.52,.30,.035),N(1700,260,.25,.16,.9,.035,.003,'lowpass')]);
-  set('augment.chain-lightning','지직, 짜직, 찌직 — 전이','서로 다른 간격의 세 전기 아크가 연이어 튑니다.',[crack(0,.19),crack(.073,.16),crack(.19,.12),{...T(1800,420,.08,.026,'sawtooth'),filter:{type:'bandpass',f:2100,to:550,q:2}},N(6300,3400,.22,.035,3,0,.002,'highpass')]);
-  set('augment.static','파직 — 순간 방전','금속성 음계 대신 아주 짧고 거친 전기 아크 두 번으로 접촉 방전을 알립니다.',[crack(0,.13),crack(.016,.075),N(3600,800,.065,.09,3,0,.001)]);
-  set('augment.shockwave','우웅—퍼엉 — 공기 충격파','낮은 압력 변화와 넓게 퍼지는 공기를 중심으로 파장을 만듭니다.',[rumble(.65,.50),N(1000,120,.42,.28,.9,0,.015,'lowpass'),{...T(64,31,.44,.035),gainPath:[[0,.0001],[.09,.035],[.38,.022],[1,.0001]]}]);
-  set('augment.sleep','푸시이이… — 수면 가스','노즐이 열리는 작은 클릭 뒤, 고운 가스가 길게 새어 나옵니다.',[crack(0,.03),{...N(4900,1300,.85,.12,1.2,.025,.04),gainPath:[[0,.0001],[.07,.12],[.40,.10],[.74,.055],[1,.0001]]}]);
-  set('augment.frost','차르륵 — 냉기 결정','냉기 증강의 첫 무기 적중에 짧은 결정음이 들립니다.',[...[0,1,2,3].map((i)=>T([2240,3560,4810,5930][i],[2100,3460,4600,5710][i],.30-i*.025,.026-i*.005,'sine',i*.026,.001)),N(7000,2900,.23,.07,1,0,.012,'highpass')]);
-  set('augment.gravity','워르르르—웅 — 중력 흡인','저음의 주기적인 떨림과 거꾸로 빨려드는 바람입니다.',[{...N(900,120,.82,.22,5,0,.06),gainPath:[[0,.0001],[.12,.10],[.2,.025],[.3,.15],[.39,.04],[.5,.21],[.6,.055],[.73,.15],[1,.0001]]},T(56,78,.80,.045,'sine',0,.10),{...T(81,109,.8,.021,'triangle',.012,.1),filter:{type:'lowpass',f:230,to:180,q:1}}]);
-  const rubber=(f,delay=0)=>({...T(f,f*.52,.26,.065,'sine',delay,.001),freqPath:[[0,f*1.3],[.07,f*.65],[.18,f],[.4,f*.63],[1,f*.52]]});
-  set('skill.basketball.arm','통, 통, 통 — 농구공 탄성','농구공 가죽의 짧은 접촉과 속이 빈 고무 울림을 세 번 반복합니다.',[rubber(180),rubber(180,.19),rubber(180,.38),N(900,380,.05,.12,1,0,.001,'lowpass'),N(900,380,.05,.09,1,.19,.001,'lowpass'),N(900,380,.05,.07,1,.38,.001,'lowpass')]);
-  set('skill.basketball.rush','뻥—후아악 — 탄성 돌진','공의 속이 빈 탄성 울림 다음으로 굵은 공기 흐름이 뻗습니다.',[rubber(155),whoosh(.55,.11,.44,.01)]);
-  set('skill.balloon.inflate','후우우—끼익 — 고무 팽창','고운 주입 공기 위에 비선형으로 늘어나는 고무의 마찰음을 얹었습니다.',[{...N(1900,2700,.78,.10,2,0,.06),gainPath:[[0,.0001],[.1,.04],[.35,.1],[.72,.10],[1,.0001]]},{...T(320,1100,.70,.035,'triangle',.06,.02),freqPath:[[0,320],[.16,410],[.22,350],[.38,590],[.47,420],[.72,880],[.82,640],[1,1100]],filter:{type:'bandpass',f:1400,to:2300,q:3}}]);
-  set('skill.balloon.deflate','피시시시… — 공기 빠짐','작은 틈으로 공기가 떨리며 빠지고 고무 마찰음이 낮아집니다.',[{...N(4200,900,.66,.12,2,0,.008),gainPath:[[0,.01],[.07,.12],[.16,.025],[.25,.1],[.35,.025],[.43,.08],[.6,.06],[1,.0001]]},{...T(1050,150,.51,.025,'triangle',0,.01),freqPath:[[0,1050],[.2,500],[.35,720],[.6,290],[1,150]]}]);
-  set('skill.soft.guard','뽀용—둥글게 감싸는 막','부드러운 젤이 펼쳐지는 탄성과 살짝 떨리는 얇은 막의 잔향입니다.',[rubber(430),T(1120,1100,.55,.016,'sine',.07,.008),T(1635,1610,.44,.009,'sine',.083,.006),N(2400,900,.17,.045,2,0,.01)]);
-  set('skill.cat.rewind','슈루룩—착 — 시간을 되감음','실제 화살 풍절음을 역재생해 궤적이 빨려들어가는 느낌을 내고 작은 착지음으로 끝냅니다.',[{...S('arrowPass',.97,.26,whoosh(.9,.07,.45)),reverse:true,rate:1.6},N(1100,460,.055,.10,1,.60,.001,'lowpass')]);
-  set('skill.rampage.start','그르르—크아 — 거친 폭주','낮은 거친 진동이 끊기듯 올라오며 힘을 켭니다.',[{...T(75,180,.65,.075,'sawtooth',0,.035),filter:{type:'lowpass',f:300,to:1100,q:1.4},gainPath:[[0,.0001],[.08,.05],[.15,.015],[.24,.065],[.33,.023],[.45,.075],[.70,.065],[1,.0001]]},N(350,1200,.51,.12,1.8,0,.08)]);
-  set('skill.rampage.end','크르르… — 엔진이 식는 듯한 탈진','폭주 때의 거친 진동이 몇 차례 흔들리며 낮아집니다.',[{...T(165,40,.73,.07,'sawtooth',0,.012),filter:{type:'lowpass',f:850,to:150,q:1.3},gainPath:[[0,.07],[.2,.035],[.3,.055],[.48,.018],[.58,.027],[1,.0001]]},N(1700,240,.46,.07,1.3)]);
-  set('skill.staff.overload','지이이잉—쨍 — 마력이 공명함','원래 지팡이의 거친 저음을 키우고 불협 배음의 공명을 펼칩니다.',[...D['weapon.staff.fire'].layers.map(l=>({...l,dur:.62,gain:l.gain*.75,filter:{type:'lowpass',f:700,to:1900,q:1.2}})),T(1460,1420,.64,.022,'sine',.12,.015),T(2237,2200,.5,.014,'sine',.18,.01)]);
-  set('augment.split','쩍—뽁뽁 — 둘로 갈라짐','막이 찢어지는 마찰 다음에 높이가 다른 두 공의 탄성이 따로 들립니다.',[N(3100,450,.19,.20,2,0,.002),rubber(290,.1),rubber(435,.16)]);
-  set('augment.minion-explode','뻑—파사삭 — 작은 폭발','얇은 공이 터지는 작은 폭발과 마른 조각 소리입니다.',[crack(0,.18),N(1900,270,.22,.22,1,0,.002,'lowpass'),crack(.065,.06),crack(.115,.035)]);
-  set('augment.last-stand','쿵쿵…쿵쿵 — 마지막 심장박동','마지막 행동 시간이 시작되는 순간 두 번의 심장박동을 알립니다.',[T(57,43,.16,.065,'sine',0,.006),T(75,51,.13,.045,'sine',.14,.006),T(57,43,.16,.055,'sine',.53,.006),T(75,51,.13,.035,'sine',.67,.006)]);
-  set('augment.heal','물방울이 피어나는 회복','둔한 타격 대신 물방울의 탄성과 밝고 짧은 배음이 올라옵니다.',[{...rubber(850),gain:.018},T(1700,1670,.32,.015,'sine',.1,.002),T(2550,2500,.23,.008,'sine',.16,.002)]);
-  set('augment.reflect','챙! — 튕겨내는 금속','단순 알림음 대신 서로 어긋난 금속 배음으로 튕겨내는 접촉을 냅니다.',[T(1740,1705,.21,.032,'sine',0,.001),T(2761,2710,.14,.021,'sine',.002,.001),T(4050,3990,.085,.011,'sine',.004,.001),N(4200,1700,.06,.09,2,0,.001)]);
-  set('battle.death','퍽… 푸스스 — 힘이 빠지는 공','탄성 있는 공이 주저앉고, 공기가 짧게 빠져나가며 잦아듭니다.',[
-    S('actionFall',.62,.62,{...N(950,200,.58,.22,1.1,0,.005,'lowpass'),gainPath:[[0,.0001],[.035,.25],[.15,.09],[.34,.16],[1,.0001]]}),
+  set('skill.cat.rewind','슈루룩—뽁 · 되돌아가기','바람이 짧게 거꾸로 빨려들고 작은 탄성음으로 이전 위치에 착지합니다.',[
+    {...S('arrowPass',.97,.23,whoosh(1.1,.065,.38)),reverse:true,rate:2.3,trim:.85},
+    elastic(410,.14,.042,.35),wood(520,.025,.36),
   ]);
-  for(const id of ['weapon.mine.place','skill.bow.charge','skill.bow.release','skill.dagger.dash','skill.sword.spin','skill.pistol.barrage','weapon.pistol.barrage-shot','battle.death']) {
-    D[id].revised=true;D[id].source='폴리 편집 · 물성 합성';
-  }
+  set('skill.rampage.start','부릉—얍! · 폭주 시작','짧게 두 번 힘을 모으는 장난감 엔진과 거친 숨결로 활기 있게 출발합니다.',[
+    {...T(118,236,.34,.065,'sawtooth',0,.006),filter:{type:'lowpass',f:420,to:1500,q:1},gainPath:[[0,0],[.08,.06],[.25,.017],[.37,.07],[.60,.065],[1,0]],freqPath:[[0,118],[.20,165],[.26,125],[.60,270],[1,236]]},
+    N(1700,850,.12,.075,1.4,.19,.002),
+  ]);
+  set('skill.rampage.end','부르르… · 폭주 종료','장난감 모터의 떨림이 세 번 작아지며 가볍게 힘이 빠집니다.',[
+    {...T(220,92,.36,.045,'triangle',0,.002),freqPath:[[0,220],[.22,145],[.36,178],[.57,118],[.72,134],[1,92]],gainPath:[[0,.045],[.20,.022],[.36,.037],[.58,.015],[.72,.022],[1,0]]},N(1300,480,.20,.035,1.3),
+  ]);
+  set('skill.soft.guard','뽀요옹 · 말랑 보호막','젤리가 둥글게 퍼지는 탄성 뒤로 얇고 투명한 막의 공명이 남습니다.',[
+    elastic(520,.32,.068),elastic(830,.24,.022,.05),bell(1395,.30,.014,.08),N(2100,1100,.08,.030,1.5),
+  ]);
+  set('skill.bomb.arm','치직, 틱틱! · 점화','작은 도화선 마찰과 점차 촘촘해지는 틱 소리로 폭발을 기다리게 합니다.',[
+    {...N(4300,5600,.81,.065,.7,0,.005,'highpass'),gainPath:[[0,0],[.08,.065],[.8,.045],[1,0]]},
+    ...[0,.27,.47,.63,.76].map((t,i)=>click(3100+i*180,.048+i*.004,t)),
+  ]);
+  set('skill.bomb.explode','콰팡! · 둥근 대폭발','큰 풍선처럼 통 크게 터지고 짧은 파편이 톡톡 튀는 경쾌한 폭발입니다.',[
+    crack(0,.23),N(3100,340,.29,.32,.8,0,.002,'lowpass'),
+    {...T(190,54,.30,.14,'triangle'),filter:{type:'lowpass',f:950,to:280,q:.7}},wood(480,.024,.09),click(2500,.045,.14),
+  ]);
+  set('skill.basketball.arm','통, 통! · 탄성 준비','빈 농구공의 가죽 접촉과 속 울림이 점점 빠르게 세 번 튑니다.',[
+    elastic(205,.15,.082),elastic(215,.13,.060,.17),elastic(240,.11,.045,.30),
+    N(1200,560,.035,.073,1,0,.001,'lowpass'),N(1250,610,.03,.052,1,.17,.001,'lowpass'),
+  ]);
+  set('skill.basketball.rush','뻥—휙! · 농구 돌진','공이 힘차게 튀어나오는 탄성음 뒤에 짧고 굵은 바람이 붙습니다.',[
+    elastic(225,.20,.12),whoosh(.65,.075,.27,.025),wood(410,.025),
+  ]);
+  set('skill.balloon.inflate','후우—삐요옹 · 팽창','바람이 들어가며 고무가 두 번 끼익 늘어나고 밝게 부풉니다.',[
+    {...N(2100,3100,.46,.083,1.7,0,.03),gainPath:[[0,0],[.12,.065],[.70,.083],[1,0]]},
+    {...T(310,810,.43,.029,'triangle',.02,.004),freqPath:[[0,310],[.24,430],[.31,340],[.64,680],[.72,540],[1,810]],filter:{type:'bandpass',f:1100,to:2300,q:2.2}},
+  ]);
+  set('skill.balloon.deflate','피리리—푸 · 팽창 종료','고무 틈에서 공기가 떨리며 빠지고 작고 우스운 울림으로 마무리합니다.',[
+    {...N(3800,1100,.38,.086,1.8,0,.004),gainPath:[[0,.02],[.1,.086],[.24,.04],[.35,.075],[.50,.026],[.67,.049],[1,0]]},
+    {...T(720,190,.32,.027,'triangle'),freqPath:[[0,720],[.18,430],[.34,590],[.55,300],[.70,375],[1,190]]},
+  ]);
+
+  set('augment.rocket','푸슉—쏴! · 로켓 관통','작은 점화 뒤 고압 공기가 빠르게 뻗습니다. 낮게 도는 유도미사일과 구별됩니다.',[
+    crack(0,.065),{...N(900,3200,.40,.22,2.2,0,.015),filterPath:[[0,900],[.16,2300],[.5,3400],[1,1100]],gainPath:[[0,0],[.12,.17],[.32,.22],[.63,.15],[1,0]]},
+  ]);
+  set('augment.lightning','짜직—팟! · 낙뢰','서로 다른 간격의 전기 아크와 짧은 공기 파열로 번쩍이는 순간을 살립니다.',[
+    crack(0,.21),crack(.021,.12),crack(.057,.075),N(2200,510,.15,.13,.8,.02,.002,'lowpass'),
+    {...T(740,230,.075,.026,'sawtooth'),filter:{type:'bandpass',f:2600,to:700,q:1.8}},
+  ]);
+  set('augment.chain-lightning','찌직, 짜직! · 연쇄 전기','두 방향으로 짧게 튀는 전기음의 간격과 높이를 다르게 구성했습니다.',[
+    crack(0,.14),crack(.061,.10),crack(.15,.07),
+    {...T(1550,650,.065,.028,'sawtooth'),filter:{type:'bandpass',f:3400,to:1200,q:2.1}},
+    {...T(2350,880,.07,.019,'sawtooth',.14),filter:{type:'bandpass',f:4100,to:1600,q:2.4}},
+  ]);
+  set('augment.static','파직! · 접촉 방전','거친 전기 접촉이 아주 짧게 두 번 튀어 자주 발동해도 귀를 덜 가립니다.',[crack(0,.095),crack(.018,.045),N(3100,1300,.045,.07,2.7,0,.001)]);
+  set('augment.shockwave','퍼웅! · 둥근 충격파','넓게 열리는 짧은 공기 파동과 속이 빈 저음으로 원형 파장을 표현합니다.',[
+    {...T(145,64,.24,.084,'triangle',0,.006),filter:{type:'lowpass',f:650,to:210,q:.8}},
+    {...N(900,240,.28,.24,1.2,0,.016,'lowpass'),gainPath:[[0,0],[.13,.22],[.30,.24],[.62,.085],[1,0]]},
+  ]);
+  set('augment.sleep','푸시이… · 수면 가스','작은 노즐 클릭 뒤 부드러운 공기가 퍼지며 조용히 내려앉습니다.',[
+    click(2100,.023),{...N(4500,1500,.54,.088,1.1,.014,.023),gainPath:[[0,0],[.12,.088],[.50,.060],[1,0]]},
+  ]);
+  set('augment.gravity','워로로—웅 · 중력 흡인','짧게 맥동하는 속 빈 저음과 뒤로 빨려드는 바람을 사용했습니다.',[
+    {...T(135,98,.49,.047,'triangle',0,.014),freqPath:[[0,135],[.15,108],[.31,165],[.47,113],[.65,151],[1,98]],filter:{type:'lowpass',f:510,to:280,q:1.1}},
+    {...N(1400,400,.43,.13,3.2,0,.022),gainPath:[[0,0],[.14,.06],[.25,.023],[.39,.10],[.50,.030],[.67,.13],[1,0]]},
+  ]);
+  set('augment.split','뽁—뽁뽁! · 두 공으로 분열','막이 짧게 갈라진 뒤 높이가 다른 두 공이 각각 튀어나옵니다.',[
+    N(2900,750,.070,.11,1.8,0,.001),elastic(370,.16,.066,.055),elastic(560,.15,.053,.135),wood(690,.023,.15),
+  ]);
+  set('augment.minion-explode','파폭! · 작은 복수','작은 공이 바삭하게 터지고 두 조각이 가볍게 튀는 효과음입니다.',[
+    crack(0,.10),N(2300,560,.145,.19,1,0,.001,'lowpass'),elastic(330,.095,.050,.012),click(2600,.031,.095),
+  ]);
+  set('augment.last-stand','두근, 두근! · 마지막 기회','또렷하지만 위협적이지 않은 두 차례의 심장박동으로 마지막 행동 시간을 알립니다.',[
+    T(118,88,.13,.060,'sine',0,.005),T(154,104,.10,.040,'sine',.12,.004),
+    T(118,88,.13,.050,'sine',.42,.005),T(154,104,.10,.031,'sine',.54,.004),
+  ]);
+  set('augment.heal','또록, 반짝 · 생명력 회복','작은 물방울이 올라오고 맑은 두 음이 살짝 피어납니다.',[
+    elastic(980,.13,.024),bell(1480,.22,.023,.075),bell(2220,.17,.011,.12),
+  ]);
+  set('augment.frost','차르륵! · 냉기 결정','높이가 맞지 않는 얇은 결정들이 짧게 부딪쳐 차가운 재질을 만듭니다.',[
+    bell(2470,.18,.022),bell(3610,.16,.014,.022),bell(4790,.12,.009,.044),N(6200,3000,.10,.040,1,0,.004,'highpass'),
+  ]);
+  set('augment.reflect','챙! · 반사 충전','작은 금속 원판의 밝은 접촉음과 두 배음이 즉시 위로 튀어오릅니다.',[
+    bell(1630,.14,.032),bell(2580,.11,.018,.003),bell(3749,.073,.009,.006),N(3800,1700,.034,.060,2.2,0,.001),
+  ]);
+  set('battle.hit','톡! · 작은 타격','짧고 마른 접촉음으로 피해를 표시하며 무기 고유 소리를 가리지 않습니다.',[wood(370,.040),N(1550,730,.022,.029,1.1,0,.001,'lowpass')]);
+  set('battle.bounce','통! · 벽 반사','작은 고무공이 벽을 치는 속 빈 탄성으로 경기의 바운스를 살립니다.',[elastic(210,.065,.040),N(950,560,.015,.018,1,0,.001,'lowpass')]);
+  set('battle.explosion','팡! · 기본 폭발','짧은 파열과 둥근 공기 압력으로 가볍지만 분명하게 터집니다.',[N(2300,480,.19,.21,.8,0,.001,'lowpass'),T(156,72,.17,.072,'triangle'),crack(0,.068)]);
+  set('battle.death','퍽, 토독 · 쓰러짐','공이 작게 터지고 가벼운 후속 접촉 두 번으로 전투 종료를 표현합니다.',[S('casualFall',.35,.58,N(1700,410,.29,.20,1.1,0,.003,'lowpass'))]);
+  set('skill.activate','뾱! · 스킬 사용','작은 탄성과 짧은 올라감으로 능력 사용을 또렷하게 알려줍니다.',[elastic(640,.16,.045),bell(1280,.13,.016,.05)]);
+
+  // UI is a small wooden toy / reward instrument family, not weapon impacts.
+  set('ui.click','톡 · 버튼 선택','가벼운 나무 버튼을 누르는 짧은 두 재질음으로 손맛을 줍니다.',[wood(840,.069),click(3100,.023)]);
+  set('ui.countdown','똑! · 준비 카운트','단단한 우드블록의 한 박자로 준비 숫자를 분명하게 구분합니다.',[wood(1050,.082),T(1730,1680,.045,.014,'sine')]);
+  set('ui.fight','따단! · 경기 시작','짧고 경쾌한 두 화음으로 경기가 시작되는 순간을 엽니다.',[
+    reed(523,.10,.042),reed(784,.10,.030),reed(1046,.20,.049,.085),reed(1568,.18,.026,.085),wood(430,.036),
+  ]);
+  set('ui.coin','팅, 띠링! · 코인 획득','동전 두 개가 서로 부딪히며 위로 반짝이는 짧은 금속 울림입니다.',[
+    bell(1318,.14,.042),bell(2087,.10,.014),bell(1976,.21,.035,.065),bell(3136,.14,.012,.068),
+  ]);
+  set('ui.win','따다라—딩! · 승리','짧은 장난감 악기 선율과 마지막 밝은 화음으로 승리를 축하합니다.',[
+    reed(659,.13,.055),reed(784,.13,.052,.105),reed(1046,.15,.051,.21),
+    reed(1318,.35,.040,.335),reed(1046,.31,.030,.335),bell(2637,.29,.012,.35),
+  ]);
+  set('ui.lose','뽀, 뽀옹 · 다음 판으로','거친 경고음 대신 부드러운 두 음과 짧은 탄성으로 아쉽게 마무리합니다.',[
+    reed(494,.14,.045),{...reed(392,.29,.047,.16),freqPath:[[0,415],[.17,392],[1,383]]},elastic(196,.13,.025,.17),
+  ]);
+  set('ui.vote.tick','틱 · 추첨 이동','빠른 추첨에도 겹치지 않는 작고 바삭한 나무 클릭입니다.',[wood(1340,.047),click(3900,.015)]);
+  set('ui.vote.win','따르릉! · 이벤트 당첨','세 개의 밝은 금속 음과 마지막 화음으로 당첨을 즐겁게 알려줍니다.',[
+    bell(1046,.16,.035),bell(1568,.21,.034,.075),bell(2093,.30,.027,.155),
+    reed(784,.27,.026,.15),bell(3136,.20,.010,.19),
+  ]);
+  // Deliberately absent: augment.flame, augment.summon, augment.steal, augment.freeze.
   root.BounceRoyalSoundDesign=Object.freeze(D);
-  if(typeof module==='object' && module.exports) module.exports=root.BounceRoyalSoundDesign;
+  if(typeof module==='object'&&module.exports)module.exports=root.BounceRoyalSoundDesign;
 })(typeof window!=='undefined'?window:globalThis);

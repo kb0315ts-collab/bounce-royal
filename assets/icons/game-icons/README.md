@@ -12,8 +12,9 @@ author, license, modifications and SHA-256 hashes for every selected image.
 Source archive: https://game-icons.net/archives/ffffff/transparent/game-icons.net.svg.zip
 
 Unmodified selected originals are in `source/`; recolored game-ready derivatives
-are in `../augments/`. Derivatives retain the authors' silhouettes, with a restrained
-color gradient, scaling, and (where documented) paired shapes or original effect badges.
+are in `../augments/`. Derivatives retain the authors' silhouettes, with saturated
+casual color gradients, charcoal outlines, scaling, and (where documented) paired
+shapes or original effect badges.
 The artwork's CC BY license does not relicense the game's source code.
 
 ## Rebuild / rollback
@@ -28,7 +29,7 @@ without changing any augment definitions. The gallery can compare both versions.
 
 ## Validation
 
-- 93 derivatives from 89 originals; about 170 KiB of game-ready SVGs.
+- 93 derivatives from 89 originals; about 178 KiB of game-ready SVGs.
 - `node tests/augment-assets.test.js`: exact roster coverage, file hashes, attribution,
   safe SVG geometry, URL validation, fallback and script load order.
 - Existing `icons`, `ui`, `audio` and `audio-events` tests remain green.

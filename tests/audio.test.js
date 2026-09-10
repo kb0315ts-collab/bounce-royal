@@ -5,6 +5,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const crypto = require('node:crypto');
 const { create, catalog, samples } = require('../js/audio.js');
 
 class Param {
@@ -212,13 +213,13 @@ test('same-sound cooldown prevents duplicate shot clusters without blocking late
   assert.equal(engine.play('unknown.sound'),false);
 });
 
-test('approved original samples remain unlayered while failed files retain their original whoosh', async () => {
+test('approved bow remains unlayered and unavailable casual samples retain bounded material fallbacks', async () => {
   const requests = [];
   const engine = newEngine({ fetch:async url => { requests.push(url); return { ok:!url.includes('shotgun'), arrayBuffer:async () => new ArrayBuffer(1) }; } });
   await engine.ensure();
   await engine.loadPromise;
   assert.equal(requests.length,Object.keys(samples).length);
-  assert.equal(engine.buffers.size,Object.keys(samples).length-1);
+  assert.equal(engine.buffers.size,Object.keys(samples).length-Object.values(samples).filter(file=>file.includes('shotgun')).length);
   engine.fire('arrow');
   let voice = [...engine.voices][0];
   assert.ok(voice.sources.some(source => source.buffer && source.buffer.sample));
@@ -253,9 +254,61 @@ test('approved sword and projectile sweep signatures match the pre-update recipe
 test('comparison preview never changes the sound used by gameplay', async () => {
   const engine=newEngine();await engine.ensure();
   await engine.preview('skill.bow.charge',{variant:'previous'});
-  assert.equal([...engine.voices][0].sources.length,2);
+  const previousEnd=[...engine.voices][0].endTime;
+  assert.ok(previousEnd>1.68 && previousEnd<1.72);
   engine.stopAll();engine.play('skill.bow.charge');
   assert.equal([...engine.voices][0].sources.length,1);
+  assert.ok([...engine.voices][0].endTime>1.22 && [...engine.voices][0].endTime<1.26);
+});
+
+test('comparison archive exactly preserves the deployed 511fb88 material recipes', () => {
+  const previous=require('../js/audio-design-previous.js');
+  const hash=crypto.createHash('sha256').update(JSON.stringify(previous)).digest('hex');
+  assert.equal(hash,'7adda48f938e0a3db4f182acf92a86a432963c9bcad9bd12fb60a8a0bba9743e');
+});
+
+test('archived vote cues without overrides use deployed base sounds and never the current design', async () => {
+  const previous=require('../js/audio-design-previous.js');
+  const engine=newEngine();await engine.ensure();await engine.loadPromise;
+  for(const [id,oldWave,oldPitch,newWave,newPitch] of [
+    ['ui.vote.tick','sine',960,'triangle',1340],
+    ['ui.vote.win','triangle',784,'sine',1046],
+  ]) {
+    assert.equal(previous[id],undefined,'These deployed sounds used the base library');
+    await engine.preview(id,{variant:'previous'});
+    let oscillator=[...engine.voices][0].sources.find(source=>source.kind==='oscillator');
+    assert.equal(oscillator.type,oldWave,id);
+    assert.equal(oscillator.frequency.events[0][1],oldPitch,id);
+    engine.stopAll();engine.play(id,{preview:true});
+    oscillator=[...engine.voices][0].sources.find(source=>source.kind==='oscillator');
+    assert.equal(oscillator.type,newWave,id);
+    assert.equal(oscillator.frequency.events[0][1],newPitch,id);
+  }
+});
+
+test('a main-game page without the archive safely uses current sounds for its unused comparison fallback', async () => {
+  const context={};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/audio-design.js'),'utf8'),context);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/audio.js'),'utf8'),context);
+  assert.equal(context.BounceRoyalPreviousSoundDesign,undefined);
+  const engine=context.BounceRoyalAudio.create({AudioContext:Context,fetch:failedFetch});
+  await engine.ensure();await engine.loadPromise;
+  await engine.preview('ui.vote.tick',{variant:'previous'});
+  const oscillator=[...engine.voices][0].sources.find(source=>source.kind==='oscillator');
+  assert.equal(oscillator.type,'triangle');
+  assert.equal(oscillator.frequency.events[0][1],1340);
+  engine.stopAll();assert.equal(engine.voices.size,0);
+});
+
+test('all previous previews retain bounded scheduled lifetimes independently of the casual mix', async () => {
+  const engine=newEngine();await engine.ensure();await engine.loadPromise;
+  for(const item of catalog) {
+    assert.equal(await engine.preview(item.id,{variant:'previous'}),true,item.id);
+    const voice=[...engine.voices][0];
+    assert.ok(voice.sources.length>0&&voice.sources.length<=8,item.id);
+    assert.ok(voice.endTime<=item.previousDuration+.001,item.id);
+  }
+  engine.stopAll();assert.equal(engine.voices.size,0);
 });
 
 test('removed cues stay silent even for old snapshots; revised sounds have exact pre-update comparisons', async () => {
@@ -265,10 +318,10 @@ test('removed cues stay silent even for old snapshots; revised sounds have exact
     assert.equal(await engine.preview(id,{variant:'previous'}),false,id);
     assert.ok(!catalog.some(item=>item.id===id));
   }
-  assert.equal(catalog.filter(item=>item.revised && !item.internal).length,7);
+  assert.equal(catalog.filter(item=>item.revised && !item.internal).length,51);
   const previous=require('../js/audio-design-previous.js');
-  assert.equal(previous['weapon.mine.place'].layers[0].kind,'tone');
-  assert.equal(previous['skill.bow.charge'].layers[0].name,'bowDraw');
+  assert.equal(previous['weapon.mine.place'].layers[0].name,'actionMine');
+  assert.equal(previous['skill.bow.charge'].layers[0].name,'actionDraw');
 });
 
 test('barrage audition includes a full burst, gameplay only schedules the start cue and real individual shots', async () => {

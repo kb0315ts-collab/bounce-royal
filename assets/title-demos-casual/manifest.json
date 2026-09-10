@@ -1,0 +1,89 @@
+{
+  "description": "Silent replays captured from the casual Phaser renderer. Actual encoded duration/frame counts verified in Chromium. Fast-start MP4 normalization preserves samples and playback speed. Original recordings remain in assets/title-demos.",
+  "clips": [
+    {
+      "name": "title-demo-01.mp4",
+      "bytes": 483329,
+      "seconds": 14.961833333333333,
+      "frames": 256,
+      "fps": 17.11,
+      "browserDuration": 14.961833,
+      "tailSeekVerified": true,
+      "codec": "H.264",
+      "container": "non-fragmented MP4 (fast start)",
+      "width": 540,
+      "height": 960,
+      "sound": false
+    },
+    {
+      "name": "title-demo-02.mp4",
+      "bytes": 560393,
+      "seconds": 14.954866666666666,
+      "frames": 299,
+      "fps": 19.99,
+      "browserDuration": 14.954867,
+      "tailSeekVerified": true,
+      "codec": "H.264",
+      "container": "non-fragmented MP4 (fast start)",
+      "width": 540,
+      "height": 960,
+      "sound": false
+    },
+    {
+      "name": "title-demo-03.mp4",
+      "bytes": 632145,
+      "seconds": 14.9901,
+      "frames": 337,
+      "fps": 22.48,
+      "browserDuration": 14.9901,
+      "tailSeekVerified": true,
+      "codec": "H.264",
+      "container": "non-fragmented MP4 (fast start)",
+      "width": 540,
+      "height": 960,
+      "sound": false
+    },
+    {
+      "name": "title-demo-04.mp4",
+      "bytes": 448231,
+      "seconds": 14.964633333333333,
+      "frames": 238,
+      "fps": 15.9,
+      "browserDuration": 14.964633,
+      "tailSeekVerified": true,
+      "codec": "H.264",
+      "container": "non-fragmented MP4 (fast start)",
+      "width": 540,
+      "height": 960,
+      "sound": false
+    },
+    {
+      "name": "title-demo-05.mp4",
+      "bytes": 473532,
+      "seconds": 14.986733333333333,
+      "frames": 253,
+      "fps": 16.88,
+      "browserDuration": 14.986733,
+      "tailSeekVerified": true,
+      "codec": "H.264",
+      "container": "non-fragmented MP4 (fast start)",
+      "width": 540,
+      "height": 960,
+      "sound": false
+    },
+    {
+      "name": "title-demo-06.mp4",
+      "bytes": 611758,
+      "seconds": 14.983933333333333,
+      "frames": 327,
+      "fps": 21.82,
+      "browserDuration": 14.983933,
+      "tailSeekVerified": true,
+      "codec": "H.264",
+      "container": "non-fragmented MP4 (fast start)",
+      "width": 540,
+      "height": 960,
+      "sound": false
+    }
+  ]
+}

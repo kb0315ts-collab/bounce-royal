@@ -1,0 +1,201 @@
+/* BOUNCE ROYALE / BOUNCE PARK
+ * Visual-only casual renewal. Keep the 720 × 1280 design space and all controls.
+ * Original broadcast theme remains intact in visual-polish.css for rollback.
+ */
+:root{
+  --bg:#72d9c4;--panel:#fff8df;--panel2:#fffdf1;--panel3:#d7f2df;
+  --line:#243747;--line2:#243747;--gold:#ffd44c;--gold2:#edab32;
+  --blue:#2488cc;--cyan:#169e93;--red:#d9474f;--green:#268a57;--purple:#8352cb;
+  --text:#243747;--soft:#475c60;--dim:#5b706d;--ink:#243747;
+  --casual-cream:#fff8df;--casual-mint:#79dec0;--casual-coral:#ff8477;
+  --outline:.55cqw solid #243747;
+  --panel-shadow:0 1.2cqw 0 #243747,0 2cqw 0 rgba(36,55,71,.13);
+  --edge-highlight:inset 0 .8cqw 0 rgba(255,255,255,.52);
+}
+html,body{background:#183c40;color:var(--text)}
+body{font-family:'Jua','Malgun Gothic',sans-serif}
+button,input{font-family:inherit}
+button:focus-visible,input:focus-visible{outline:.7cqw solid #f27b65;outline-offset:.7cqw}
+#app{background:#80dcca;box-shadow:0 0 0 2px #243747,0 2cqw 12cqw #102e35}
+#app::before{background:radial-gradient(circle at 3cqw 3cqw,rgba(255,255,255,.16) 0 1cqw,transparent 1.1cqw),linear-gradient(160deg,#a2ecdc,#68c7b2);background-size:10cqw 10cqw,auto}
+#app::after{box-shadow:none}
+.screen{color:var(--text);background:radial-gradient(circle at 2cqw 2cqw,rgba(255,255,255,.23) 0 .65cqw,transparent .7cqw),linear-gradient(170deg,#b3efdb,#73d3ba);background-size:8cqw 8cqw,auto}
+.screen::before{display:none}
+.screen-head{height:14cqw;min-height:14cqw;background:#fff8df;border-bottom:var(--outline);padding:1.5cqw 3cqw;box-shadow:0 .8cqw 0 rgba(36,55,71,.1)}
+.screen-head::after{display:none}
+.screen-head h2{font:5.6cqw/1 'Jua',sans-serif;letter-spacing:0;text-shadow:0 .3cqw 0 #fff}
+.screen-head .head-extra{color:#446561;font:2.5cqw/1.2 'Jua',sans-serif}
+.screen-scroll{padding:3cqw 3cqw 7cqw}
+.subt{font:2.9cqw/1.45 'Jua',sans-serif;color:#3f655f;margin:3cqw auto 4cqw;max-width:86cqw;word-break:keep-all}
+.backbtn,.iconbtn{border:var(--outline);border-radius:2.9cqw;color:var(--text);background:#fffdf0;box-shadow:0 .75cqw 0 #243747;backdrop-filter:none}
+.backbtn .ui-svg,.iconbtn .ui-svg{width:4.6cqw;height:4.6cqw}
+.bigbtn,.midbtn,.smbtn{border:var(--outline);border-radius:3.2cqw;color:#243747;font-family:'Jua',sans-serif;letter-spacing:0;background:#ffd44c;box-shadow:0 1.1cqw 0 #243747,var(--edge-highlight);overflow:visible;transition:transform .12s ease,box-shadow .12s ease}
+.bigbtn{font-size:4.7cqw;min-height:12cqw}.midbtn{font-size:3.8cqw}.smbtn{font-size:3.3cqw}
+.bigbtn::before,.midbtn::before,.smbtn::before{display:none}
+.ghostbtn{color:#243747;border-color:#243747;background:#fff8df;box-shadow:0 .9cqw 0 #243747,var(--edge-highlight)}
+.dangerbtn{color:#ac3741;background:#ffe0d7}
+.bigbtn:active,.midbtn:active,.smbtn:active,.backbtn:active,.iconbtn:active{transform:translateY(.8cqw);box-shadow:0 .2cqw 0 #243747}
+
+/* A toy-box title: live-looking replay stays behind a clear, uncluttered menu. */
+#scr-title{background:linear-gradient(180deg,rgba(114,217,196,.12),rgba(55,141,124,.04) 36%,rgba(79,174,143,.22) 48%,rgba(163,235,202,.94) 70%,#adeacb 100%)}
+#scr-title::after{left:-15cqw;right:-15cqw;top:auto;bottom:-13cqw;height:76cqw;border-radius:50% 50% 0 0;background:radial-gradient(circle at 30% 15%,#d1f5cf,#8edaac);border-top:.55cqw solid rgba(36,55,71,.22);transform:rotate(-5deg)}
+.title-profile{height:12cqw;margin:3.5cqw 4cqw 0;padding:1cqw 1.5cqw;border:var(--outline);border-radius:3.7cqw;background:#fff8df;box-shadow:0 .9cqw 0 #243747;backdrop-filter:none}
+.mini-avatar{width:8cqw;height:8cqw;border:.45cqw solid #243747;border-radius:2.5cqw;background:#79dec0;color:#243747;box-shadow:inset 0 .55cqw 0 #bef6d9}
+.mini-avatar .ui-svg{width:6.2cqw;height:6.2cqw}.title-profile .nick{font:3.8cqw/1 'Jua',sans-serif;letter-spacing:0}
+.title-profile .rating{font:2.5cqw/1 'Jua',sans-serif;color:#746333;margin-top:.65cqw}
+.title-settings-mini{width:8cqw;height:8cqw;border-radius:2.7cqw;background:#e8eada;box-shadow:0 .45cqw 0 #243747}
+.title-brand{height:92cqw;min-height:92cqw;padding:2cqw 0 5cqw;justify-content:flex-start;position:relative}
+.title-crown{width:12cqw;height:12cqw;margin-top:2cqw;color:#ffd44c;font-size:10cqw;filter:drop-shadow(0 .7cqw 0 rgba(36,55,71,.45));animation:titleFloat 3.4s ease-in-out infinite}
+.title-crown .ui-svg{width:11.5cqw;height:11.5cqw}
+.logo{font:13.8cqw/.92 'Jua',sans-serif;letter-spacing:-.15cqw;background:none;color:#fff8df;-webkit-text-stroke:.8cqw #243747;paint-order:stroke fill;filter:drop-shadow(0 1.2cqw 0 #243747);transform:rotate(-5deg);text-shadow:0 -.35cqw 0 #fff}
+.logo span{display:block}.logo span+span{color:#ffd44c;font-size:1.08em;margin-top:1cqw}
+.title-en{margin-top:2.8cqw;font:2.5cqw/1 'Jua',sans-serif;color:#fffdf0;letter-spacing:.85cqw;padding-left:.85cqw;text-shadow:0 .3cqw 0 #243747,0 0 1cqw #243747}
+.title-season{position:absolute;bottom:6.5cqw;margin:0;padding:1.2cqw 3cqw;border:.45cqw solid #243747;border-radius:99px;color:#243747;background:#fff8df;font:2.65cqw/1 'Jua',sans-serif;letter-spacing:0;box-shadow:0 .55cqw 0 rgba(36,55,71,.4);transform:rotate(-2deg)}
+.hub-menu{padding:0 5cqw;column-gap:2.5cqw;row-gap:3.5cqw}
+.hub-main,.hub-small{border:var(--outline);border-radius:3.8cqw;color:#243747;background:#fff8df;box-shadow:0 1.3cqw 0 #243747,inset 0 .8cqw 0 rgba(255,255,255,.48);transition:transform .12s,box-shadow .12s}
+.hub-main{height:23cqw;min-height:23cqw;grid-template-columns:1fr;justify-items:center;align-content:center;gap:1cqw;padding:1.5cqw 1cqw;text-align:center}
+.hub-main::before,.hub-small::before,.hub-main::after,.hub-small::after{display:none}
+.hub-main:hover,.hub-small:hover{border-color:#243747;filter:brightness(1.04)}
+.hub-main.ranked,.hub-main.ranked:hover{--menu-accent:#bf7729;background:#ffd44c;border-color:#243747}
+.hub-main.friendly,.hub-main.friendly:hover{--menu-accent:#248768;background:#79dec0;border-color:#243747}
+.hub-main .hub-ico,.hub-small .hub-ico{position:static;border:0;background:none;color:#243747;filter:drop-shadow(0 .45cqw 0 rgba(255,255,255,.55));width:auto;height:auto}
+.hub-main .hub-ico .ui-svg{width:7.8cqw;height:7.8cqw}.hub-main strong{font:5.2cqw/1 'Jua',sans-serif;letter-spacing:0}
+.hub-main small{display:block;font:2.2cqw/1 'Jua',sans-serif;color:#526047;margin-top:1cqw;-webkit-line-clamp:unset}
+.hub-subnav{gap:2cqw;margin:0}.hub-small{height:17cqw;min-height:17cqw;grid-template-columns:1fr;justify-items:center;align-content:center;gap:1.4cqw;text-align:center;padding:1cqw}
+.hub-small .hub-ico .ui-svg{width:6.2cqw;height:6.2cqw}.hub-small strong{font:3.55cqw/1 'Jua',sans-serif}
+.hub-small[data-menu="bag"]{background:#ffe6a8}.hub-small[data-menu="codex"]{background:#d8eec7}.hub-small[data-menu="settings"]{background:#e2e7e2}
+.build-tag{margin:4cqw 0 1cqw;color:#487463;font:2.4cqw/1 'Jua',sans-serif;letter-spacing:0}
+
+/* Lobby, collection and settings use real paper cards, not translucent panels. */
+.rank-card{margin:6cqw auto 4cqw;padding:6cqw 4cqw;width:86cqw;border:var(--outline);border-radius:5cqw;background:radial-gradient(circle at 50% 25%,#fffef0 0 24%,transparent 25%),#fff8df;box-shadow:var(--panel-shadow)}
+.rank-emblem{border:.7cqw solid #243747;background:#ffd44c;box-shadow:0 1cqw 0 #243747,inset 0 1cqw 0 #ffe994;color:#243747}
+#ranked-tier{color:#243747;font-family:'Jua',sans-serif}#ranked-rating{color:#a86e23;font-size:3.5cqw}
+.rating-track{height:2.2cqw;background:#d9e5d8;border:.35cqw solid #243747}.rating-track i{background:#61c797}
+#ranked-search-status{font-family:'Jua',sans-serif;color:#3f655f}.searching{color:#a76620!important}
+.center-actions{flex-wrap:wrap;gap:3cqw}
+.room-code-wrap{border:var(--outline);border-radius:3.5cqw;background:#fff1b6;box-shadow:0 .8cqw 0 #243747;margin:4cqw;padding:3cqw 4cqw}
+.room-code-wrap small{color:#796635;font-size:2.8cqw}#room-code{color:#243747;font:5.4cqw/1.3 'Jua',sans-serif;letter-spacing:.75cqw}
+.room-slot{min-height:17cqw;border:var(--outline);border-radius:3.5cqw;background:#fff8df;box-shadow:0 .75cqw 0 #243747;padding:1.8cqw 2.5cqw;gap:2.7cqw}
+.room-slot::before{width:1cqw;top:2.7cqw;bottom:2.7cqw;background:var(--slot-color,#85bba1)}
+#room-slots{gap:2.8cqw;padding:0 1cqw 2cqw}.room-slot.empty{border-style:dashed;box-shadow:none;background:#caecd2;color:#527768}
+.room-slot .slot-avatar{width:11.5cqw;height:11.5cqw;border:.4cqw solid #243747;background:#cdeed7;border-radius:3cqw;overflow:hidden}
+.room-slot .slot-name{font-size:3.8cqw}.room-slot .slot-meta{color:#66766a;font-size:2.65cqw}
+.ready-pill{border:.35cqw solid #587363;color:#637769;background:#eceddf;padding:1.1cqw 1.8cqw;font-size:2.5cqw}.ready-pill.on{border-color:#267353;color:#175d3b;background:#aeedb1}
+.slot-remove{color:#bd4650}.room-actions{padding:4cqw 4cqw 5cqw;gap:3cqw}
+.equipped-card{border:var(--outline);border-radius:4cqw;background:radial-gradient(circle at 18% 50%,#c6eed8 0 21%,transparent 22%),#fff8df;box-shadow:var(--panel-shadow)}
+.eyebrow{color:#328664;font:2.8cqw/1 'Jua',sans-serif;letter-spacing:0}.equipped-info h3{font:5.7cqw/1 'Jua',sans-serif}.equipped-info p{color:#657268;font-size:2.85cqw}.equipped-info p b{color:#a66525!important}
+.bag-card,.codex-card{border:var(--outline);border-radius:3.4cqw;background:#fff8df;box-shadow:0 .8cqw 0 #243747;color:var(--text)}
+.bag-card{padding:2cqw 2cqw 3cqw}.bag-card.equipped{border-color:#243747;background:#eaffd0;box-shadow:0 .8cqw 0 #243747,inset 0 0 0 .8cqw #8acf77}
+.bag-card strong{font:4cqw/1.15 'Jua',sans-serif}.bag-card small{color:#687968;font-size:2.7cqw}
+.equip-badge{border:.35cqw solid #243747;background:#ffd44c;color:#243747;font-family:'Jua',sans-serif;font-size:2.5cqw;padding:1cqw 1.5cqw;top:1cqw;right:1cqw}
+.codex-card{padding:2.5cqw;min-height:35cqw}.codex-card::after{height:.6cqw;background:#b6d6b9}
+.codex-card .codex-ico{border:.35cqw solid #243747;border-radius:2.7cqw;width:12cqw;height:12cqw;background:#d5eee1;color:#243747;box-shadow:0 .45cqw 0 #243747}
+.codex-card .codex-ico .ui-svg{width:9cqw;height:9cqw}.codex-card .codex-ico .ui-svg--augment{width:9.8cqw;height:9.8cqw}
+.codex-card h3{font:3.7cqw/1.15 'Jua',sans-serif;margin:2cqw 0 1.2cqw}.codex-card p{font:2.6cqw/1.5 'Jua',sans-serif;color:#596b60;word-break:keep-all}
+#codex-tabs{padding:3cqw 4cqw;background:#a4e2c4;border-bottom:.4cqw solid #659d83;gap:2cqw}
+.tabbtn{height:9.5cqw;border:.45cqw solid #243747;border-radius:2.7cqw;background:#d6edcf;color:#4c7161;font:3.3cqw/1 'Jua',sans-serif;box-shadow:0 .65cqw 0 #557365}
+.tabbtn.active{border-color:#243747;background:#ffd44c;color:#243747;box-shadow:0 .65cqw 0 #243747,inset 0 .55cqw 0 #ffeaa0}
+.settings-panel{margin:2cqw 1cqw 4cqw;border:var(--outline);border-radius:4cqw;background:#fff8df;box-shadow:var(--panel-shadow)}
+.setting-row{min-height:17cqw;padding:3.2cqw 3cqw;border-bottom:.35cqw solid #d4d9c4;gap:2cqw}.setting-copy strong{font:3.9cqw/1 'Jua',sans-serif}.setting-copy small{font:2.5cqw/1.45 'Jua',sans-serif;color:#6a7867}
+.text-input{width:40cqw;border:.4cqw solid #48665b;border-radius:2.4cqw;background:#fffef3;color:#243747;font-size:3.5cqw}.text-input:focus{border-color:#17745e;box-shadow:0 0 0 .6cqw #a9e6c7}
+input[type=range]{width:40cqw;accent-color:#27936e}.toggle{height:7.5cqw;border:.4cqw solid #243747;background:#b2c0ad;padding:.5cqw;box-shadow:inset 0 .35cqw 0 rgba(36,55,71,.12)}.toggle::after{width:5.7cqw;height:5.7cqw;border:.3cqw solid #243747;background:#fff8df}.toggle.on{background:#6acd98}.toggle.on::after{background:#fff8df;transform:translateX(5.2cqw)}
+#btn-mute{width:18cqw;height:9cqw;color:#243747;border:.4cqw solid #243747;background:#fff8df;border-radius:2.5cqw;font:2.8cqw/1 'Jua',sans-serif;white-space:nowrap}
+
+/* Three tall collectible cards: strong silhouette, clear ability, one decision. */
+.selection-roster{height:20cqw!important;min-height:20cqw!important;padding:1.5cqw 2cqw 1.5cqw!important;gap:1cqw!important;background:#97dfbe!important;border-bottom:.5cqw solid #243747}
+.selection-screen .screen-head{height:12cqw;min-height:12cqw}.selection-screen .screen-head h2{font-size:5.1cqw}
+.selection-body{padding:0 3cqw 5cqw}.cards{gap:2cqw}
+.card{border:var(--outline);border-radius:3.5cqw;background:#fff8df;box-shadow:0 1.1cqw 0 #243747;transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column}
+.card::before{display:none}.card:not([disabled]):hover{border-color:#243747;transform:translateY(-.5cqw)}
+.card .art{flex-shrink:0;color:#243747;border-bottom:.5cqw solid #243747;background:radial-gradient(circle at 50% 45%,#fff9cf 0 30%,transparent 31%),linear-gradient(145deg,#b6e6cf,#85cfb7)}
+.card .art .ui-svg{filter:drop-shadow(0 .8cqw 0 rgba(36,55,71,.18));width:15cqw;height:15cqw}.card .art .ui-svg--augment{filter:drop-shadow(0 .45cqw 0 rgba(36,55,71,.16));width:17.5cqw;height:17.5cqw}
+.weapon-card,.augment-card{min-height:76cqw}.weapon-card .art{height:29cqw;background:radial-gradient(circle at 50% 45%,#fff9cf 0 30%,transparent 31%),#acdcae}.weapon-card .art .ui-svg{width:18cqw;height:18cqw}
+.augment-card .art{height:28cqw;background:radial-gradient(circle at 50% 45%,#fff9dc 0 31%,transparent 32%),#a9dec9}
+.card .head{padding:2.7cqw 1cqw 1.8cqw;min-height:10cqw}.card .nm{font:3.65cqw/1.12 'Jua',sans-serif;letter-spacing:0;color:#243747}
+.tag{font:2.1cqw/1 'Jua',sans-serif;border:.3cqw solid #6d8672;color:#50624f;background:#e5efd2;padding:.8cqw 1.5cqw}
+.card .desc,.card .foot{font-family:'Jua',sans-serif;color:#526450}.card .desc{font-size:2.6cqw;line-height:1.5;padding:2cqw 1.8cqw}.augment-card .desc{color:#44594c;font-size:2.8cqw;line-height:1.45;min-height:24cqw;padding:2.5cqw 1.6cqw;word-break:keep-all}
+.card .foot{font-size:2.45cqw;line-height:1.4;border-top:.35cqw solid #d3dcc5;background:#edf0d9;padding:2cqw 1.5cqw;min-height:12cqw}
+.sbar{color:#627966;font-family:'Jua',sans-serif;font-size:2.4cqw}.sbar .bar{height:1.5cqw;background:#dce3c8;border:.2cqw solid #9aaa8e}.sbar .bar i{background:#67bd80}
+.accent-copy{color:#ba6627;font-weight:700}
+.augment-card.picked,.weapon-card.picked{border-color:#243747;background:#fff1ad;box-shadow:0 1.1cqw 0 #243747,0 0 0 .8cqw #ffd44c}.augment-card.picked .nm,.weapon-card.picked .nm{color:#775617}
+.augment-card.picked .art,.weapon-card.picked .art{background:radial-gradient(circle,#fff8df 0 31%,transparent 32%),#ffdb65}
+.refresh-row{margin-top:4cqw;gap:2.5cqw}.refresh-btn{background:#79dec0;min-height:10cqw;min-width:34cqw}.refresh-count-pill{border:.4cqw solid #243747;background:#fff8df;color:#765a26;box-shadow:0 .6cqw 0 #243747;font-size:3cqw}
+.phase-timer{height:2.6cqw;border:.4cqw solid #243747;background:#fff8df;margin:2.4cqw 4cqw 4.4cqw;overflow:visible}.phase-timer i{background:#ffd44c}.phase-timer b{color:#526951;font:3.2cqw/1 'Jua',sans-serif;top:3cqw}.phase-timer.urgent i{background:#ff8477}.phase-timer.urgent b{color:#a33839}
+#aug-myinfo{font-family:'Jua',sans-serif;color:#537761;font-size:2.8cqw}.coin-copy{color:#926b25}.chip{font:2.45cqw/1.3 'Jua',sans-serif;padding:1cqw 1.7cqw;border:.3cqw solid #749c7f;background:#e8f4d7;color:#4b6854}
+
+/* Event cards are a distinct violet set, with a readable live vote shelf. */
+#scr-event{background:radial-gradient(circle at 2cqw 2cqw,rgba(255,255,255,.17) 0 .7cqw,transparent .75cqw),linear-gradient(160deg,#dac6ef,#b3a1da);background-size:8cqw 8cqw,auto}
+.event-kicker{color:#695281;font:2.65cqw/1 'Jua',sans-serif;letter-spacing:.15cqw}.event-body>.subt{color:#695281}
+.event-cards{gap:2cqw}.event-card{min-height:65cqw;border:var(--outline);border-radius:3.4cqw;background:#fff8df;box-shadow:0 1.1cqw 0 #243747;color:#243747}.event-card::before{display:none}
+.event-card .event-art{height:22cqw;min-height:22cqw;border-bottom:.5cqw solid #243747;color:#553b83;background:radial-gradient(circle at 50% 48%,#fff7e1 0 32%,transparent 33%),#cfb2e8}
+.event-card .event-art .ui-svg{width:12cqw;height:12cqw;filter:drop-shadow(0 .55cqw 0 rgba(36,55,71,.15))}
+.event-card .event-name{font:3.5cqw/1.2 'Jua',sans-serif;padding:2.5cqw 1.1cqw 1cqw;min-height:11.5cqw}.event-card .event-desc{font:2.55cqw/1.4 'Jua',sans-serif;color:#685b70;padding:1.5cqw 1.5cqw 2cqw}
+.event-card-voters{min-height:10cqw;padding:1.3cqw .7cqw;gap:.5cqw;border-top:.4cqw solid #b4a3c2;background:#ebdfef}.event-card-voters:empty::after{color:#8b779d;font-size:2.3cqw}
+.event-card-voter{width:5.8cqw;height:5.8cqw;flex-basis:5.8cqw;border:.45cqw solid var(--voter-color,#7082ad);background:#fff8df;box-shadow:0 .45cqw 0 #243747}
+.event-card-voter.winner{box-shadow:0 0 0 .65cqw #fff8df,0 0 0 1.2cqw #ffd44c}.event-vote-count{border:.35cqw solid #243747;box-shadow:0 .35cqw 0 #243747;background:#ffd44c;color:#243747}
+.event-card.selected{border-color:#243747;box-shadow:0 1.1cqw 0 #243747,0 0 0 .7cqw #fff0a4}.event-card.selected .event-art{background:radial-gradient(circle,#fff8df 0 32%,transparent 33%),#b596db}
+.event-card.winning{border-color:#243747;box-shadow:0 1.1cqw 0 #243747,0 0 0 .9cqw #ffd44c}.event-card.winning .event-art{background:radial-gradient(circle,#fff8df 0 32%,transparent 33%),#ffdb68}
+#event-status{font:2.9cqw/1.4 'Jua',sans-serif;color:#645277;margin:3.5cqw 1cqw 0}#event-status.locked{color:#634483}
+.event-result{border:var(--outline);border-radius:3.5cqw;background:#fff8df;box-shadow:var(--panel-shadow);padding:3.5cqw}.event-result-title{font:4.7cqw/1 'Jua',sans-serif;color:#533c73}.event-result-rule{font:2.6cqw/1.45 'Jua',sans-serif;color:#7a6d85}
+.event-vote-row{border:.35cqw solid #a998b8;border-radius:2.3cqw;background:#f3edf2}.event-vote-row.winner{border-color:#b29248;background:#fff0b4}.event-player-name{font-size:2.9cqw}.event-voted-name{color:#867694;font:2.3cqw/1.3 'Jua',sans-serif}.event-winner-tag{color:#8d6723}
+.event-winning{border:.45cqw solid #a78b48;border-radius:2.7cqw;background:#ffedaa}.event-winning-label{color:#8d6723;font-size:2.6cqw}.event-winning-name{color:#243747;font:4.5cqw/1.2 'Jua',sans-serif}.event-winning-desc{color:#796535;font:2.6cqw/1.45 'Jua',sans-serif}
+
+/* Four portrait tabs, a stopwatch, chunky skill pads and an actual toy thumbstick. */
+#game{background:transparent}.hud-top-band{height:13.5%;padding:1.8cqw 2cqw;background:linear-gradient(180deg,#94e0c1 0%,rgba(148,224,193,.98) 75%,rgba(148,224,193,0) 100%)}
+#hud-players{height:17.5cqw;gap:1cqw}
+.prow{border:.45cqw solid #243747;border-radius:2.4cqw;border-top:.75cqw solid var(--player-color);background:linear-gradient(180deg,#fff9df,#e9efcd);box-shadow:0 .65cqw 0 #243747}
+.prow.me{border-color:#243747;border-top-color:var(--player-color);box-shadow:0 .65cqw 0 #243747,inset 0 0 0 .35cqw var(--player-color)}
+.prow .portrait{background:radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.86),transparent 64%)}
+.prow .coin-rank{left:.55cqw;top:.5cqw;width:3.5cqw;height:3.5cqw;border:.3cqw solid #243747;border-radius:1cqw;background:#ffd44c;color:#243747;font:2.2cqw/1 'Jua',sans-serif}
+.prow .hud-status{color:#243747;right:.5cqw;top:.5cqw}.prow .hud-status .ui-svg{width:2.8cqw;height:2.8cqw}
+.prow .hud-name{height:4.7cqw;padding:0 .6cqw;gap:.35cqw;background:#fff8df;border-top:.3cqw solid #b7c5a9;color:#243747;font:2.45cqw/1 'Jua',sans-serif}
+.prow .hud-coins{font-size:2.4cqw;color:#8e681b;gap:.2cqw;margin:0}.prow .hud-coins .ui-svg{width:2.7cqw;height:2.7cqw}
+.prow .hud-streak{font:2.1cqw/1 'Jua',sans-serif}.prow .hud-streak b{border:.25cqw solid #243747;background:#ffd44c}.prow .hud-streak b.lose{color:#52616a;background:#d4ddd6}
+.prow.dead{opacity:.5;filter:grayscale(.7)}.prow.eliminated::after{background:rgba(45,64,65,.67);color:#fff8df;font:3.4cqw/1 'Jua',sans-serif;-webkit-text-stroke:.25cqw #243747;paint-order:stroke fill}
+#hud-top{top:21cqw;right:2.5cqw;min-width:27cqw;border:.45cqw solid #243747;border-radius:3cqw;background:#fff8df;box-shadow:0 .7cqw 0 #243747;backdrop-filter:none;padding:1.4cqw 1.8cqw;column-gap:1.6cqw}
+#hud-top::before{display:none}#hud-round{font:2.9cqw/1 'Jua',sans-serif;color:#4a675a;letter-spacing:0}#hud-map{font:2.1cqw/1.2 'Jua',sans-serif;color:#7b8970;margin-top:.6cqw}
+#hud-timer{font:6cqw/.95 'Jua',sans-serif;color:#243747;text-shadow:none}#hud-timer::after{content:'초';font-size:2.3cqw;color:#83916f;margin-left:.3cqw}#hud-timer.ot,#hud-timer.urgent{color:#c44743}
+#ot-tag{border:.3cqw solid #95443d;border-radius:1.7cqw;background:#fff0c2;color:#b74d3e;font:2cqw/1.35 'Jua',sans-serif}
+#hud-spec{top:32cqw;border:.4cqw solid #243747;background:#e8d5ef;color:#604479;font:2.8cqw/1 'Jua',sans-serif;box-shadow:0 .5cqw 0 #243747}
+#hud-hint{top:32cqw;left:3cqw;right:32cqw;border:.4cqw solid #243747;background:#fff2bd;color:#775e30;font:2.7cqw/1.3 'Jua',sans-serif;box-shadow:0 .5cqw 0 #243747}
+#skillbar{height:17%;padding:2cqw 34cqw calc(5cqw + env(safe-area-inset-bottom,0px)) 4cqw;gap:3cqw;background:linear-gradient(0deg,#97dcb4,rgba(151,220,180,.5) 60%,transparent)}
+.skillbtn{width:17cqw;height:18.3cqw;border:.6cqw solid #243747;border-radius:4cqw;color:#243747;background:#e0e5cb;box-shadow:0 1cqw 0 #243747,inset 0 .8cqw 0 #fff5d8}
+.skillbtn::before{display:none}.skillbtn .ico{height:7.5cqw;color:#243747;filter:drop-shadow(0 .4cqw 0 #fff5ce);margin-bottom:.8cqw}.skillbtn .ico .ui-svg{width:7cqw;height:7cqw}
+.skillbtn .lbl{max-width:15cqw;font:2.4cqw/1.1 'Jua',sans-serif;color:#243747}.skillbtn .uses{font:2.1cqw/1 'Jua',sans-serif;color:#7c6127;margin-top:.7cqw;letter-spacing:.3cqw}
+.skillbtn.ready{border-color:#243747;background:#ffd44c;box-shadow:0 1.2cqw 0 #243747,inset 0 .8cqw 0 #ffe994}.skillbtn.ready:nth-child(2){background:#79dec0;box-shadow:0 1.2cqw 0 #243747,inset 0 .8cqw 0 #c0f3d3}
+.skillbtn.used{opacity:.52;filter:grayscale(.75);box-shadow:0 .5cqw 0 #243747}.skillbtn.charging{border-color:#243747;background:#ffbf66;animation:casualCharge .45s ease-in-out infinite alternate}
+.skillbtn .cdoverlay{border-radius:3.3cqw;background:rgba(255,238,181,.91);color:#8b532a;font:2.8cqw/1 'Jua',sans-serif}
+@keyframes casualCharge{to{box-shadow:0 1.2cqw 0 #243747,0 0 0 1cqw #fff1a2}}
+#steer-control{right:4.5cqw;bottom:calc(4cqw + env(safe-area-inset-bottom,0px));width:25cqw;height:29cqw;gap:1.3cqw}
+#steer-base{width:25cqw;height:25cqw;border:.65cqw solid #243747;background:radial-gradient(circle,#9dc7a8 0 39%,#c9e6bc 40% 66%,#f5f3d2 67%);box-shadow:0 1.1cqw 0 #243747,inset 0 .8cqw 0 #f5ffdf;backdrop-filter:none}
+#steer-base::before{inset:12%;width:76%;height:76%;transform:none;border:.4cqw solid #85a893;background:none;mask:none;-webkit-mask:none;opacity:1;left:12%;top:12%}.steer-ring{inset:21%;border:.35cqw dashed #779887}
+#steer-knob{width:11.5cqw;height:11.5cqw;margin:-5.75cqw 0 0 -5.75cqw;border:.55cqw solid #243747;background:#79dec0;box-shadow:0 .8cqw 0 #315c4b,inset 0 .9cqw 0 #bcf2d1}
+#steer-knob .steer-arrow{color:#276650;font-size:4.3cqw;text-shadow:0 .3cqw 0 #c0f3d3}
+#steer-control.active #steer-base{border-color:#243747;box-shadow:0 1.1cqw 0 #243747,0 0 0 .8cqw rgba(255,249,206,.75)}#steer-control.active #steer-knob{filter:none;background:#99edc1;box-shadow:0 .8cqw 0 #315c4b,inset 0 .9cqw 0 #e1ffdd}
+#steer-control.aiming #steer-base{border-color:#243747}#steer-control.aiming #steer-knob{border-color:#243747;background:#ffd44c;box-shadow:0 .8cqw 0 #8e7732,inset 0 .9cqw 0 #ffeb9c}
+#steer-label{height:2.8cqw;padding:.4cqw 1.6cqw;background:#fff8df;border:.25cqw solid #769b7d;border-radius:99px;color:#4c715a;font:2.3cqw/1 'Jua',sans-serif;text-shadow:none}
+#steer-control.active #steer-label,#steer-control.aiming #steer-label{color:#466841}#steer-control.disabled{opacity:.45;filter:grayscale(.5)}
+#btn-watch-other{bottom:31cqw;min-width:42cqw;max-width:48cqw;background:#fff8df;z-index:9}
+#hud-count{color:#fff8df;font-family:'Jua',sans-serif;-webkit-text-stroke:1cqw #243747;paint-order:stroke fill;text-shadow:0 1.5cqw 0 #243747}
+#banner-main{font:10cqw/1 'Jua',sans-serif;color:#fff8df;-webkit-text-stroke:.8cqw #243747;paint-order:stroke fill;text-shadow:0 1cqw 0 #243747}
+#banner-sub{display:inline-block;font:3.4cqw/1.2 'Jua',sans-serif;color:#243747;background:#fff8df;border:.4cqw solid #243747;border-radius:99px;padding:1.1cqw 3cqw;box-shadow:0 .5cqw 0 #243747;margin-top:2cqw}#banner-sub:empty{display:none}
+
+/* Opening roster, readable inspection cards and end-of-match podium. */
+#scr-intro{background:radial-gradient(circle at 50% 44%,#e7f5c5,#8fd8af)}
+.intro-kicker{color:#517e58;font:3cqw/1 'Jua',sans-serif;letter-spacing:.2cqw}.intro-title{font:7cqw/1 'Jua',sans-serif;color:#243747;margin:2.5cqw 0 5cqw}
+#intro-players{gap:2.7cqw;padding:0 7cqw}.intro-player{height:19cqw;border:var(--outline);border-radius:4cqw;background:#fff8df;box-shadow:0 .9cqw 0 #243747;padding:1.5cqw 2cqw;gap:2cqw}.intro-player.me{border-color:#243747;background:#fff0ab;box-shadow:0 .9cqw 0 #243747}
+.intro-player strong{font:4.4cqw/1.1 'Jua',sans-serif;-webkit-text-stroke:.06cqw #243747;paint-order:stroke fill}.intro-player small{font:2.8cqw/1.3 'Jua',sans-serif;color:#73826a}.intro-player>span{font:2.6cqw/1 'Jua',sans-serif;color:#6f8565;background:#e0ead0;border:.3cqw solid #79956d;border-radius:99px;padding:1cqw 1.7cqw}
+.intro-count{font:18cqw/1 'Jua',sans-serif;color:#fff8df;-webkit-text-stroke:.9cqw #243747;paint-order:stroke fill;text-shadow:0 1.3cqw 0 #243747}
+#player-modal{background:rgba(27,61,53,.64);backdrop-filter:blur(4px)}
+.modal-card{border:.65cqw solid #243747;border-radius:4cqw;background:#fff8df;box-shadow:0 1.5cqw 0 #243747,0 5cqw 10cqw rgba(18,49,43,.24)}
+.modal-head{background:#daefd0;border-bottom:.45cqw solid #243747;height:14cqw}.modal-head h3{font:4.7cqw/1 'Jua',sans-serif}
+.detail-hero{background:#eff4d9;border-radius:3cqw;padding:1cqw}.detail-hero h4{font:4.7cqw/1.2 'Jua',sans-serif}.detail-hero p{color:#966e25;font-size:3.2cqw}
+.detail-section>strong{font:3cqw/1.3 'Jua',sans-serif;color:#708165}.detail-item{border:.35cqw solid #a5b393;border-radius:2.2cqw;background:#f4f5e3;font:2.9cqw/1.35 'Jua',sans-serif;padding:1.5cqw 1.8cqw;gap:1.8cqw;min-height:9cqw}.detail-item small{font-size:2.4cqw;color:#7c8a70}.detail-item .item-ico{background:#cde6cf;border:.25cqw solid #708f74;border-radius:1.5cqw;color:#243747;width:6.5cqw;height:6.5cqw;flex-shrink:0}.detail-item .item-ico .ui-svg--augment{width:5.7cqw;height:5.7cqw}
+#hold-tooltip{background:#fff6cf;border:.6cqw solid #243747;border-radius:3.5cqw;box-shadow:0 1.1cqw 0 #243747,0 3cqw 8cqw rgba(27,61,53,.3)}
+.tooltip-title{font:4.5cqw/1.15 'Jua',sans-serif;color:#243747;gap:1.6cqw}.tooltip-title .ui-svg--augment{width:6.5cqw;height:6.5cqw}.tooltip-desc{font:3.2cqw/1.5 'Jua',sans-serif;color:#586d52}
+.rline,.rankline{border:.45cqw solid #243747;border-radius:3cqw;background:#fff8df;box-shadow:0 .7cqw 0 #243747;font-family:'Jua',sans-serif;color:#243747}.rline{font-size:3.3cqw;min-height:14cqw}.rline.elim{border-color:#8f504c;background:#ffe4d5}.rline .win{color:#a47024}.coinloss{color:#bd4945}
+#over-rank{font:10cqw/1 'Jua',sans-serif;color:#243747!important;text-shadow:0 .6cqw 0 #fff5c9;-webkit-text-stroke:.18cqw #243747;paint-order:stroke fill}#over-rating{color:#8a6728;font-size:3.8cqw}
+.rankline{min-height:13cqw;font-size:3.4cqw}.rankline .pos{color:#668064;font-family:'Jua',sans-serif}.rankline.first{border-color:#243747;background:#ffe79c}.rankline.first .pos{color:#8c681f}.rank-loadout{color:#748167;font-size:2.5cqw}.rankline.dead{opacity:.66}
+.ui-svg--asset{object-fit:contain}.artwork-link{font-size:2.7cqw}
+@media(prefers-reduced-motion:no-preference){.screen:not(.hidden){animation:casualScreenIn .2s ease-out}@keyframes casualScreenIn{from{opacity:.6;transform:translateY(1.1cqw)}to{opacity:1;transform:none}}}
+@media(prefers-reduced-motion:reduce){.title-crown,.skillbtn.charging{animation:none}}

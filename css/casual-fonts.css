@@ -1,0 +1,11 @@
+/* Locally hosted Korean display font. One complete font includes player nicknames.
+ * Copyright 2018 The Jua Project Authors. SIL Open Font License 1.1.
+ * See assets/fonts/OFL-Jua.txt and assets/fonts/README.md.
+ */
+@font-face{
+  font-family:'Jua';
+  src:url('../assets/fonts/Jua-Regular.ttf') format('truetype');
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+}

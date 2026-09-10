@@ -22,7 +22,7 @@
   }
 
   const groups = [
-    {name:'이번 수정', color:'#b7e89a'},
+    {name:'캐주얼 리뉴얼', color:'#ffb95a'}, {name:'유지한 소리', color:'#83d8b2'},
     {name:'전체', color:'#7bd8ff'}, {name:'무기', color:'#79d8ff'},
     {name:'무기 스킬', color:'#b69cff'}, {name:'캐릭터 스킬', color:'#83ddc0'},
     {name:'증강', color:'#ffc58a'}, {name:'전투', color:'#ff9fa7'},
@@ -36,8 +36,8 @@
     if (saved !== null && Number.isFinite(Number(saved))) savedVolume = Math.min(100, Math.max(0, Number(saved)));
   } catch (_) { /* Listening remains available when browser storage is disabled. */ }
   const audio = engine.create({volume:savedVolume / 100, muted:false});
-  let selectedGroup = '이번 수정';
-  const inGroup = (item, group) => group === '전체' || (group === '이번 수정' ? item.revised : item.group === group);
+  let selectedGroup = '캐주얼 리뉴얼';
+  const inGroup = (item, group) => group === '전체' || (group === '캐주얼 리뉴얼' ? item.revised : group === '유지한 소리' ? item.restored : item.group === group);
   let generation = 0;
   let activeId = null;
   let activeVariant = 'current';
@@ -77,7 +77,7 @@
     activeVariant = variant;
     busy = isBusy;
     const item = sounds.get(id);
-    elements.now.textContent = item ? item.name + (variant === 'previous' ? ' · 업데이트 전' : '') : '어떤 소리부터 들어볼까요?';
+    elements.now.textContent = item ? item.name + (variant === 'previous' ? ' · 이전 버전' : ' · 캐주얼') : '어떤 소리부터 들어볼까요?';
     elements.label.textContent = isBusy ? 'LOADING SOUND' : item ? (sequenceIndex >= 0 ? `이어 듣기 ${sequenceIndex + 1} / ${catalog.length}` : item.group + ' · 재생 중') : 'READY TO PLAY';
     elements.visual.classList.toggle('is-playing', !!item && !isBusy);
     elements.stop.disabled = !item && sequenceIndex < 0;
@@ -88,7 +88,7 @@
       card.classList.toggle('is-playing', playing);
       for (const button of card.querySelectorAll('.sound-play')) {
         const thisPlaying = playing && button.dataset.variant === variant;
-        const label = button.dataset.variant === 'previous' ? '업데이트 전' : '게임 적용음';
+        const label = button.dataset.variant === 'previous' ? '이전 버전' : '캐주얼';
         button.setAttribute('aria-pressed', String(thisPlaying));
         button.setAttribute('aria-label', `${sounds.get(card.dataset.soundId).name} ${label} ${thisPlaying ? '중지' : '재생'}`);
         button.querySelector('.play-label').textContent = thisPlaying ? '재생 중' : label;
@@ -140,12 +140,12 @@
       if (!played) throw new Error('playback-failed');
       showPlayback(item.id, false, variant);
       const seqText = sequenceIndex >= 0 ? ` (${sequenceIndex + 1}/${catalog.length})` : '';
-      setStatus(variant === 'previous' ? `${item.name} · 이번 업데이트 전 버전입니다.` : `${item.name}${seqText} · ${item.description || '효과음을 재생합니다.'}`);
+      setStatus(variant === 'previous' ? `${item.name} · 리뉴얼 직전 게임에서 사용하던 소리입니다.` : `${item.name}${seqText} · ${item.description || '캐주얼 효과음을 재생합니다.'}`);
       clearTimeout(activeTimer);
       activeTimer = setTimeout(() => {
         if (token !== generation) return;
         showPlayback(null);
-        if (sequenceIndex < 0) setStatus(`${item.name} · ${variant === 'previous' ? '업데이트 전' : '게임 적용음'} 재생이 끝났어요. 다시 눌러 비교해 보세요.`);
+        if (sequenceIndex < 0) setStatus(`${item.name} · ${variant === 'previous' ? '이전 버전' : '캐주얼'} 재생이 끝났어요. 두 버튼을 번갈아 눌러 비교해 보세요.`);
       }, durationOf(item, variant) * 1000);
       return true;
     } catch (_) {
@@ -243,14 +243,14 @@
       const bottom = make('div', 'card-bottom');
       const meta = make('span', 'sound-meta');
       meta.append(make('span', 'sound-duration', durationOf(item).toFixed(1) + '초'));
-      const source = item.revised ? '이번 수정' : item.restored ? '원래 소리 복원' : item.source === 'CC0 폴리 + 디자인' ? '녹음 편집' : '새 음색';
+      const source = item.revised ? '캐주얼 리뉴얼' : item.restored ? '익숙한 재질 유지' : item.source;
       if (source) meta.append(make('span', 'meta-dot'), make('span', '', source));
       const choices = make('div','sound-choices');
       for (const variant of ['current','previous']) {
         const play = make('button', 'sound-play' + (variant==='previous' ? ' sound-compare' : ''));
         play.type='button';play.dataset.variant=variant;
         const mark=make('span','play-mark play-triangle');mark.setAttribute('aria-hidden','true');
-        play.append(mark,make('span','play-label',variant==='previous'?'업데이트 전':'게임 적용음'));
+        play.append(mark,make('span','play-label',variant==='previous'?'이전 버전':'캐주얼'));
         play.addEventListener('click',()=>preview(item,variant));choices.append(play);
       }
       bottom.append(meta,choices);
