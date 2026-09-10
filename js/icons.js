@@ -1,10 +1,10 @@
 'use strict';
 
 /* ============================================================
- * 바운스 로얄 — 코드 기반 벡터 아이콘
+ * 바운스 로얄 — 공통 아이콘 렌더러와 기존 벡터 보관본
  *
- * 외부 이미지나 아이콘 폰트에 의존하지 않는다. 모든 아이콘은 currentColor를
- * 사용하므로 화면별 강조색을 CSS 한 곳에서 제어할 수 있다.
+ * 증강은 로컬 Game-icons 에셋을 우선 사용한다. 기존 벡터는 비교와 오류 시
+ * 대체용으로 유지한다. 메뉴·무기 등 나머지 아이콘은 기존 currentColor 방식이다.
  * ============================================================ */
 (function initBounceRoyalIcons(global) {
   const paths = Object.freeze({
@@ -264,7 +264,7 @@
     return (paths[key] || augmentPaths[key]) ? key : 'skill';
   }
 
-  function markup(name, className = '') {
+  function legacyMarkup(name, className = '') {
     const key = resolve(name);
     const drawing = augmentPaths[key] || paths[key];
     const requestedClasses = String(className || '').trim();
@@ -277,6 +277,17 @@
     return '<svg class="' + svgClasses + '" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + drawing + '</svg>';
   }
 
+  function markup(name, className = '') {
+    const key = resolve(name);
+    const source = global.BRAugmentAssets && global.BRAugmentAssets[key];
+    // Restrict image URLs to our checked-in assets (including the content hash).
+    if (!source || !/^assets\/icons\/augments\/[A-Za-z0-9_]+\.svg\?v=[a-f0-9]{12}$/.test(source)) return legacyMarkup(name, className);
+    const tokens = String(className || '').trim().split(/\s+/).filter(Boolean);
+    const safeClasses = tokens.every(token => /^[A-Za-z0-9_-]+$/.test(token)) ? tokens.join(' ') : '';
+    const classes = ['ui-svg', 'ui-svg--augment', 'ui-svg--asset', safeClasses].filter(Boolean).join(' ');
+    return '<img class="' + classes + '" src="' + source + '" data-augment-icon="' + key + '" width="512" height="512" alt="" aria-hidden="true" draggable="false">';
+  }
+
   function hydrate(root) {
     const scope = root && root.querySelectorAll ? root : document;
     scope.querySelectorAll('[data-ui-icon]').forEach(element => {
@@ -284,8 +295,16 @@
     });
   }
 
-  global.BRIcons = Object.freeze({ markup, hydrate, resolve, has:name => !!(paths[aliases[name] || name] || augmentPaths[aliases[name] || name]) });
+  global.BRIcons = Object.freeze({ markup, legacyMarkup, hydrate, resolve, has:name => !!(paths[aliases[name] || name] || augmentPaths[aliases[name] || name]) });
   if (typeof document !== 'undefined') {
+    // A failed asset download must not leave a blank card or require a reload.
+    document.addEventListener('error', event => {
+      const element = event.target;
+      if (!element || element.tagName !== 'IMG' || !element.dataset.augmentIcon) return;
+      const template = document.createElement('template');
+      template.innerHTML = legacyMarkup(element.dataset.augmentIcon, element.className.replace(/\bui-svg(?:--[a-z]+)?\b/g, '').trim());
+      element.replaceWith(template.content.firstChild);
+    }, true);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => hydrate(document), { once:true });
     else hydrate(document);
   }

@@ -34,6 +34,7 @@ const ROOT = path.resolve(__dirname, '..');
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8',
   '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.png': 'image/png', '.ico': 'image/x-icon',
   '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav',
 };

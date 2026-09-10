@@ -390,3 +390,7 @@ input[type=range]{accent-color:var(--cyan)}
   .screen:not(.hidden){animation:screenIn .2s ease-out}
   @keyframes screenIn{from{opacity:.35;transform:translateY(.8cqw)}to{opacity:1;transform:none}}
 }
+
+/* Downloaded vector silhouettes share the previous icon's layout footprint. */
+.ui-svg--asset{object-fit:contain;user-select:none;-webkit-user-drag:none}
+.artwork-link{width:auto;flex-shrink:0;padding:1.4cqw 2cqw;text-decoration:none;white-space:nowrap;font-size:2.7cqw}
