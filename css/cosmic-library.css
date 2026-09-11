@@ -1,0 +1,62 @@
+/* Palette companion for the artwork and audio libraries. Geometry is inherited
+ * from casual-library.css. No icon recoloring or asset changes in this layer. */
+:root{
+  color-scheme:dark;--bg:#141d32;--panel:#fff4d9;--line:#243747;--text:#e8e6dc;
+  --muted:#aebdca;--cyan:#9bcbd4;--blue:#85b7d2;--ink:#243747;
+}
+.icon-language{margin:0 0 24px;padding:20px;border:2px solid #43506a;border-radius:16px;background:#202d45;color:#f5ecd6}
+.icon-language h2{font-size:16px;font-weight:400;margin:0 0 18px}
+#icon-legend{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+#icon-legend>div{display:flex;align-items:center;flex-direction:column;gap:9px;text-align:center;font-size:12px;color:#c9d3de}
+#icon-legend .ui-svg{width:52px;height:52px;filter:none}
+.dialog-credit a{color:#437887}
+@media(max-width:620px){#icon-legend{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 8px}.icon-language{padding:16px}#icon-legend .ui-svg{width:44px;height:44px}#icon-legend>div{font-size:10px}.icon-language h2{font-size:14px}}
+html,body{background:#141d32;color:#e8e6dc}
+body{background:radial-gradient(circle at 11% 12%,#d7e5f0aa 0 1px,transparent 1.7px),radial-gradient(circle at 83% 26%,#eddda188 0 1px,transparent 1.6px),radial-gradient(circle at 37% 68%,#c5d6e888 0 1px,transparent 1.7px),radial-gradient(circle at 89% 87%,#d7e5f077 0 1px,transparent 1.6px),#141d32;background-size:auto;background-repeat:no-repeat}
+.brand,.brand b,.brand strong,.back-link{color:#f5ecd6}.brand-emblem{color:#e3b66a}
+a{color:#a7d0df}a:hover{color:#ffce80}
+nav,.studio-header{border-bottom-color:#43506a}
+.eyebrow,.intro .eyebrow{color:#d8b983}.eyebrow>span{background:#ed8876}
+.intro h1,.studio-intro h1{color:#fff4d9;text-shadow:0 3px 0 #0b1427}.intro h1 span,.studio-intro h1 span{color:#ffd25a}
+.intro>p:last-child,.intro-copy{color:#b6c2cf}
+.collection-head p,.collection-head h2 span{color:#aabfce}
+.collection-head h2,.collection-heading h2{color:#f2e7d1}
+.toolbar{background:#28374e;border-color:#526177;box-shadow:0 5px 0 #0a1327;color:#d8dfdf}
+.toolbar label{background:#fff8e5;color:#69777d}
+.toolbar input,.toolbar select,.toolbar select option{color:#243747;background:#fff8e5;color-scheme:light}
+.toolbar button{background:#c4d9de;color:#243747}.toolbar button[aria-pressed=true]{background:#ffd25a}
+.icon-card{background:#fff4d9;color:#243747}.icon-card:hover{background:#ffefbd}
+.icon-card .kind,.art-label{color:#7a8075}
+.old-art{background:#28374a}.old-art .art-label{color:#c5d3de}
+.credits{background:#fff4d9;color:#243747}.credits p,.credits .eyebrow{color:#747d73}
+.credit-links a,.credits a{color:#4f7c87}.credits a:hover{color:#b77143}
+footer,.studio-footer{border-top-color:#43506a;color:#b2c0ce}
+footer span,.studio-footer b{color:#d5b381}.studio-footer a{color:#a8cedb}
+dialog{background:#fff4d9;color:#243747;color-scheme:light}dialog::backdrop{background:#081125c9}
+.dialog-art{background:radial-gradient(circle,#e8dfc1 0 50%,transparent 51%)}
+.dialog-close{background:#f0a086;color:#243747}
+#dialog-desc{color:#69776f}.dialog-credit,.small-preview{color:#818778}.dialog-credit{border-top-color:#d4cfb7}
+.playback-panel{background:#fff4d9;color:#243747}
+.control-label,.playback-status{color:#707d77}
+.live-visual{background:#d5e1df}.live-visual i,.live-visual.is-playing i{background:#bd796c}
+.button-primary,.sound-play{background:#f0796c;color:#243747}.button-primary:hover{background:#f5a187}
+.button-stop,.button-secondary{background:#d8e3df}.button-stop:not(:disabled):hover{background:#bdd9df}
+.volume-control{border-color:#d8d2bc}.volume-toggle{color:#6d8285}.volume-control input{accent-color:#c4786b}#volume-value{color:#728381}
+.search-field{background:#fff8e5}.search-field input{color:#243747}.search-field input::placeholder{color:#88988f}.search-field svg{color:#7a989c}
+.filter-button{background:#2d4056;color:#c3d3de;border-color:#52677b;box-shadow:0 3px 0 #081225}
+.filter-button:hover{background:#3d5369}.filter-button.active{background:#ffd25a;color:#243747;border-color:#243747;box-shadow:0 3px 0 #243747}
+.sound-card{background:#fff4d9;color:#243747}.sound-card:hover{background:#fff7e3}.sound-card.is-playing{background:#ffedb9;box-shadow:0 5px 0 #243747,0 0 0 3px #f0796c}
+.sound-card h3{color:#243747}.sound-description{color:#768171}.sound-signature{color:#7a7355}.sound-meta,.card-category{color:#87907d}
+.sound-icon{background:#d8e2da}
+.sound-card .sound-play{background:#f0796c;color:#243747}.sound-card .sound-play[aria-pressed=true]{background:#aacfd6}
+.sound-choices .sound-compare,.sound-card.is-playing .sound-compare[aria-pressed=false]{background:#e3e6dc;color:#738477;border-color:#8c9b8c}
+.sound-progress{background:#c27968}.charge-preview{color:#8a688f;background:#ece0ec;border-color:#a086b1}.charge-preview:hover{background:#e1d1e7}
+.empty-state{border-color:#60758b;background:#24364c;color:#b5c5d0}.empty-state h3{color:#eee5d2}
+.stamp-orbit{background:#fff4d9}.orbit-two{border-color:#526b84;background:transparent}.orbit-one:after{background:#ffd25a}
+.stamp-bars i{background:#7cb2c0}.stamp-bars i:nth-child(2n){background:#e4b760}.stamp-bars i:nth-child(5){background:#ed8a78}
+.collection-stamp p span{color:#b6c4d0}
+
+/* Secondary captions on paper cards must not wash out beside the navy sky. */
+.icon-card .kind,.credits p,.credits .eyebrow,
+.sound-description,.sound-meta,.card-category,
+.control-label,.playback-status,.dialog-credit,dialog .small-preview{color:#626f65}

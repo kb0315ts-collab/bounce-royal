@@ -3,32 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#b5eddb">
+  <meta name="theme-color" content="#141b33">
   <title>증강 아트워크 · 바운스로얄</title>
   <link rel="stylesheet" href="css/icon-gallery.css">
   <link rel="stylesheet" href="css/casual-fonts.css">
   <link rel="stylesheet" href="css/casual-library.css">
+  <link rel="stylesheet" href="css/cosmic-library.css">
   <script src="js/data.js" defer></script>
   <script src="js/augment-assets.js" defer></script>
+  <script src="js/augment-art.js" defer></script>
   <script src="js/icons.js" defer></script>
   <script src="js/icon-gallery.js" defer></script>
 </head>
 <body>
   <main class="gallery-shell">
     <nav><a class="brand" href="index.html">BOUNCE <b>ROYALE</b></a><a href="#credits">에셋 출처 ↗</a></nav>
-    <header class="intro"><p class="eyebrow">바운스로얄 · 증강 도감</p><h1>작은 아이콘,<br><span>커다란 한 방!</span></h1><p>알록달록해진 증강 93종을 한곳에서.<br>아이콘을 누르면 능력과 원작 정보를 확인할 수 있어요.</p></header>
+    <header class="intro"><p class="eyebrow">바운스로얄 · 우주 스포츠 도감</p><h1>경기장에서 본 그 모습,<br><span>아이콘에서도 그대로!</span></h1><p>표창·미사일은 실제 전투 모습으로, 스탯은 쉬운 그림 조합으로.<br>증강 93종을 눌러 능력과 아이콘의 의미를 확인해 보세요.</p></header>
+    <section class="icon-language" aria-label="아이콘 읽는 법"><h2>그림을 조합하면, 조건이 보여요</h2><div id="icon-legend"></div></section>
     <section class="toolbar" aria-label="갤러리 보기 설정">
       <label class="search"><span>검색</span><input id="icon-search" type="search" placeholder="출혈, 표창, 미사일…" autocomplete="off"></label>
       <label class="category"><span>분류</span><select id="icon-category"><option value="all">모든 증강</option></select></label>
       <button id="compare" type="button" aria-pressed="false">이전 아이콘과 비교</button>
     </section>
-    <div class="collection-head"><h2>증강 컬렉션 <span id="icon-count" role="status" aria-live="polite">93</span></h2><p>색상은 효과 계열입니다 · 등급과 무관</p></div>
+    <div class="collection-head"><h2>증강 컬렉션 <span id="icon-count" role="status" aria-live="polite">93</span></h2><p>큰 그림 = 효과 · 작은 그림 = 조건/강화</p></div>
     <div id="icon-grid" class="icon-grid"></div>
     <p id="empty" hidden>검색 결과가 없어요. 다른 이름이나 효과로 찾아보세요.</p>
     <section id="credits" class="credits" aria-labelledby="credits-title">
-      <p class="eyebrow">ARTIST CREDITS</p><h2 id="credits-title">작은 그림을 만든 사람들</h2>
+      <p class="eyebrow">ARTWORK &amp; ARCHIVE</p><h2 id="credits-title">현재 아이콘과 이전 에셋</h2>
+      <p>현재 아이콘은 바운스로얄의 전투 도형과 공통 스탯·조건 부품으로 직접 구성한 SVG입니다. 외부 이미지를 불러오지 않습니다.<br>아래 출처는 비교용으로 보존한 이전 Game-icons 에셋에 적용됩니다.</p>
       <p>Icons made by <a href="http://lorcblog.blogspot.com" target="_blank" rel="noopener">Lorc</a>, <a href="https://delapouite.com" target="_blank" rel="noopener">Delapouite</a>, <a href="http://darkzaitzev.deviantart.com" target="_blank" rel="noopener">DarkZaitzev</a>, <a href="https://game-icons.net/1x1/skoll/teller-mine.html" target="_blank" rel="noopener">Skoll</a> &amp; <a href="http://wjbstories.blogspot.com" target="_blank" rel="noopener">Willdabeast</a> at <a href="https://game-icons.net/" target="_blank" rel="noopener">Game-icons.net</a>.<br>Licensed under <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>.</p>
-      <p>원작의 실루엣에 게임용 색상과 크기 조정을 적용했습니다.<br>일부 이미지는 두 개 배치하거나 회복·빙결 등의 배지를 추가했습니다.<br>각 아이콘을 누르면 원작자, 원본 링크, 변경 내역을 확인할 수 있습니다.</p>
+      <p>이전 에셋에는 원작의 실루엣에 게임용 색상과 크기 조정을 적용했습니다.<br>일부 이미지는 두 개 배치하거나 회복·빙결 등의 배지를 추가했습니다.<br>비교 버튼으로 이전 에셋을 함께 볼 수 있습니다.</p>
       <div class="credit-links"><a href="assets/icons/game-icons/LICENSE.txt" target="_blank" rel="noopener">원본 라이선스 안내 ↗</a><a href="assets/icons/game-icons/manifest.json" target="_blank" rel="noopener">전체 출처·변경 기록 ↗</a></div>
     </section>
     <footer>BOUNCE ROYALE <span>／</span> ARTWORK LIBRARY<a href="index.html">게임으로 돌아가기 →</a></footer>
@@ -37,7 +41,7 @@
     <button id="dialog-close" class="dialog-close" type="button" aria-label="닫기">×</button>
     <div id="dialog-art" class="dialog-art"></div><p id="dialog-category" class="eyebrow"></p><h2 id="dialog-name"></h2><p id="dialog-desc"></p>
     <div class="small-preview"><span id="dialog-small"></span><span>목록 크기 미리보기 · 32px</span></div>
-    <div class="dialog-credit"><p id="dialog-reason"></p><a id="dialog-source" target="_blank" rel="noopener">원작 정보</a><p id="dialog-changes"></p><a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a></div>
+    <div class="dialog-credit"><p id="dialog-reason"></p><p id="dialog-changes"></p><a id="dialog-source" target="_blank" rel="noopener">이전 에셋 출처</a><br><a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">이전 에셋 라이선스 · CC BY 3.0</a></div>
   </dialog>
 </body>
 </html>

@@ -1,5 +1,9 @@
 # Game-icons.net artwork for Bounce Royale
 
+This pack is now an archived comparison option. The cosmic-sports presentation
+uses the original game-art vocabulary in `js/augment-art.js` by default. All pack
+files and attribution below remain intact for comparisons and rollback.
+
 Icons made by **Lorc, Delapouite, DarkZaitzev, Skoll and Willdabeast** at
 [Game-icons.net](https://game-icons.net/), licensed under
 [Creative Commons Attribution 3.0 Unported (CC BY 3.0)](https://creativecommons.org/licenses/by/3.0/).

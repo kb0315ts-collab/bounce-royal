@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="bounce-royal-render-target" content="720x1280">
-<meta name="theme-color" content="#79dec0">
+<meta name="theme-color" content="#141b33">
 <title>바운스 로얄 · Bounce Royale</title>
 <link rel="preload" href="assets/fonts/Jua-Regular.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="css/casual-fonts.css">
@@ -234,6 +234,7 @@ body{display:flex;align-items:center;justify-content:center}
 </style>
 <link rel="stylesheet" href="css/visual-polish.css">
 <link rel="stylesheet" href="css/casual-renewal.css">
+<link rel="stylesheet" href="css/cosmic-sports.css">
 </head>
 <body>
 <main id="app" aria-label="바운스 로얄 720×1280 세로 게임 화면" data-render-target="720x1280">
@@ -319,7 +320,7 @@ body{display:flex;align-items:center;justify-content:center}
         <div class="setting-row"><span class="setting-copy"><strong>효과음</strong><small>타격과 UI 효과음을 켜거나 끕니다.</small></span><button class="toggle on" id="settings-mute" type="button" role="switch" aria-checked="true"></button></div>
         <div class="setting-row"><span class="setting-copy"><strong>사운드룸</strong><small>무기·스킬·증강 효과음을 하나씩 들어보세요.</small></span><a class="backbtn" href="sound-lab.html" target="_blank" rel="noopener" style="width:auto;flex-shrink:0;padding:1.4cqw 2cqw;text-decoration:none;white-space:nowrap;font-size:2.7cqw" aria-label="사운드룸 열기 (새 탭)">미리듣기 ↗</a></div>
         <div class="setting-row"><span class="setting-copy"><strong>진동</strong><small>모바일 기기에서 충돌 피드백을 사용합니다.</small></span><button class="toggle on" id="settings-vibration" type="button" role="switch" aria-checked="true"></button></div>
-        <div class="setting-row"><span class="setting-copy"><strong>증강 아트워크</strong><small>아이콘 비교 · Game-icons 제작자와 라이선스</small></span><a class="backbtn artwork-link" href="icon-gallery.html" target="_blank" rel="noopener" aria-label="증강 아트워크와 출처 보기 (새 탭)">갤러리 ↗</a></div>
+        <div class="setting-row"><span class="setting-copy"><strong>증강 아트워크</strong><small>게임 속 그림 · 조건 설명 · 이전 에셋 비교</small></span><a class="backbtn artwork-link" href="icon-gallery.html" target="_blank" rel="noopener" aria-label="증강 아트워크와 출처 보기 (새 탭)">갤러리 ↗</a></div>
       </div>
       <div class="center-actions"><button class="bigbtn" id="btn-settings-save" type="button">저장</button></div>
     </div>
@@ -400,6 +401,7 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/render.js"></script>
 <script src="js/net.js"></script>
 <script src="js/augment-assets.js"></script>
+<script src="js/augment-art.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>

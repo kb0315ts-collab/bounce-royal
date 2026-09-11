@@ -1,0 +1,186 @@
+/* BOUNCE ROYALE / COSMIC SPORTS
+ * Palette-only layer over casual-renewal.css. The toy silhouettes, UI geometry,
+ * portrait layout, hit feedback and controls stay exactly as they are.
+ * A quiet night sky surrounds warm sports cards; no animated star field.
+ */
+:root{
+  --bg:#141d32;--panel:#fff4d9;--panel2:#fff9e9;--panel3:#e7e5d4;
+  --gold:#ffd25a;--gold2:#d6a442;--blue:#3e96c6;--cyan:#419eab;
+  --red:#d75b5c;--green:#4b9677;--purple:#9980ba;
+  --text:#243747;--soft:#526171;--dim:#778797;--ink:#243747;
+  --casual-cream:#fff4d9;--casual-mint:#9dcdd4;--casual-coral:#f0796c;
+  --cosmic-sky:#141d32;--cosmic-panel:#202d45;--cosmic-edge:#34435e;
+  --cosmic-cream:#fff4d9;--cosmic-paper:#f4eddc;--cosmic-red:#f0796c;
+  --cosmic-yellow:#ffd25a;--cosmic-blue:#9dcdd4;--cosmic-muted:#b4bdca;
+  --cosmic-stars:
+    radial-gradient(circle at 9% 23%,#d7e5f0b3 0 .18cqw,transparent .25cqw),
+    radial-gradient(circle at 81% 13%,#f6e9b6a6 0 .15cqw,transparent .24cqw),
+    radial-gradient(circle at 65% 38%,#c5d6e88c 0 .16cqw,transparent .25cqw),
+    radial-gradient(circle at 24% 59%,#d7e5f0a6 0 .17cqw,transparent .24cqw),
+    radial-gradient(circle at 89% 72%,#f6e9b69e 0 .18cqw,transparent .25cqw),
+    radial-gradient(circle at 46% 84%,#c5d6e880 0 .14cqw,transparent .22cqw),
+    radial-gradient(circle at 12% 94%,#d7e5f073 0 .15cqw,transparent .24cqw);
+  --panel-shadow:0 1.2cqw 0 #243747,0 2cqw 0 rgba(0,0,0,.22);
+}
+html,body{background:#0b1222;color:#e8e7dd}
+#app{background:var(--cosmic-sky);box-shadow:0 0 0 2px #33425b,0 2cqw 12cqw #030914}
+#app::before{background:var(--cosmic-stars),var(--cosmic-sky);background-size:auto;background-repeat:no-repeat}
+#app::after{box-shadow:none}
+.screen{color:#eeeade;background:var(--cosmic-stars),var(--cosmic-sky);background-size:auto;background-repeat:no-repeat}
+.screen-head{background:var(--cosmic-panel);border-bottom-color:#d06763;color:#fff4d9;box-shadow:0 .8cqw 0 rgba(2,9,23,.3)}
+.screen-head h2{text-shadow:0 .3cqw 0 #101a2e}
+.screen-head .head-extra{color:#bdc8d4}
+.subt{color:#b7c3d0}
+.backbtn,.iconbtn{background:var(--cosmic-cream);color:#243747}
+.bigbtn,.midbtn,.smbtn{background:var(--cosmic-red);color:#243747}
+.ghostbtn{background:var(--cosmic-cream);color:#243747}
+.dangerbtn{background:#f6d3cb;color:#8e3f44}
+button:focus-visible,input:focus-visible{outline-color:#ffd25a}
+
+/* Keep the video visible between the profile, logo and 2 + 3 menu rows. */
+#scr-title{background:linear-gradient(180deg,rgba(14,22,39,.12),rgba(14,22,39,0) 25%,rgba(14,22,39,0) 48%,rgba(14,22,39,.73) 70%,#141d32 100%)}
+#scr-title::after{display:none}
+.title-profile{background:#fff4d9;color:#243747}
+.mini-avatar{background:#b2d5db;box-shadow:inset 0 .55cqw 0 #d8eff0}
+.title-profile .rating{color:#7d6a41}
+.title-settings-mini{background:#e3e6df}
+.logo{color:#fff4d9;text-shadow:0 -.35cqw 0 #fff9ed}
+.logo span+span{color:#ffd25a}
+.title-en{color:#f0eee3;text-shadow:0 .3cqw 0 #192741}
+.title-season{background:#fff4d9;color:#49586b;box-shadow:0 .55cqw 0 rgba(0,0,0,.4)}
+.hub-main.ranked,.hub-main.ranked:hover{--menu-accent:#b65e4d;background:#f0796c}
+.hub-main.friendly,.hub-main.friendly:hover{--menu-accent:#a7843c;background:#ffd25a}
+.hub-main small{color:#4e4d49}
+.hub-small[data-menu="bag"]{background:#fff0cf}
+.hub-small[data-menu="codex"]{background:#bad7df}
+.hub-small[data-menu="settings"]{background:#e1e4e2}
+.build-tag{color:#a6b5c5}
+
+/* Cream collection and room cards against the dark arena concourse. */
+.rank-card{color:#243747;background:radial-gradient(circle at 50% 25%,#fffbee 0 24%,transparent 25%),#fff4d9}
+.rank-card .subt{color:#69727a}
+.rank-emblem{background:#ffd25a;box-shadow:0 1cqw 0 #243747,inset 0 1cqw 0 #ffe7a0}
+#ranked-tier{color:#243747}#ranked-rating{color:#9b7028}
+.rating-track{background:#ddd9c5}.rating-track i{background:#de8170}
+#ranked-search-status{color:#b7c3d0}.searching{color:#ffd25a!important}
+.room-code-wrap{background:#fff0c6;color:#243747}
+.room-code-wrap small{color:#7e7051}#room-code{color:#243747}
+.room-slot{background:#fff4d9;color:#243747}
+.room-slot.empty{background:#202c43;color:#b8c4ce;border-color:#597083}
+.room-slot .slot-avatar{background:#d8e4dc}
+.room-slot .slot-meta{color:#788076}
+.ready-pill{border-color:#929a92;color:#667775;background:#e7e9df}
+.ready-pill.on{border-color:#527b72;color:#316f61;background:#badace}
+.slot-remove{color:#ad5158}
+.equipped-card{color:#243747;background:radial-gradient(circle at 18% 50%,#d1e1de 0 21%,transparent 22%),#fff4d9}
+.eyebrow{color:#7f715a}.equipped-info p{color:#6b746e}.equipped-info p b{color:#b66741!important}
+.bag-card,.codex-card{background:#fff4d9;color:#243747}
+.bag-card.equipped{background:#fff0ba;box-shadow:0 .8cqw 0 #243747,inset 0 0 0 .8cqw #e7bb60}
+.bag-card small{color:#777c6e}.equip-badge{background:#ffd25a}
+.codex-card::after{background:#d3b17e}
+.codex-card .codex-ico{background:#e3e6da}
+.codex-card p{color:#67736c}
+#codex-tabs{background:#202d45;border-bottom-color:#3b4b63}
+.tabbtn{background:#33465e;color:#c0cfdb;border-color:#52657a;box-shadow:0 .65cqw 0 #0b1428}
+.tabbtn.active{background:#ffd25a;color:#243747;border-color:#243747;box-shadow:0 .65cqw 0 #243747,inset 0 .55cqw 0 #ffe8aa}
+.settings-panel{background:#fff4d9;color:#243747}
+.setting-row{border-bottom-color:#ddd8c6}.setting-copy small{color:#777d74}
+.text-input{background:#fffbed;color:#243747;border-color:#828c8c}.text-input:focus{border-color:#518a9e;box-shadow:0 0 0 .6cqw #bcd9df}
+input[type=range]{accent-color:#c46d61}.toggle{background:#bdc5c1}.toggle.on{background:#91bdc7}.toggle::after,.toggle.on::after{background:#fff7df}
+#btn-mute{background:#fff4d9}
+
+/* Existing tall choice cards and readable ability hierarchy are unchanged. */
+.selection-roster{background:#202d45!important;border-bottom-color:#35455e}
+.card{background:#fff4d9;color:#243747}
+.card .art,.weapon-card .art{background:radial-gradient(circle at 50% 45%,#fff6d8 0 30%,transparent 31%),#dabb7a}
+.augment-card .art{background:radial-gradient(circle at 50% 45%,#fff6df 0 31%,transparent 32%),#b0cdd5}
+.card .nm{color:#243747}
+.tag{border-color:#a6a58f;background:#ece5cd;color:#6d705b}
+.card .desc,.card .foot,.augment-card .desc{color:#606b65}
+.card .foot{border-top-color:#d7d1bd;background:#eee4cc}
+.sbar{color:#717568}.sbar .bar{background:#e1d9c2;border-color:#b4aa8e}.sbar .bar i{background:#cb8871}
+.accent-copy{color:#aa5b40}
+.augment-card.picked,.weapon-card.picked{background:#fff0ba;box-shadow:0 1.1cqw 0 #243747,0 0 0 .8cqw #f0796c}
+.augment-card.picked .nm,.weapon-card.picked .nm{color:#93632e}
+.augment-card.picked .art,.weapon-card.picked .art{background:radial-gradient(circle,#fff7de 0 31%,transparent 32%),#efc574}
+.refresh-btn{background:#acd1d8}
+.refresh-count-pill{background:#fff4d9;color:#866838}
+.phase-timer{background:#354159;border-color:#10192c}.phase-timer i{background:#ffd25a}.phase-timer b{color:#dfcba0}
+.phase-timer.urgent i{background:#f0796c}.phase-timer.urgent b{color:#ff9f8b}
+#aug-myinfo{color:#b6c5d0}#aug-myinfo i{color:#62788d}
+#aug-myinfo .coin-copy{color:#eac77b}
+.chip{border-color:#53657a;background:#25364d;color:#c5d0d8}
+
+/* A violet event card family sits inside the same quiet navy sports venue. */
+#scr-event{background:var(--cosmic-stars),#1b2037;background-size:auto;background-repeat:no-repeat}
+.event-kicker,.event-body>.subt{color:#c3b6d4}
+.event-card{background:#fff4d9;color:#243747}
+.event-card .event-art{background:radial-gradient(circle at 50% 48%,#fff5df 0 32%,transparent 33%),#c3b3d9}
+.event-card .event-desc{color:#756675}
+.event-card-voters{border-top-color:#b9afbf;background:#e9e1e9}
+.event-card-voters:empty::after{color:#8b7b95}
+.event-card-voter{background:#fff4d9}
+.event-vote-count{background:#ffd25a}
+.event-card.selected{box-shadow:0 1.1cqw 0 #243747,0 0 0 .7cqw #f0796c}
+.event-card.selected .event-art{background:radial-gradient(circle,#fff5df 0 32%,transparent 33%),#bda6d1}
+.event-card.winning{box-shadow:0 1.1cqw 0 #243747,0 0 0 .9cqw #ffd25a}
+.event-card.winning .event-art{background:radial-gradient(circle,#fff5df 0 32%,transparent 33%),#efc574}
+#event-status{color:#b6bfd0}#event-status.locked{color:#edcd8e}
+.event-result{color:#243747;background:#fff4d9}
+.event-result-title{color:#6f5382}.event-result-rule{color:#8a788e}
+.event-vote-row{background:#ece7ed;border-color:#bdb1c4;color:#354053}
+.event-vote-row.winner{background:#fff0ba;border-color:#c6a765}
+.event-voted-name{color:#85788e}.event-winner-tag{color:#a47738}
+.event-winning{background:#fff0ba;border-color:#c5a25c}.event-winning-label{color:#9a753b}.event-winning-name{color:#243747}.event-winning-desc{color:#7e7255}
+
+/* The HUD remains a tactile sports scoreboard, not a glowing cockpit. */
+.hud-top-band{background:linear-gradient(180deg,#172239 0%,rgba(23,34,57,.97) 75%,rgba(23,34,57,0) 100%)}
+.prow{background:#e8e0c9}.prow .portrait{background:radial-gradient(ellipse at 50% 50%,rgba(255,249,226,.92),transparent 64%)}
+.prow .hud-name{background:#fff4d9;border-top-color:#c8c0aa}
+.prow .coin-rank{background:#ffd25a}.prow .hud-coins{color:#967333}
+.prow .hud-streak b.lose{background:#cdd5d9;color:#566579}
+.prow.eliminated::after{background:rgba(23,35,53,.7)}
+#hud-top{background:#fff4d9}#hud-round{color:#646c72}#hud-map{color:#868578}#hud-timer::after{color:#8c8775}
+#ot-tag{background:#ffeac4;border-color:#b66f5b;color:#a64e41}
+#hud-spec{background:#dcd3e9;color:#705984}
+#hud-hint{background:#fff0c6;color:#7d6842}
+#skillbar{background:linear-gradient(0deg,#172239,rgba(23,34,57,.62) 55%,transparent)}
+.skillbtn{background:#d6d9d2;box-shadow:0 1cqw 0 #243747,inset 0 .8cqw 0 #eff0e2}
+.skillbtn.ready{background:#ffd25a;box-shadow:0 1.2cqw 0 #243747,inset 0 .8cqw 0 #ffe79e}
+.skillbtn.ready:nth-child(2){background:#aad0d7;box-shadow:0 1.2cqw 0 #243747,inset 0 .8cqw 0 #d3e9e7}
+.skillbtn.charging{background:#edb075}.skillbtn .cdoverlay{background:rgba(255,238,198,.94);color:#936145}
+#steer-base{background:radial-gradient(circle,#7a8ea1 0 39%,#bacbd1 40% 66%,#e9e5d4 67%);box-shadow:0 1.1cqw 0 #243747,inset 0 .8cqw 0 #fff4d9}
+#steer-base::before{border-color:#7c939f}.steer-ring{border-color:#79909d}
+#steer-knob{background:#e48677;box-shadow:0 .8cqw 0 #874b47,inset 0 .9cqw 0 #f6bb9f}
+#steer-knob .steer-arrow{color:#763f42;text-shadow:0 .3cqw 0 #f6c9ae}
+#steer-control.active #steer-base{box-shadow:0 1.1cqw 0 #243747,0 0 0 .8cqw rgba(244,213,152,.6)}
+#steer-control.active #steer-knob{background:#f59c85;box-shadow:0 .8cqw 0 #874b47,inset 0 .9cqw 0 #ffe0b9}
+#steer-control.aiming #steer-knob{background:#ffd25a;box-shadow:0 .8cqw 0 #927444,inset 0 .9cqw 0 #ffebb0}
+#steer-label{background:#fff4d9;border-color:#7a8890;color:#687881}
+#steer-control.active #steer-label,#steer-control.aiming #steer-label{color:#7d5e4b}
+#btn-watch-other{background:#fff4d9}
+#banner-sub{background:#fff4d9}
+
+/* Intros, inspection panels and results keep the same warm paper treatment. */
+#scr-intro{background:var(--cosmic-stars),#172239;background-size:auto;background-repeat:no-repeat}
+.intro-kicker{color:#e5bd78}.intro-title{color:#fff4d9;text-shadow:0 .45cqw 0 #0a1426}
+.intro-player{background:#fff4d9;color:#243747}.intro-player.me{background:#fff0bd}.intro-player small{color:#818175}.intro-player>span{background:#e1e7e3;border-color:#8b9d9e;color:#738890}
+#player-modal{background:rgba(6,14,30,.73)}
+.modal-card{background:#fff4d9;color:#243747;box-shadow:0 1.5cqw 0 #243747,0 5cqw 10cqw rgba(0,0,0,.32)}
+.modal-head{background:#dfdfd2;color:#243747}
+.detail-hero{background:#eee8d5}.detail-hero p{color:#9c7943}
+.detail-section>strong{color:#80816f}.detail-item{background:#f5efde;border-color:#b9b7a1}.detail-item small{color:#8b8876}.detail-item .item-ico{background:#dde3d9;border-color:#9ca9a2}
+#hold-tooltip{background:#fff0cd;color:#243747;box-shadow:0 1.1cqw 0 #243747,0 3cqw 8cqw rgba(0,0,0,.35)}
+.tooltip-desc{color:#717767}
+.rline,.rankline{background:#fff4d9;color:#243747}.rline.elim{background:#f5dacf;border-color:#b9776d}.rline .win{color:#a4793a}.coinloss{color:#b35f50}
+#over-rank{color:#fff4d9!important;text-shadow:0 .6cqw 0 #101a2c}#over-rating{color:#e9c377}
+.rankline .pos{color:#7f8677}.rankline.first{background:#ffe9af}.rankline.first .pos{color:#9b7640}.rank-loadout{color:#8a8b79}
+
+/* Small print stays readable on the cream panels at a 390px mobile viewport. */
+.room-slot .slot-meta,.equipped-info p,.bag-card small,.codex-card p,
+.setting-copy small,.sbar,.intro-player small,.detail-section>strong,
+.detail-item small,.rank-loadout,#hud-map{color:#626c65}
+.tag{color:#5b614f}
+.ready-pill{color:#5c6d67}.intro-player>span{color:#5c747a;border-color:#8b9d9e}
+.event-card-voters:empty::after{color:#695a77}
+.event-result-rule,.event-voted-name{color:#78677e}

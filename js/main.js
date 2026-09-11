@@ -442,9 +442,9 @@ function setRefreshButton(count, onRefresh) {
 
 // 'video'를 'live'로 바꾸면 기존 실시간 타이틀 전투로 즉시 복귀한다.
 const TITLE_DEMO_MODE = 'video';
-// The deployed broadcast clips remain in assets/title-demos for easy rollback.
+// Earlier broadcast/casual clips remain in their own folders for easy rollback.
 const TITLE_DEMO_CLIPS = Array.from({ length: 6 }, (_, i) =>
-  `assets/title-demos-casual/title-demo-${String(i + 1).padStart(2, '0')}.mp4?v=casual1`);
+  `assets/title-demos-cosmic/title-demo-${String(i + 1).padStart(2, '0')}.mp4?v=cosmic2`);
 const TitleDemo = {
   video: $('title-demo-video'), active: false, failed: false, clipIndex: -1,
   init() {

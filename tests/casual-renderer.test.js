@@ -41,6 +41,25 @@ function recordingContext() {
   return { context, calls, state };
 }
 
+test('canvas grid paint stays inside the active arena, even when unused dimensions differ', () => {
+  const api = runtime();
+  for (const type of ['diamond', 'circle', 'square']) {
+    const recorder = recordingContext(), g = api.graphicsForCanvas(recorder.context);
+    const arena = {type, L:280, R:378, H:300, pillars:[], cube:null};
+    api.drawArena(g, g, {arena});
+    let width = 0, points = 0;
+    for (const call of recorder.calls) {
+      if (call[0] === 'set' && call[1] === 'lineWidth') width = call[2];
+      if (width !== 1.6 || !['moveTo','lineTo'].includes(call[0])) continue;
+      const [,x,y] = call;
+      const inside = type === 'diamond' ? Math.abs(x)+Math.abs(y)<=arena.L : type === 'circle' ? Math.hypot(x,y)<=arena.R : Math.max(Math.abs(x),Math.abs(y))<=arena.H;
+      assert.ok(inside, type + ' grid is decoration inside the ring, never stars outside');
+      points++;
+    }
+    assert.equal(points,28,'All seven pairs of grid lines were checked');
+  }
+});
+
 function fighter(charId = 'cat', weaponId = 'sword') {
   return {
     charId, weaponId, color: '#4da6ff', x: 21, y: -35, radius: 22,

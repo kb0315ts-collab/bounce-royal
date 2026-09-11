@@ -106,7 +106,7 @@ function radialFill(g, x, y, r0, r1, inner, outer, steps = 14, alpha = 1) {
  * ============================================================ */
 let scene = null;              // 준비되면 BattleScene 인스턴스
 let pendingBattle = null;      // main.js가 renderBattle로 넘겨준 현재 전투
-const STAR_COUNT = 70;
+const STAR_COUNT = 54;
 // Shared toy-box palette. These values are paint only: physics continues to use
 // the fighter/arena data, never the decorative outlines or squash transforms.
 const CASUAL_INK = 0x243747;
@@ -150,10 +150,12 @@ class BattleScene extends Phaser.Scene {
     // Retain the layer order, but use crisp ink + flat highlights instead of
     // full-surface glow passes. Readable on a bright board and cheaper on mobile.
     this.texts = [];           // 팝업·이름 텍스트 풀
-    this.stars = [];
-    for (let i = 0; i < STAR_COUNT; i++) {
-      this.stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.4 + 0.3, p: Math.random() * TAU });
-    }
+    // Stable decorative placement; a backdrop never consumes gameplay randomness.
+    this.stars = Array.from({ length:STAR_COUNT }, (_, i) => ({
+      x: ((i * 137 + 29) % 541) / 541,
+      y: ((i * i * 23 + i * 71 + 41) % 557) / 557,
+      r: 0.65 + (i % 4) * 0.35,
+    }));
     scene = this;
     resizeCanvas();
   }
@@ -329,21 +331,37 @@ function projKind(p) {
 function drawBackdrop(g, stars) {
   const { w, h } = VIEW;
   if (!w || !h) return;
-  g.fillStyle(0xb2e4cf, 1);
+  g.fillStyle(0x111c37, 1);
   g.fillRect(0, 0, w, h);
-  const tile = Math.max(28, w / 9);
-  g.fillStyle(0xa4d8c4, 0.45);
-  for (let row = 0; row < h / tile; row++) {
-    for (let col = 0; col < w / tile; col++) {
-      if ((row + col) % 2) g.fillRect(col * tile, row * tile, tile, tile);
+  // Broad flat shapes suggest deep space without costly glows or moving noise.
+  g.fillStyle(0x1a2949, 0.52);
+  g.fillEllipse(w * 0.1, h * 0.32, w * 1.18, h * 0.72);
+  g.fillStyle(0x152240, 0.58);
+  g.fillEllipse(w * 0.9, h * 0.7, w * 1.05, h * 0.68);
+  for (let i = 0; i < Math.min(STAR_COUNT, stars.length); i++) {
+    const s = stars[i];
+    const x = s.x * w, y = s.y * h;
+    g.fillStyle(i % 8 === 0 ? 0xffd597 : 0xb3c6e4, i % 3 === 0 ? 0.72 : 0.38);
+    g.fillCircle(x, y, s.r);
+    if (i % 13 === 0) {
+      // Just four little star badges; larger silhouettes remain easy to follow.
+      const r = s.r * 2.8;
+      g.fillTriangle(x, y - r, x - r * 0.3, y, x + r * 0.3, y);
+      g.fillTriangle(x, y + r, x - r * 0.3, y, x + r * 0.3, y);
+      g.fillTriangle(x - r, y, x, y - r * 0.3, x, y + r * 0.3);
+      g.fillTriangle(x + r, y, x, y - r * 0.3, x, y + r * 0.3);
     }
   }
-  // Stationary paper flecks: no pulsing stars behind the fighting silhouettes.
-  for (let i = 0; i < Math.min(24, stars.length); i++) {
-    const s = stars[i];
-    g.fillStyle(0xf8fff0, 0.55);
-    g.fillRoundedRect(s.x * w, s.y * h, 4 + s.r * 2, 2, 1);
-  }
+  // Two quiet toy planets in the empty corners, behind (not on) the arena.
+  const pr = Math.max(9, w * 0.03);
+  g.fillStyle(0x324563, 1); g.fillCircle(w * 0.11, h * 0.17, pr);
+  g.fillStyle(0x53678a, 1); g.fillCircle(w * 0.105, h * 0.164, pr * 0.76);
+  g.fillStyle(0x324563, 0.7); g.fillCircle(w * 0.107, h * 0.159, pr * 0.18);
+  g.save(); g.translateCanvas(w * 0.87, h * 0.82); g.rotateCanvas(-0.35);
+  g.lineStyle(2, 0xb99975, 0.58); g.strokeEllipse(0, 0, pr * 3.1, pr * 0.95);
+  g.fillStyle(0x9c7965, 1); g.fillCircle(0, 0, pr * 0.75);
+  g.fillStyle(0xd0ad81, 1); g.fillEllipse(-pr * 0.12, -pr * 0.2, pr * 1.1, pr * 0.8);
+  g.restore();
 }
 
 /* ============================================================
@@ -370,31 +388,53 @@ function drawArena(g, glow, b) {
     else if (kind === 'circle') { g.fillCircle(0, 0, A.R); g.strokeCircle(0, 0, A.R); }
     else { g.fillRect(-A.H, -A.H, A.H * 2, A.H * 2); g.strokeRect(-A.H, -A.H, A.H * 2, A.H * 2); }
   };
-  // A raised mint sports board, with the wall at exactly the existing position.
-  g.save(); g.translateCanvas(0, 10); shape(0x4f9d91, 15, CASUAL_INK); g.restore();
-  shape(0x8bdbb6, 14, CASUAL_INK);
-  shape(0x8bdbb6, 7, 0xfff4d6);
-  const edge = (A.R || A.L || A.H || 360), step = edge / 4;
-  g.lineStyle(1.6, 0xffffff, 0.13);
+  const outline = (width, color, alpha = 1) => {
+    const kind = arenaPath(g, A); g.lineStyle(width, color, alpha);
+    if (kind === 'path') g.strokePath();
+    else if (kind === 'circle') g.strokeCircle(0, 0, A.R);
+    else g.strokeRect(-A.H, -A.H, A.H * 2, A.H * 2);
+  };
+  // A boxing-ring canvas floating in space. Rope paint follows the SAME wall
+  // coordinates; the padding and rope highlights are never collision objects.
+  g.save(); g.translateCanvas(0, 8); shape(0x9b664b, 21, 0x0b1429); g.restore();
+  shape(0xefd497, 22, 0x263044);
+  outline(17, 0x9e3545);
+  outline(11, 0xe55459);
+  outline(3, 0xff9b8b);
+  // Arena instances retain all three dimensions. Paint the active shape's
+  // bounds, not its unused circular radius (especially in smaller duels).
+  const edge = A.type === 'diamond' ? A.L : A.type === 'circle' ? A.R : A.H;
+  const step = edge / 4;
+  g.lineStyle(1.6, 0xb28d58, 0.13);
   for (let n = -3; n <= 3; n++) {
     const v = n * step;
     const extent = A.type === 'diamond' ? edge - Math.abs(v) : A.type === 'circle' ? Math.sqrt(edge * edge - v * v) : edge;
     g.beginPath(); g.moveTo(v, -extent + 5); g.lineTo(v, extent - 5); g.strokePath();
     g.beginPath(); g.moveTo(-extent + 5, v); g.lineTo(extent - 5, v); g.strokePath();
   }
-  const markR = (A.R || A.L || A.H || 360) * 0.12;
-  g.lineStyle(3, 0xfff8db, 0.34); g.strokeCircle(0, 0, markR);
-  g.fillStyle(0xfff8db, 0.5); g.fillCircle(0, 0, 4);
+  const markR = edge * 0.12;
+  g.lineStyle(3, 0xb48a53, 0.26); g.strokeCircle(0, 0, markR);
+  g.fillStyle(0xb48a53, 0.3); g.fillCircle(0, 0, 4);
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2, d0 = markR * 1.32, d1 = markR * 1.72;
     g.beginPath(); g.moveTo(Math.cos(a) * d0, Math.sin(a) * d0); g.lineTo(Math.cos(a) * d1, Math.sin(a) * d1); g.strokePath();
   }
+  if (A.type === 'diamond' || A.type === 'square') {
+    const corners = A.type === 'diamond' ? [[0,-A.L],[A.L,0],[0,A.L],[-A.L,0]] : [[-A.H,-A.H],[A.H,-A.H],[A.H,A.H],[-A.H,A.H]];
+    for (const [x,y] of corners) {
+      g.save(); g.translateCanvas(x,y); if (A.type === 'diamond') g.rotateCanvas(Math.PI/4);
+      g.fillStyle(0xc64850, 1); g.fillRoundedRect(-9,-9,18,18,4);
+      g.lineStyle(2.5, 0x263044, 1); g.strokeRoundedRect(-9,-9,18,18,4);
+      g.fillStyle(0xffc0a6, 0.9); g.fillRoundedRect(-5,-5,10,3,1.5);
+      g.restore();
+    }
+  }
   for (const p of A.pillars) {
-    g.fillStyle(0x4f9d91, 0.5); g.fillEllipse(p.x, p.y + 10, p.r * 2.2, p.r * 1.65);
-    g.fillStyle(0x88aab0, 1); g.fillCircle(p.x, p.y, p.r);
+    g.fillStyle(0x9c7147, 0.36); g.fillEllipse(p.x, p.y + 10, p.r * 2.2, p.r * 1.65);
+    g.fillStyle(0xc7795d, 1); g.fillCircle(p.x, p.y, p.r);
     g.lineStyle(4, CASUAL_INK, 1); g.strokeCircle(p.x, p.y, p.r);
-    g.fillStyle(0xb7d2ca, 1); g.fillCircle(p.x - p.r * 0.12, p.y - p.r * 0.16, p.r * 0.68);
-    g.lineStyle(2, 0xe9f4dd, 1); g.strokeCircle(p.x, p.y - 2, Math.max(2, p.r - 6));
+    g.fillStyle(0xedb681, 1); g.fillCircle(p.x - p.r * 0.12, p.y - p.r * 0.16, p.r * 0.68);
+    g.lineStyle(2, 0xffdeac, 1); g.strokeCircle(p.x, p.y - 2, Math.max(2, p.r - 6));
   }
   if (A.cube && A.cube.active) {
     const c = A.cube, t = performance.now() / 1000;

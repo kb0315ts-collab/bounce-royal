@@ -3,8 +3,8 @@
 /* ============================================================
  * 바운스 로얄 — 공통 아이콘 렌더러와 기존 벡터 보관본
  *
- * 증강은 로컬 Game-icons 에셋을 우선 사용한다. 기존 벡터는 비교와 오류 시
- * 대체용으로 유지한다. 메뉴·무기·캐릭터 스킬은 캐주얼 토이 컬러 아이콘,
+ * 증강은 실제 게임 도형과 스탯/조건 부품으로 조합한 SVG를 우선 사용한다.
+ * Game-icons 에셋과 기존 벡터는 비교/복구용으로 유지한다. 메뉴·무기·캐릭터 스킬은 캐주얼 토이 컬러 아이콘,
  * 보조 UI 표시는 currentColor 방식이다. 게임 규칙에는 영향을 주지 않는다.
  * ============================================================ */
 (function initBounceRoyalIcons(global) {
@@ -278,7 +278,7 @@
     return '<svg class="' + svgClasses + '" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + drawing + '</svg>';
   }
 
-  function markup(name, className = '') {
+  function archivedMarkup(name, className = '') {
     const key = resolve(name);
     const source = global.BRAugmentAssets && global.BRAugmentAssets[key];
     // Restrict image URLs to our checked-in assets (including the content hash).
@@ -289,6 +289,13 @@
     return '<img class="' + classes + '" src="' + source + '" data-augment-icon="' + key + '" width="512" height="512" alt="" aria-hidden="true" draggable="false">';
   }
 
+  function markup(name, className = '') {
+    const key = resolve(name);
+    const art = global.BRAugmentArt;
+    const current = art && typeof art.markup === 'function' ? art.markup(key, className) : '';
+    return current || archivedMarkup(name, className);
+  }
+
   function hydrate(root) {
     const scope = root && root.querySelectorAll ? root : document;
     scope.querySelectorAll('[data-ui-icon]').forEach(element => {
@@ -296,7 +303,7 @@
     });
   }
 
-  global.BRIcons = Object.freeze({ markup, legacyMarkup, hydrate, resolve, has:name => !!(paths[aliases[name] || name] || augmentPaths[aliases[name] || name]) });
+  global.BRIcons = Object.freeze({ markup, archivedMarkup, legacyMarkup, hydrate, resolve, has:name => !!(paths[aliases[name] || name] || augmentPaths[aliases[name] || name]) });
   if (typeof document !== 'undefined') {
     // A failed asset download must not leave a blank card or require a reload.
     document.addEventListener('error', event => {

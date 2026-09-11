@@ -3,13 +3,15 @@
 // imitation renderer, game-rule changes or live title simulation is required.
 // node tools/record-casual-demos.js <playwright-module-path> [baseUrl] [clip 1..6]
 // Add --normalize-existing to repair earlier fragmented recordings without re-encoding.
+// Add --cosmic for the space-sports theme; casual recordings remain untouched.
 const fs = require('node:fs');
 const path = require('node:path');
 const playwright = require(process.argv[2] || 'playwright');
 const baseUrl = process.argv[3] || 'http://localhost:8080';
 if (!/^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(baseUrl)) throw Error('Record only a local development server');
 const only = Number(process.argv[4] || 0);
-const output = path.resolve(__dirname, '../assets/title-demos-casual');
+const cosmic = process.argv.includes('--cosmic');
+const output = path.resolve(__dirname, cosmic ? '../assets/title-demos-cosmic' : '../assets/title-demos-casual');
 const seconds = 15;
 fs.mkdirSync(output, { recursive:true });
 
@@ -129,7 +131,7 @@ function normalizeRecording(input) {
       await page.waitForFunction(() => typeof scene !== 'undefined' && scene && window.BounceRoyalTitleRecording && typeof Phaser !== 'undefined');
       const name = 'title-demo-' + String(index+1).padStart(2,'0') + '.mp4';
       const existing = process.argv.includes('--normalize-existing');
-      const capture = existing ? null : await page.evaluate(async duration => {
+      const capture = existing ? null : await page.evaluate(async ({duration,background}) => {
         const type = 'video/mp4;codecs=avc1.42E01E';
         if (!MediaRecorder.isTypeSupported(type)) throw Error('This browser lacks H.264 recording support');
         const film = document.createElement('canvas'); film.width = 540; film.height = 960;
@@ -143,7 +145,7 @@ function normalizeRecording(input) {
         function frame() {
           const now = performance.now();
           let dt = Math.max(0, (now-last)/1000); last = now;
-          pen.fillStyle = '#80dcca'; pen.fillRect(0,0,540,960);
+          pen.fillStyle = background; pen.fillRect(0,0,540,960);
           // Read while the WebGL framebuffer is valid, immediately after render.
           pen.drawImage(canvas,bounds.left-appBounds.left,bounds.top-appBounds.top,bounds.width,bounds.height);
           frameCount++;
@@ -167,7 +169,7 @@ function normalizeRecording(input) {
         const bytes = new Uint8Array(await blob.arrayBuffer());
         let binary=''; for(let offset=0;offset<bytes.length;offset+=32768) binary+=String.fromCharCode(...bytes.subarray(offset,offset+32768));
         return {base64:btoa(binary),frames:frameCount,seconds:duration};
-      }, seconds);
+      }, {duration:seconds,background:cosmic?'#141b33':'#80dcca'});
       if (errors.length) throw Error(errors.join('\n'));
       if (capture && capture.frames < seconds*20) throw Error('Recording renderer ran below 20 fps; rerun without other browser tests');
       const normalized=normalizeRecording(existing?fs.readFileSync(path.join(output,name)):Buffer.from(capture.base64,'base64'));
@@ -193,6 +195,6 @@ function normalizeRecording(input) {
       report.push(entry); console.log(JSON.stringify(entry));
       await page.close();
     }
-    if (!only) fs.writeFileSync(path.join(output,'manifest.json'),JSON.stringify({description:'Silent replays captured from the casual Phaser renderer. Actual encoded duration/frame counts verified in Chromium. Fast-start MP4 normalization preserves samples and playback speed. Original recordings remain in assets/title-demos.',clips:report},null,2)+'\n');
+    if (!only) fs.writeFileSync(path.join(output,'manifest.json'),JSON.stringify({description:'Silent replays captured from the '+(cosmic?'cosmic sports':'casual')+' Phaser renderer. Actual encoded duration/frame counts verified in Chromium. Fast-start MP4 normalization preserves samples and playback speed. Earlier recordings remain in their original folders.',clips:report},null,2)+'\n');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode=1; });
