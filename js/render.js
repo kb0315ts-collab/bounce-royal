@@ -245,6 +245,7 @@ window.addEventListener('resize', resizeCanvas);
 function renderBattle(b) {
   pendingBattle = b;
   watchBattleSounds(b);
+  if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.observe(b);
 }
 
 /* ---------------- 전투 오디오 이벤트 ---------------- */

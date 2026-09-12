@@ -235,6 +235,7 @@ body{display:flex;align-items:center;justify-content:center}
 <link rel="stylesheet" href="css/visual-polish.css">
 <link rel="stylesheet" href="css/casual-renewal.css">
 <link rel="stylesheet" href="css/cosmic-sports.css">
+<link rel="stylesheet" href="css/commentary.css">
 </head>
 <body>
 <main id="app" aria-label="바운스 로얄 720×1280 세로 게임 화면" data-render-target="720x1280">
@@ -248,6 +249,21 @@ body{display:flex;align-items:center;justify-content:center}
       <div id="hud-round">ROUND 1</div><div id="hud-map">다이아 경기장</div><div id="hud-timer">30.0</div><div id="ot-tag">연장전 · 5초간 가속 → 1.5배속</div>
     </div>
     <div id="hud-spec">관전 중</div>
+    <aside id="commentator" hidden aria-label="우주 스포츠 중계">
+      <button id="caster-toggle" type="button" aria-label="해설자 입마개 씌우기. 마지막 GG 연출은 유지됩니다." aria-pressed="false">
+        <span class="caster-body" aria-hidden="true">
+          <img id="caster-art" data-src="assets/caster/cosmic-caster.png" alt="" width="256" height="256" draggable="false">
+          <span class="caster-gag"><i></i><i></i></span>
+          <span class="caster-murmur">웁…!</span>
+        </span>
+        <span id="caster-badge"><i></i> ON AIR</span>
+      </button>
+      <div id="caster-bubble" role="status" aria-live="polite" aria-atomic="true" hidden>
+        <span id="caster-label">COSMIC LIVE</span>
+        <p id="caster-copy"></p>
+        <span id="caster-gg" aria-hidden="true">GG~~!</span>
+      </div>
+    </aside>
     <button id="btn-watch-other" class="midbtn ghostbtn" type="button"><span class="icon-inline" data-ui-icon="watch"></span> 다른 전투 보기</button>
     <div id="hud-count" aria-hidden="true"></div>
     <div id="steer-control" class="disabled" role="application" aria-label="이동 조이스틱. 공은 자동으로 이동하며 누르는 동안 진행 방향이 천천히 휘어집니다." aria-disabled="true">
@@ -398,6 +414,8 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/sim.js"></script>
 <script src="js/matchmaking.js"></script>
 <script src="js/events.js"></script>
+<script src="js/commentary-core.js"></script>
+<script src="js/commentary.js"></script>
 <script src="js/render.js"></script>
 <script src="js/net.js"></script>
 <script src="js/augment-assets.js"></script>
