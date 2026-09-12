@@ -48,11 +48,11 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   });
   assert.deepEqual(
     [WEAPONS.sword.dmg, WEAPONS.sword.reach, WEAPONS.sword.rot],
-    [20, 60, 3],
+    [20, 60, 2.6],
   );
   assert.deepEqual(
     [WEAPONS.dagger.dmg, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
-    [18, 30, 5],
+    [18, 30, 5.8],
   );
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval, WEAPONS.bow.projSpeed], [8, 1.5, 300]);
   assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [3, 7, 0.12, 3]);
@@ -845,24 +845,25 @@ test('칼날에서 벗어났다 다시 닿으면 재타격된다', () => {
 });
 
 test('공격속도 하나가 근접은 회전으로, 원거리·지뢰는 발사 빈도로 나타난다', () => {
-  // 근접: 공격속도가 오른 만큼을 두 배로 받아 회전속도가 된다.
+  // 근접: 공격속도가 오른 만큼을 1.5배로 받아 회전속도가 된다.
   // 조우가 짧아 회전이 조금 빨라져도 결국 한 번 스치고 끝나기 때문이다.
+  // 예전에는 2배였는데, 속사를 겹칠수록 근접만 과하게 올라가서 낮췄다.
   for (const weaponId of ['sword', 'dagger']) {
     const base = makeBattle({ weaponId }).fighters[0];
     computeStats(base);
     const fast = makeBattle({ weaponId, augments: ['rot15', 'rot15'] }).fighters[0];
     computeStats(fast);
     assert.ok(Math.abs(fast.st.aspd - base.st.aspd * 1.15 * 1.15) < 1e-9, weaponId + ' 공격속도 배율');
-    const expected = WEAPONS[weaponId].rot * (1 + (fast.st.aspd - 1) * 2);
+    const expected = WEAPONS[weaponId].rot * (1 + (fast.st.aspd - 1) * MELEE_ASPD_GAIN);
     assert.ok(Math.abs(fast.st.rot - expected) < 1e-9,
-      weaponId + '은 공격속도 증가분을 두 배로 받아야 한다 (기대 ' + expected.toFixed(3) + ' 실제 ' + fast.st.rot.toFixed(3) + ')');
+      weaponId + '은 공격속도 증가분을 배로 얹어 받아야 한다 (기대 ' + expected.toFixed(3) + ' 실제 ' + fast.st.rot.toFixed(3) + ')');
     assert.ok(fast.st.rot > base.st.rot, weaponId + '은 공격속도가 오르면 더 빨리 회전해야 한다');
 
-    // 한 단계만 올려도 눈에 띄어야 한다 (속사 하나 = 회전 +30%)
+    // 한 단계만 올려도 눈에 띄어야 한다 (속사 하나 = 회전 +22.5%)
     const one = makeBattle({ weaponId, augments: ['rot15'] }).fighters[0];
     computeStats(one);
-    assert.ok(Math.abs(one.st.rot - WEAPONS[weaponId].rot * 1.30) < 1e-9,
-      weaponId + ': 속사 하나면 회전 +30%여야 한다');
+    assert.ok(Math.abs(one.st.rot - WEAPONS[weaponId].rot * (1 + 0.15 * MELEE_ASPD_GAIN)) < 1e-9,
+      weaponId + ': 속사 하나면 회전 +22.5%여야 한다');
 
     // 느려지는 쪽은 그대로다. 배로 깎으면 회전이 멈추거나 뒤집힌다.
     const slow = makeBattle({ weaponId }).fighters[0];
@@ -1029,11 +1030,11 @@ test('공격속도 증강은 근접 무기의 회전속도를 올리고, 회전 
   };
   for (const weaponId of ['sword', 'dagger']) {
     const base = rotOf(weaponId, []);
-    // 근접은 공격속도 증가분을 두 배로 받는다: 1.15 -> 1.30, 1.3225 -> 1.645
-    assert.ok(Math.abs(rotOf(weaponId, ['rot15']) - base * 1.30) < 1e-9,
-      weaponId + ': 속사 하나면 회전속도 +30%여야 한다');
-    assert.ok(Math.abs(rotOf(weaponId, ['rot15', 'rot15']) - base * (1 + (1.15 * 1.15 - 1) * 2)) < 1e-9,
-      weaponId + ': 속사가 쌓이면 증가분도 함께 두 배로 커져야 한다');
+    // 근접은 공격속도 증가분을 MELEE_ASPD_GAIN(1.5)배로 받는다: 1.15 -> 1.225
+    assert.ok(Math.abs(rotOf(weaponId, ['rot15']) - base * (1 + 0.15 * MELEE_ASPD_GAIN)) < 1e-9,
+      weaponId + ': 속사 하나면 회전속도 +22.5%여야 한다');
+    assert.ok(Math.abs(rotOf(weaponId, ['rot15', 'rot15']) - base * (1 + (1.15 * 1.15 - 1) * MELEE_ASPD_GAIN)) < 1e-9,
+      weaponId + ': 속사가 쌓이면 증가분도 함께 배로 커져야 한다');
   }
 
   // 붙어 있을 때 회전 한 바퀴에 정확히 한 번 맞는다 (빠를수록 그만큼 더 때린다)

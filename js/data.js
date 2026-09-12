@@ -20,10 +20,12 @@ const CHARACTERS = {
 };
 
 const WEAPONS = {
-  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:20, reach:60, tip:13, rot:3.0, moveMult:0.90,
+  // 회전은 검 3.0 -> 2.6, 단검 5.0 -> 5.8. 검이 무증강 대진에서 68%로 혼자 앞서고
+  // 단검이 43%로 처져 있었다. 둘을 맞바꿔 좁혔다 (실측 61% / 48%).
+  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:20, reach:60, tip:13, rot:2.6, moveMult:0.90,
     desc:'긴 사거리와 높은 피해. 대신 공격속도·이동속도가 느리다.', stat:{atk:.85,spd:.45,rng:.7,mob:.4},
     skillName:'믹서기', skillDesc:'별도 피해 없이 1.2초 동안 두 바퀴 연속 회전한다.' },
-  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:18, reach:30, tip:9, rot:5.0, moveMult:1.15,
+  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:18, reach:30, tip:9, rot:5.8, moveMult:1.15,
     desc:'짧고 피해는 낮지만 공격속도·이동속도가 매우 빠르다.', stat:{atk:.45,spd:.95,rng:.3,mob:.95},
     skillName:'관통 돌진', skillDesc:'1초간 정지 후 원래 진행 방향으로 돌진해 관통하며 40의 무기 피해.' },
   bow:    { name:'활', ico:'🏹', type:'ranged', dmg:8, interval:1.5, projSpeed:300, rot:2.6, moveMult:1.0,

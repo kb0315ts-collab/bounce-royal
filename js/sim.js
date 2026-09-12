@@ -16,7 +16,7 @@ const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 �
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
 const COUNT_TIME = 3;       // 라운드 시작 카운트다운 (3 · 2 · 1)
 const ENDING_TIME = 1.5;    // 승패가 갈린 뒤 슬로우로 보여주는 시간
-const MELEE_ASPD_GAIN = 2;  // 근접이 공격속도 증가분을 받는 배율
+const MELEE_ASPD_GAIN = 1.5;  // 근접이 공격속도 증가분을 받는 배율
 const STEER_MAX_RAD = 50 * Math.PI / 180; // 최대 조향속도: 초당 50도
 const STEER_RAMP_TIME = 0.25;              // 입력이 최대 조향력에 도달하는 시간
 const STEER_BOUNCE_LOCK = 0.15;            // 벽 반사 직후에는 반사 방향을 우선한다
@@ -1244,8 +1244,13 @@ function computeStats(f) {
   let rot = 0;
   if (wp.type === 'melee') {
     // 근접은 조우가 짧아 회전이 조금 빨라져도 결국 한 번 스치고 끝난다.
-    // 그래서 공격속도가 오른 만큼은 두 배로 준다 (속사 하나 = 회전 +30%).
+    // 그래서 공격속도가 오른 만큼을 더 얹어 준다 (속사 하나 = 회전 +22.5%).
     // 반대로 느려지는 쪽(빙결·야만)은 그대로 둔다. 배로 깎으면 회전이 멈추거나 뒤집힌다.
+    //
+    // 배율은 2였는데 1.5로 낮췄다. 2에서는 속사를 겹칠수록 근접만 과하게 올라갔다 —
+    // 속사 셋일 때 검 +25.8%p / 단검 +19.4%p 대 원거리 +15.4%p로 벌어졌다.
+    // 1.5에서는 +18.3 / +16.8 대 +15.4로 거의 나란해진다. 아주 없애면(1) 반대로
+    // 근접이 속사를 못 쓰는 무기가 된다 (+10.5 / +12.5).
     rot = wp.rot * (aspd > 1 ? 1 + (aspd - 1) * MELEE_ASPD_GAIN : aspd);
   }
   else if (f.weaponId === 'pistol' && T.gunBarrage > 0) rot = PISTOL_BARRAGE_ROT * aspd;
