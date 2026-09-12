@@ -410,6 +410,7 @@ function buildFighter(player, battle) {
     rocketActive: false, rocketHits: new Set(),
     steer: { active: false, angle: 0, magnitude: 0, power: 0, lock: 0 },
     aiT: rand(0.4, 1.4), aiSteerT: rand(0.4, 0.7), aiSteerSide: chance(0.5) ? 1 : -1,
+    aiDodgeT: rand(0, AI_DODGE_TICK),   // 봇들이 같은 프레임에 몰려 살피지 않게 흩어 둔다
     spawnX: 0, spawnY: 0,
   };
   for (const id of player.augments) applyAugmentBattle(f, id, player);
@@ -2196,6 +2197,56 @@ function aiChooseStartDir(b, f) {
   return ang + rand(-0.12, 0.12);
 }
 
+/* ---- 회피 ----
+ *
+ * 여기까지 AI는 상대와의 거리만 보고 방향을 정했다. 날아오는 것을 보는
+ * 코드가 아예 없어서, 이동속도를 올려 줘도 피할 줄을 몰랐다 — 밸런스를
+ * 재 보면 이동·기동 계열 증강이 전부 0으로 나왔다.
+ *
+ * 조향 판단(0.4~0.7초)과 따로 도는 이유: 화살이 300px/s로 오면 경기장을
+ * 가로지르는 데 2초 남짓이라 0.5초에 한 번 봐서는 이미 늦는다.
+ * 차지 샷 조준이 같은 이유로 따로 도는 것과 같은 자리다.
+ *
+ * 완벽하게 피하면 상대하기 싫어진다. 일정 확률로 못 본 척하게 두어
+ * 빈틈을 남긴다. */
+const AI_DODGE_TICK = 0.1;    // 위협을 다시 살피는 주기
+const AI_DODGE_LOOK = 0.8;    // 이 시간 안에 닿을 것만 본다
+const AI_DODGE_PAD = 12;      // 스칠 것도 피한다
+const AI_DODGE_MISS = 0.25;   // 이 확률로는 못 본 척한다
+
+/* 가장 급한 위협 하나를 찾는다. 나와 투사체의 상대속도로 최접근 시각을
+ * 구하고, 그때 거리가 몸통+투사체 반지름 안이면 맞을 것으로 본다. */
+function aiIncomingThreat(b, f) {
+  const team = teamOwner(f);
+  const myR = bodyRadius(f);
+  const mv = (f.st && f.st.move) || 0;
+  let best = null;
+  for (const p of b.projectiles) {
+    if (!p.owner || teamOwner(p.owner) === team) continue;   // 내 편이 쏜 것은 건너뛴다
+    const dx = f.x - p.x, dy = f.y - p.y;
+    // 상대속도로 본다. 내가 움직이는 것까지 넣어야 엉뚱한 데로 앞질러 비키지 않는다.
+    const rvx = p.vx * p.spd - f.vx * mv;
+    const rvy = p.vy * p.spd - f.vy * mv;
+    const vv = rvx * rvx + rvy * rvy;
+    if (vv < 1) continue;
+    const t = (dx * rvx + dy * rvy) / vv;
+    if (t <= 0 || t > AI_DODGE_LOOK) continue;               // 멀어지는 중이거나 아직 먼 것
+    const cx = dx - rvx * t, cy = dy - rvy * t;              // 최접근 순간의 벌어짐
+    if (Math.hypot(cx, cy) > myR + p.r + AI_DODGE_PAD) continue;
+    if (!best || t < best.t) best = { p, t, dx, dy };
+  }
+  if (!best) return null;
+  // 투사체 진행선의 어느 쪽에 있는지 보고 그쪽으로 더 비킨다 — 가로지르는 것보다 짧다.
+  // 선 위에 거의 걸쳐 있으면 지금 방향에서 덜 꺾는 쪽을 고른다.
+  const p = best.p;
+  const pAng = Math.atan2(p.vy, p.vx);
+  const cross = p.vx * best.dy - p.vy * best.dx;
+  let side;
+  if (Math.abs(cross) > 1) side = cross > 0 ? 1 : -1;
+  else side = angleDelta(Math.atan2(f.vy, f.vx), pAng + Math.PI / 2) > 0 ? 1 : -1;
+  return { angle: pAng + side * Math.PI / 2, t: best.t };
+}
+
 function aiChooseSteer(b, f, e) {
   const wp = WEAPONS[f.weaponId];
   const d = dist(f.x, f.y, e.x, e.y);
@@ -2232,6 +2283,19 @@ function aiUpdate(b, f, dt) {
       const choice = aiChooseSteer(b, f, steerTarget);
       setSteerInput(f, choice.angle, choice.magnitude);
     } else clearSteerInput(f);
+  }
+
+  // 날아오는 것 피하기. 위 판단 주기와 따로 보고, 잡히면 그쪽을 덮어쓴다.
+  f.aiDodgeT = (f.aiDodgeT || 0) - dt;
+  if (f.aiDodgeT <= 0) {
+    f.aiDodgeT = AI_DODGE_TICK;
+    if (!steeringBlocked(f)) {
+      const dodge = aiIncomingThreat(b, f);
+      if (dodge && !chance(AI_DODGE_MISS)) {
+        setSteerInput(f, dodge.angle, 1);
+        f.aiSteerT = Math.max(f.aiSteerT, 0.2);   // 비키는 동안은 원래 판단을 미룬다
+      }
+    }
   }
   // 차지 샷 조준만은 판단 주기와 따로, 매 프레임 본다.
   // 활은 두 바퀴 도는 동안 상대와 겹치는 순간이 0.1초 남짓이라
