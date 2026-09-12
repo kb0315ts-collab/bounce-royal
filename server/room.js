@@ -77,7 +77,25 @@ class Room {
 
     for (const p of this.players) if (p.conn) p.conn.room = this;
 
-    this.tickTimer = setInterval(() => this.tick(), 1000 / TICK_HZ);
+    /* setInterval(1000/60)=16.67ms를 그대로 쓰면 윈도우에서 깨진다.
+     * 타이머 눈금이 15.2ms라 16.67ms가 두 칸(약 30ms)으로 올림되는데,
+     * 틱마다 dt는 1/60로 고정이라 게임 시간만 절반으로 흘렀다 —
+     * 실측 0.58배속, 한 판이 40초가 아니라 69초였다. 리눅스(배포)는
+     * 눈금이 고와서 멀쩡했고, 그래서 로컬과 배포의 속도가 달랐다.
+     *
+     * 눈금보다 짧게(4ms) 깨워서 밀린 만큼 따라잡는다. 실측 59.9틱/초. */
+    this.tickDue = Date.now();
+    this.tickTimer = setInterval(() => {
+      const now = Date.now();
+      // 오래 멈췄다 돌아온 경우엔 따라잡기를 포기한다 (한꺼번에 몰아 돌면 더 이상하다)
+      if (now - this.tickDue > 1000) this.tickDue = now;
+      let guard = 0;
+      while (this.tickDue <= now && guard++ < 8) {
+        this.tickDue += 1000 / TICK_HZ;
+        this.tick();
+        if (this.closed) return;
+      }
+    }, 4);
     this.snapAcc = 0;
     this.snapSeq = 0;    // 스냅샷 순번. 지터로 순서가 뒤바뀌어 도착한 것을 클라이언트가 버릴 수 있게 한다
   }

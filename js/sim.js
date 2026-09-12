@@ -652,6 +652,22 @@ function boltFx(b, x1, y1, x2, y2) {
 const BATTLE_TIME = 30, OVERTIME = 10, OVERTIME_RAMP = 5;
 const OVERTIME_SPEED = 1.5;   // 연장전이 끝까지 올라가는 배속
 
+/* 경기 진행 속도. 1이면 수치 그대로, 0.583이면 그 속도로 굴러간다.
+ *
+ * 0.583인 이유: 그동안 윈도우 로컬 서버가 60틱이 아니라 35틱으로 돌았고
+ * (setInterval(16.67ms)가 타이머 눈금 때문에 30ms로 벌어졌다), 그래서
+ * 게임이 이 비율로 느리게 굴러갔다. 재미를 검증한 것이 그 속도였으므로
+ * 느린 쪽을 기본값으로 삼는다. 실측값이다.
+ *
+ * 곱하는 대상은 '움직임'뿐이다 — step()과 연출.
+ * 시계(simT·otT·endT·countT)에는 곱하지 않는다. 그래서 한 판은 설계대로
+ * 실제 40초(본경기 30 + 연장 10)로 끝나고, 그 안의 움직임만 느리다.
+ *
+ * 이동·회전·투사체뿐 아니라 발사 간격·재장전·쿨다운·출혈 같은 것도 전부
+ * step() 안에서 이 dt를 쓰므로 같은 비율로 함께 느려진다. 비율이 그대로라
+ * 밸런스는 틀어지지 않는다. */
+const GAME_SPEED = 0.583;
+
 class Battle {
   constructor(mapId, players, opts = {}) {
     this.mapId = mapId;
@@ -853,8 +869,9 @@ class Battle {
         }
       }
     } else if (this.phase === 'fight') {
-      const dt = rdt * this.timeScale;
-      this.simT += dt;
+      // 시계용. 여기에는 GAME_SPEED를 곱하지 않는다 — 한 판 길이는 실시간이다.
+      const clockDt = rdt * this.timeScale;
+      this.simT += clockDt;
       if (!this.overtime && this.simT >= BATTLE_TIME) {
         this.overtime = true; this.otT = OVERTIME; this.timeScale = 1;
         for (const f of this.fighters) if (f.flags.marathoner && this.fighterAlive(f)) healFighter(this, f, (f.maxHp - f.hp) * 0.5);
@@ -865,12 +882,16 @@ class Battle {
         // 서서히 오르고, 그 이후 남은 시간은 그 배속을 유지한다.
         this.timeScale = 1 + (OVERTIME_SPEED - 1) * Math.min(1, (OVERTIME - this.otT) / OVERTIME_RAMP);
       }
-      this.step(dt);
+      // 움직임용. 시계는 실시간으로 가고 그 안의 움직임만 느리게 간다.
+      // 연출도 같이 늦춰야 폭발 고리가 공보다 빨리 퍼지지 않는다.
+      // (연장 가속은 움직임에만 걸리므로 연출에는 timeScale을 빼고 준다)
+      fxDt = rdt * GAME_SPEED;
+      this.step(clockDt * GAME_SPEED);
     } else if (this.phase === 'ending') {
       // 거의 멈춘 상태에서 시작해 서서히 풀린다. 파편과 팝업도 같은 속도로
       // 흘러야 화면 전체가 느려진 것처럼 보인다.
       const k = 1 - Math.max(0, this.endT) / ENDING_TIME;
-      fxDt = rdt * (0.10 + 0.45 * k * k);
+      fxDt = rdt * (0.10 + 0.45 * k * k) * GAME_SPEED;
       this.step(fxDt);
       this.endT -= rdt;
       if (this.endT <= 0) this.finished = true;
