@@ -12,6 +12,7 @@ function esc(value) {
 function playUI() { if (typeof SFX !== 'undefined' && SFX && typeof SFX.ui === 'function') SFX.ui(); }
 
 function showScreen(id) {
+  if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.onScreen(id);
   document.querySelectorAll('.screen').forEach(screen => screen.classList.add('hidden'));
   const target = id ? $(id) : null;
   if (target) target.classList.remove('hidden');
@@ -887,6 +888,7 @@ function showGameOver(players, human, onRestart) {
     el.onclick = () => showPlayerDetail(p); box.appendChild(el);
   });
   $('btn-restart').onclick = () => { playUI(); onRestart?.(); };
+  if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.finishMatch(players);
 }
 
 /* ---------------- 전투 HUD ---------------- */

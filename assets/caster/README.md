@@ -1,5 +1,13 @@
 # Cosmic sportscaster
 
+## Current cactus toy
+
+The active mascot is an original inline SVG in `index.html`, with flat cream/green/coral fills and the same chunky navy outlines as the game's ball and weapon art. It evokes a talking cactus toy without using a branded toy image. The stem, eyes, mouth and cloth gag are separate groups animated by `css/commentary.css`; the flowerpot stays still. `js/commentary.js` synchronizes mouth pulses with original Web Audio babble in `js/audio.js` (`caster.chatter`). No downloaded voice recordings are used.
+
+## Archived robot
+
+The PNG below is retained for rollback from `codex/cactus-caster` to `674ef96`; the current UI does not request it.
+
 `cosmic-caster.png` is an original transparent character generated with the built-in image generation tool for Bounce Royale. The original generated bitmap is used without replacing the game's ball or weapon art. CSS supplies the cloth gag and small gestures, so no additional sprite sheets or video are required.
 
 Generation prompt:

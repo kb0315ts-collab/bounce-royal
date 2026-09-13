@@ -9,6 +9,28 @@
   const noise = (f, to, dur, gain, filter = 'bandpass', delay = 0, attack = .008, q = .8) =>
     ({ kind:'noise', f, to, dur, gain, filter, delay, attack, q });
   const sample = (name, gain, dur, fallback) => ({ kind:'sample', name, gain, dur, fallback, delay:0, attack:.003 });
+  // Two moving vocal resonances shape one shared pitch into a small plush-toy
+  // voice. These are invented vowel gestures, not speech or sampled dialogue.
+  function chatterLayers(index, emphasis = false, muffled = false, variation = .5, delay = 0) {
+    const vowels = [[470,1200],[650,1700],[390,1350],[760,1500],[540,1850],[430,1000]];
+    const [first,second] = vowels[index % vowels.length];
+    const duration = .082 + (index % 3) * .012 + variation * .014;
+    const pitch = (muffled ? 164 : emphasis ? 234 : 184) + (index % 5) * 7 + variation * 15;
+    const pitchPath = [[0,pitch*.94],[.27,pitch*1.055],[.65,pitch],[1,pitch*(index % 2 ? .9 : .98)]];
+    const envelope = gain => [[0,.0001],[.16,gain*.82],[.35,gain],[.66,gain*.86],[1,.0001]];
+    const formant = (f,gain,q) => ({
+      ...tone(pitch,pitch,duration,gain,'sawtooth',delay),
+      freqPath:pitchPath, gainPath:envelope(gain),
+      filter:{type:'bandpass',q,path:[[0,f*.76],[.27,f],[.66,f*1.025],[1,f*.86]]},
+    });
+    return [
+      formant(muffled ? first*.6 : first, muffled ? .046 : .086, 4.2),
+      formant(muffled ? second*.48 : second, muffled ? .012 : .044, 5.8),
+      {...tone(pitch,pitch,duration,muffled ? .012 : .009,'triangle',delay),
+        freqPath:pitchPath,gainPath:envelope(muffled ? .012 : .009),
+        filter:{type:'lowpass',q:.65,f:muffled ? 420 : 700,to:muffled ? 300 : 510}},
+    ];
+  }
   const definitions = [];
   function sound(id, name, group, description, icon, layers, options = {}) {
     definitions.push({ id, name, group, description, icon, layers, gap:.055, priority:2, ...options });
@@ -76,6 +98,10 @@
   sound('ui.fight', '전투 · 시작', '인터페이스', '강한 첫 박자 위로 두 음이 힘차게 열립니다.', 'sword', [tone(150,65,.20,.085), tone(523,523,.30,.048,'triangle'), tone(784,784,.36,.039,'triangle',.045), noise(1900,490,.18,.07)], { priority:5, gap:.5 });
   sound('ui.vote.tick', '이벤트 · 추첨 이동', '인터페이스', '빛이 다른 플레이어로 옮겨갈 때 울리는 작은 클릭입니다.', 'watch', [tone(960,690,.054,.035,'sine'), noise(3300,1700,.022,.021)], { priority:3, gap:.035 });
   sound('ui.vote.win', '이벤트 · 당첨', '인터페이스', '선택된 플레이어를 밝은 세 음과 반짝임으로 강조합니다.', 'ranked', [tone(784,784,.24,.045,'triangle'), tone(1046,1046,.30,.042,'triangle',.11), tone(1568,1568,.43,.032,'sine',.22), tone(2093,2093,.33,.015,'sine',.255)], { priority:5, gap:.5 });
+  sound('caster.chatter', '선인장 해설자 · 조잘조잘', '인터페이스', '둥근 모음과 작은 억양으로 웅얼거리는 장난감 목소리입니다. 실제 단어나 녹음된 대사는 사용하지 않습니다.', 'skill', chatterLayers(0), {
+    priority:-1,gap:.075,previewLayers:[...chatterLayers(0,false,false,.35),...chatterLayers(3,false,false,.7,.16)],
+    source:'오리지널 모음 합성',signature:'두 모음 공명 · 부드러운 입모양 변화',
+  });
 
   // The listening room loads the deployed 511fb88 design for exact A/B. It is
   // intentionally not an extra script download on the main game's hot path.
@@ -120,6 +146,7 @@
       this.dropped = 0;
       // Cosmetic pitch variation must never consume the simulation's RNG.
       this._randomState = (finite(options.seed, 0x6a09e667) >>> 0) || 0x6a09e667;
+      this._chatterRandomState = this._randomState ^ 0x3c6ef372;
       this._previewVersion = 0;
       this._sampleWaiters = new Set();
       this._document = options.document || root.document;
@@ -379,6 +406,20 @@
     shoot() { return this.play('weapon.pistol.fire'); }
     slash(weaponId) { return this.play(weaponId === 'dagger' ? 'weapon.dagger.hit' : 'weapon.sword.hit'); }
     fire(kind) { return this.play(fireIds[kind]); }
+    chatterSyllable({index = 0, emphasis = false, muffled = false} = {}) {
+      // Dialogue cadence belongs to the caster controller. No timer or audio
+      // context is created here, and this voice cannot displace combat sounds.
+      if (this._muted || this._volume <= 0 || !this.ctx || this.ctx.state !== 'running' || this._document?.hidden) return false;
+      const now = this.ctx.currentTime;
+      if (this.lastAt.has('caster.chatter') && now - this.lastAt.get('caster.chatter') < .075) return false;
+      let seed = this._chatterRandomState;
+      seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+      this._chatterRandomState = seed >>> 0;
+      const syllable = Math.abs(Math.trunc(finite(index,0))) % 30;
+      return this._playDefinition({id:'caster.chatter',gap:.075,priority:-1,
+        layers:chatterLayers(syllable,!!emphasis,!!muffled,this._chatterRandomState/4294967296)},{});
+    }
+    stopChatter() { this.stop('caster.chatter'); this.lastAt.delete('caster.chatter'); }
     tone(freq, duration, type = 'sine', vol = .08, slide = 0, delay = 0) {
       const f = clamp(finite(freq,440), 25, 12000);
       return this._playDefinition({ id:'legacy.tone', gap:0, priority:2, layers:[tone(f, Math.max(25,f + finite(slide,0)), clamp(finite(duration,.1),.02,3), clamp(finite(vol,.08),0,.25), ['sine','triangle','sawtooth','square'].includes(type) ? type : 'sine', clamp(finite(delay,0),0,3))] }, {});

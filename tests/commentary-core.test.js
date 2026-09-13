@@ -144,13 +144,14 @@ test('interpolated clocks defer future snapshot events without consuming their s
   assert.equal(d.observe(b, 10000), null, 'the same packet cannot replay either event');
 });
 
-test('spectate and reconnect skip historical events and do not replay old GG', () => {
+test('spectate and reconnect skip historical events and do not replay old round results', () => {
   const { d, b } = running(), other = battle(2); other.phase = 'fight'; other.simT = 8;
   event(other, 'skill:bow'); assert.equal(d.observe(other, 5000), null);
   other.simT += .2; event(other, 'augment:lightning'); assert.equal(d.observe(other, 5200).kind, 'special-hit');
   b.simT = 10; event(b, 'skill:bow'); assert.equal(d.observe(b, 10000), null);
   b.result = { winner: b.fighters[0], draw: false }; b.phase = 'ending';
-  assert.equal(d.observe(b, 10100).gg, true);
+  const line = d.observe(b, 10100);
+  assert.equal(line.kind, 'round-end'); assert.equal(line.gg, false);
   d.observe(other, 15000); assert.equal(d.observe(b, 16000), null);
   d.observe(null, 17000); assert.equal(d.observe(b, 18000), null);
 });
@@ -160,19 +161,70 @@ test('a finished battle joined for the first time is not a newly witnessed finis
   b.result = { winner: b.fighters[0] }; assert.equal(d.observe(b, 4000), null);
 });
 
-test('GG interrupts cooldown exactly once and only on the final FFA battle result', () => {
+test('FFA deaths are silent and round results interrupt cooldown once without GG', () => {
   const { d, b } = running(); b.fighters.push(fighter(3, '선수3'), fighter(4, '선수4'));
   event(b, 'skill:bow'); assert.equal(d.observe(b, 4000).kind, 'skill-hit');
   b.fighters[3].dead = true; b.fighters[3].hp = 0; assert.equal(d.observe(b, 4100), null);
   b.result = { winner: b.fighters[0], draw: false }; b.phase = 'ending';
-  const line = d.observe(b, 4200); assert.equal(line.priority, 100); assert.equal(line.gg, true);
-  assert.match(line.text, /GG~~! 민수의 승리/); assert.equal(d.observe(b, 9000), null);
+  const line = d.observe(b, 4200);
+  assert.equal(line.kind, 'round-end'); assert.equal(line.priority, 90); assert.equal(line.gg, false);
+  assert.match(line.text, /민수, 이번 라운드를 가져갑니다/); assert.doesNotMatch(line.text, /GG/);
+  assert.equal(d.observe(b, 9000), null);
+});
+
+test('a duel round announces its winner once, with no GG even if every other fighter died', () => {
+  const { d, b } = running(); b.fighters[1].dead = true; b.fighters[1].hp = 0;
+  assert.equal(d.observe(b, 4000), null);
+  b.result = { winner: 1, draw: false }; b.phase = 'ending';
+  const line = d.observe(b, 4200);
+  assert.equal(line.kind, 'round-end'); assert.equal(line.gg, false);
+  assert.match(line.text, /민수/); assert.doesNotMatch(line.text, /GG/);
+  assert.equal(d.observe(b, 9000), null);
+});
+
+test('only an explicit full match finish with final ranks emits GG and names the champion', () => {
+  const { d, b } = running();
+  b.result = { winner: b.fighters[0], draw: false }; b.phase = 'ending';
+  assert.equal(d.observe(b, 4200).gg, false);
+  // The last round winner need not be the overall champion supplied by the match.
+  const players = [
+    { id: 1, name: '민수', color: '#55aaff', rank: 2 },
+    { id: 2, name: '지훈', color: '#ff5555', rank: 1 },
+    { id: 3, name: '선수3', rank: 4 },
+    { id: 4, name: '선수4', rank: 3 },
+  ];
+  const unchanged = JSON.stringify(players);
+  const line = d.finishMatch(players, 4300, 'online:match1');
+  assert.equal(line.kind, 'gg'); assert.equal(line.priority, 100); assert.equal(line.gg, true);
+  assert.equal(line.actor.uid, 2); assert.equal(line.actor.color, '#ff5555');
+  assert.match(line.text, /GG~~! 지훈, 최종 우승/);
+  assert.equal(JSON.stringify(players), unchanged, 'final rankings remain untouched');
+  assert.equal(d.finishMatch(players, 9000, 'online:match1'), null);
+  assert.equal(d.finishMatch(JSON.parse(JSON.stringify(players)), 9500, 'online:match1'), null,
+    'a repeated terminal packet for the same session cannot replay GG');
+  assert.equal(d.finishMatch(players, 10000, 'online:match2').gg, true,
+    'the same players can finish a later match');
+});
+
+test('full match GG rejects incomplete or invalid rankings and can deduplicate a local roster', () => {
+  const d = makeDirector();
+  for (const players of [null, [], [{ rank: 0 }], [{ rank: 1 }, { rank: 0 }],
+    [{ rank: 1 }, { rank: 1 }], [{ rank: 1 }, { rank: 3 }], [{ rank: 1 }, null],
+    [{ rank: 1 }, { rank: 1.5 }]]) {
+    assert.equal(d.finishMatch(players, 1000, 'local:game'), null);
+  }
+  const players = [{ name: '최종 승자', rank: 1 }, { name: '다른 선수', rank: 2 }];
+  assert.equal(d.finishMatch(players, 1100).gg, true);
+  assert.equal(d.finishMatch(players, 2000), null);
 });
 
 test('muted callers can consume lines without replaying them when unmuting', () => {
   const { d, b } = running(); event(b, 'skill:bow'); d.observe(b, 4000); // Caller intentionally hides this.
   assert.equal(d.observe(b, 10000), null);
-  b.result = { winner: null, draw: true }; assert.match(d.observe(b, 10100).text, /무승부/);
+  b.result = { winner: null, draw: true };
+  const line = d.observe(b, 10100);
+  assert.match(line.text, /무승부/); assert.equal(line.gg, false); assert.equal(line.kind, 'round-end');
+  assert.equal(d.observe(b, 15000), null, 'a muted round result stays consumed');
 });
 
 test('names remain bounded plain text, and title demos never produce commentary', () => {

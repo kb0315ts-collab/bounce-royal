@@ -16,7 +16,7 @@
       .replace(/[\u0000-\u001f\u007f]/g, '').trim() || '선수');
     return letters.length > 9 ? letters.slice(0, 8).join('') + '…' : letters.join('');
   };
-  const actorOf = fighter => ({ uid: fighter ? fighter.uid : null,
+  const actorOf = fighter => ({ uid: fighter ? fighter.uid ?? fighter.id ?? null : null,
     name: fighter ? nameOf(fighter.name) : '', color: fighter && typeof fighter.color === 'string'
       ? fighter.color : '#ffe18a' });
   const ratio = fighter => Math.max(0, Math.min(1, finite(fighter.hp) / Math.max(1, finite(fighter.maxHp, 1))));
@@ -31,6 +31,7 @@
       this.nextKey = 0;
       this.activeKey = null;
       this.lastSpoken = -Infinity;
+      this.finishedMatches = new Set();
     }
 
     battleKey(battle) {
@@ -41,6 +42,23 @@
 
     line(kind, priority, fighter, text, label, gg = false) {
       return { kind, priority, actor: actorOf(fighter), text, label, gg };
+    }
+
+    // Only the match-over UI may call this, after authoritative final ranks arrive.
+    // A fighter dying (including the last fighter of a FFA round) is not match-over.
+    // Pass a stable session key when reconnects may recreate the players array.
+    finishMatch(players, nowMilliseconds, matchKey = players) {
+      if (!Array.isArray(players) || !players.length || matchKey == null) return null;
+      const ranks = new Set(players.map(player => player && player.rank));
+      if (ranks.size !== players.length || players.some(player => !player ||
+        !Number.isInteger(player.rank) || player.rank < 1 || player.rank > players.length)) return null;
+      if (this.finishedMatches.has(matchKey)) return null;
+      this.finishedMatches.add(matchKey);
+      if (this.finishedMatches.size > 64) this.finishedMatches.delete(this.finishedMatches.values().next().value);
+      const champion = players.find(player => player.rank === 1);
+      this.lastSpoken = finite(nowMilliseconds);
+      return this.line('gg', 100, champion,
+        'GG~~! ' + nameOf(champion.name) + ', 최종 우승입니다!', '최종 결과', true);
     }
 
     lead(battle) {
@@ -56,7 +74,7 @@
       state.hits.clear();
       state.leadArmed = this.lead(battle).gap <= .2;
       // A finished battle discovered by switching is not a newly witnessed finish.
-      if (battle.result) state.ggDone = true;
+      if (battle.result) state.resultDone = true;
     }
 
     skillName(source) {
@@ -75,7 +93,7 @@
       const fresh = !state;
       if (fresh) {
         state = { seq: 0, simT: -Infinity, phase: battle.phase, introDone: false,
-          ggDone: false, hits: new Map(), sourceTimes: new Map(), leadArmed: true };
+          resultDone: false, hits: new Map(), sourceTimes: new Map(), leadArmed: true };
         this.battles.set(key, state);
         // A normal session is much smaller; keep spectator/reconnect history bounded.
         if (this.battles.size > 64) this.battles.delete(this.battles.keys().next().value);
@@ -92,16 +110,17 @@
 
       state.simT = Math.max(state.simT, time);
       state.phase = battle.phase;
-      if (battle.result && !state.ggDone) {
-        state.ggDone = true;
+      if (battle.result && !state.resultDone) {
+        state.resultDone = true;
         for (const event of events) state.seq = Math.max(state.seq, finite(event.seq));
         const winner = battle.result.winner;
         const fighter = winner && typeof winner === 'object' ? winner
           : (battle.fighters || []).find(f => f.uid === winner) || null;
         this.lastSpoken = now;
-        return this.line('gg', 100, fighter, fighter && !battle.result.draw
-          ? 'GG~~! ' + nameOf(fighter.name) + '의 승리!'
-          : 'GG~~! 끝까지 팽팽한 무승부!', '경기 종료', true);
+        return this.line('round-end', 90, fighter, fighter && !battle.result.draw
+          ? nameOf(fighter.name) + ', 이번 라운드를 가져갑니다!'
+          : battle.result.draw ? '끝까지 팽팽했습니다! 이번 라운드는 무승부!'
+            : '이번 라운드가 끝났습니다!', '라운드 종료');
       }
       if (battle.phase !== 'fight' || battle.result) return null;
 
