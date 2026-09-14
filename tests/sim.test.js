@@ -105,17 +105,17 @@ test('투사체가 메인 공의 radius를 사용해 실제 피해를 준다', (
 
 /* 누르면 모으고 떼면 나간다. 최소 0.2초는 모아야 발사된다 —
  * 그 전에 떼면 아무 일도 없고 횟수도 그대로다. */
-test('활 차지 샷은 0.2초를 모아야 나가고 그때 횟수를 쓴다', () => {
+test('활 차지 샷은 0.2초를 모아야 나가고 그때 쿨타임이 돈다', () => {
   const b = makeBattle({ weaponId: 'bow' });
   const f = b.fighters[0];
   assert.equal(useSkill(b, f, 'weapon'), true, '누르면 충전이 시작된다');
-  assert.equal(f.skillUses.weapon, 1, '충전만으로는 횟수를 쓰지 않는다');
+  assert.equal(f.skillUses.cd, 0, '충전만으로는 쿨타임이 돌지 않는다');
   updateTimers(b, f, 0.19);
   assert.equal(useSkill(b, f, 'weapon'), false, '0.2초를 못 모으고 떼면 안 나간다');
-  assert.equal(f.skillUses.weapon, 1);
+  assert.equal(f.skillUses.cd, 0);
   updateTimers(b, f, 0.02);
   assert.equal(useSkill(b, f, 'weapon'), true);
-  assert.equal(f.skillUses.weapon, 0);
+  assert.equal(f.skillUses.cd, WEAPON_SKILL_CD.bow, '쏜 순간부터 쿨타임이 돈다');
   const charge = b.projectiles.find(p => p.kind === 'charge');
   assert.ok(charge);
   assert.equal(charge.dmg, 30);
@@ -1222,15 +1222,16 @@ test('AI도 순간 방향전환 없이 0.4~0.7초마다 불완전한 조향 목�
 });
 
 /* 카피 계열과 사용 횟수 증강을 통째로 걷어냈다.
- * 스킬은 캐릭터·무기 두 칸에 한 번씩으로 고정이다. */
-test('스킬은 캐릭터·무기 두 칸에 한 번씩으로 고정이다', () => {
+ * 칸은 캐릭터·무기 둘뿐이다. 캐릭터는 라운드당 1회, 무기는 쿨타임으로 돈다. */
+test('스킬 칸은 캐릭터·무기 둘뿐이고 무기는 쿨타임으로 돈다', () => {
   const p = makePlayer({ augments: ['hp15', 'atk15'] });
   const b = new Battle('square', [p, makePlayer({ isAI: true })]);
   b.phase = 'fight';
   const f = b.fighters[0];
-  assert.deepEqual(Object.keys(f.skillUses).sort(), ['char', 'weapon']);
+  assert.deepEqual(Object.keys(f.skillUses).sort(), ['cd', 'char', 'weapon']);
   assert.equal(f.skillUses.char, 1);
-  assert.equal(f.skillUses.weapon, 1);
+  assert.equal(f.skillUses.cd, 0, '전투 시작 시 무기 스킬은 바로 쓸 수 있다');
+  assert.equal(f.skillUses.weapon, 1, 'weapon은 쿨타임을 0/1로 비춘 값이다');
   assert.equal(useSkill(b, f, 'common'), false, '없는 칸은 눌러도 아무 일이 없어야 한다');
   assert.equal(f.skillUses.weapon, 1, '없는 칸이 무기 스킬을 대신 써 버리면 안 된다');
   assert.equal(b.projectiles.length, 0);

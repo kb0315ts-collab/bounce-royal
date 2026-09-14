@@ -954,12 +954,16 @@ function skillSlotInfo(fighter, slot) {
   if (!fighter) return null;
   const weapon = WEAPONS[fighter.weaponId];
   const uses = fighter.skillUses?.[slot] || 0;
+  // 무기 칸은 횟수가 아니라 쿨타임이다. 남은 초를 함께 넘겨 두면
+  // 버튼에 원형 게이지를 그릴 때 쓸 수 있다.
+  const cd = slot === 'weapon' ? (fighter.skillCd || 0) : 0;
+  const cdMax = slot === 'weapon' ? (WEAPON_SKILL_CD?.[fighter.weaponId] || 0) : 0;
   const name = slot === 'char'
     ? (CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬')
     : (weapon?.skillName || '무기 스킬');
   const iconKey = slot === 'char' ? fighter.charId : fighter.weaponId;
   const icon = SKILL_ICONS[iconKey];
-  return { name, icon: icon || '◆', iconKey, uses, max: 1 };
+  return { name, icon: icon || '◆', iconKey, uses, max: 1, cd, cdMax };
 }
 function updateSteerControl(battle, fighter) {
   const control = $('steer-control'), label = $('steer-label');

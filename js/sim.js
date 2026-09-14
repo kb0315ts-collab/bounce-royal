@@ -419,7 +419,9 @@ function buildFighter(player, battle) {
     sfxSlash: 0,        // 근접 무기가 벤 횟수. 위와 같은 이유로 센다
 
     hist: [], histT: 0,
-    skillUses: { char: 1, weapon: 1 },
+    // 무기 스킬은 쿨타임(cd, 초)으로 돈다. 분열체가 이 객체를 참조로 공유하므로
+    // 쿨타임도 여기 넣어야 본체와 분열체가 같은 값을 본다.
+    skillUses: { char: 1, weapon: 1, cd: 0 },
     summons: [], splitBalls: [], satellites: [],
     splitUsed: false, lastStandUsed: false,
     mainDead: false, dead: false, deathAt: 0, downPending: false,
@@ -1555,7 +1557,16 @@ function weaponSegment(f) {
   };
 }
 
+/* 무기 스킬 쿨타임. 값이 없는 무기(화염방사기·방패처럼 연료나 회수가
+ * 제한인 무기)는 0이라 곧바로 다시 쓸 수 있다. */
+function weaponSkillCd(f) {
+  return (typeof WEAPON_SKILL_CD !== 'undefined' && WEAPON_SKILL_CD[f.weaponId]) || 0;
+}
+
 function updateCooldowns(b, f, dt) {
+  f.skillUses.cd = Math.max(0, (f.skillUses.cd || 0) - dt);
+  // 버튼과 파리티가 같은 값을 보게 쿨타임을 그대로 비춰 둔다.
+  f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1;
   f.staticCd = Math.max(0, f.staticCd - dt);
   f.collisionCd = Math.max(0, f.collisionCd - dt);
   f.flash = Math.max(0, f.flash - dt);
@@ -1600,8 +1611,8 @@ function updateWeapon(b, f, dt) {
     }
   }
   // 두 바퀴를 다 돌 때까지 안 쏘면 그 자리에서 자동으로 나간다 (사용 횟수는 그대로 소비)
-  if (f.charging && f.charging.spin >= TAU * BOW_CHARGE_TURNS && f.skillUses.weapon > 0) {
-    if (releaseCharge(b, f)) f.skillUses.weapon--;
+  if (f.charging && f.charging.spin >= TAU * BOW_CHARGE_TURNS) {
+    if (releaseCharge(b, f)) f.skillUses.cd = weaponSkillCd(f);
   }
   if (f.timers.weaponLock > 0 || f.charging) {
     // 무기 정지/충전 중에는 발사 없음 (회전만)
@@ -2136,13 +2147,17 @@ function useSkill(b, f, slot) {
   // 칸은 둘뿐이다. 없는 이름이 들어오면 무기 스킬이 대신 나가 버린다.
   if (slot !== 'char' && slot !== 'weapon') return false;
   // 활은 첫 입력으로 충전하고, 두 번째 입력으로 발사할 때 사용 횟수를 소비한다.
+  // 활은 첫 입력으로 충전을 시작하고 두 번째 입력으로 쏜다.
+  // 쿨타임은 '쏜 순간'부터 돈다 — 충전만 하고 안 쏴도 잠기면 억울하다.
   if (slot === 'weapon' && f.weaponId === 'bow' && f.charging) {
-    if (f.skillUses.weapon <= 0 || !releaseCharge(b, f)) return false;
-    f.skillUses.weapon--;
+    if (!releaseCharge(b, f)) return false;
+    f.skillUses.cd = weaponSkillCd(f);
+    f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1;
     f.sfxSkill++;
     return true;
   }
-  if (f.skillUses[slot] <= 0) return false;
+  if (slot === 'char' && f.skillUses.char <= 0) return false;
+  if (slot === 'weapon' && f.skillUses.cd > 0) return false;
   const id = slot === 'char' ? f.charId : f.weaponId;
   switch (id) {
     case 'direction':
@@ -2215,7 +2230,8 @@ function useSkill(b, f, slot) {
       popup(b, f.x, f.y - f.radius - 24, '폭파 예약…', '#ffb14d');
       break;
   }
-  f.skillUses[slot]--;
+  if (slot === 'char') f.skillUses.char--;
+  else { f.skillUses.cd = weaponSkillCd(f); f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1; }
   f.sfxSkill++;
   const cue = {
     cat: 'skill.cat.rewind', wak: 'skill.rampage.start', soft: 'skill.soft.guard',
@@ -2348,7 +2364,7 @@ function aiUpdate(b, f, dt) {
   // 차지 샷 조준만은 판단 주기와 따로, 매 프레임 본다.
   // 활은 두 바퀴 도는 동안 상대와 겹치는 순간이 0.1초 남짓이라
   // 0.2~0.4초마다 보는 일반 판단으로는 절반 넘게 그냥 지나쳐 버린다.
-  if (f.charging && f.charging.t >= 0.2 && f.skillUses.weapon > 0) {
+  if (f.charging && f.charging.t >= 0.2) {
     const tgt = b.nearestEnemyMain(f);
     if (tgt) {
       // 화살이 날아가는 동안 상대가 움직이는 만큼 앞을 겨눈다
@@ -2384,7 +2400,7 @@ function aiUpdate(b, f, dt) {
   };
   if (f.skillUses.char > 0 && charHeur(f.charId)) use('char');
   // 무기 스킬
-  if (f.skillUses.weapon > 0) {
+  if (f.skillUses.cd <= 0) {
     const angToE = Math.atan2(e.y - f.y, e.x - f.x);
     let diff = f.weaponAngle - angToE;
     while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;

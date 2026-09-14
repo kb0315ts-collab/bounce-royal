@@ -32,7 +32,10 @@ function fighterView(f) {
     rl: f.gun && f.gun.reloadT > 0 ? 1 : 0,
     vx: Math.round(f.vx * 100) / 100, vy: Math.round(f.vy * 100) / 100,
     // 스킬 잔여/최대 사용 횟수 (스킬바 표시용)
-    su: [f.skillUses.char, f.skillUses.weapon],
+    // 캐릭터 칸은 남은 횟수, 무기 칸은 남은 쿨타임(초)이다.
+    // 0.0166초 같은 끝자락이 반올림으로 0이 되면 클라이언트만 '준비됨'으로
+    // 보여 파리티가 깨진다. 조금이라도 남았으면 최소 0.1로 올려 보낸다.
+    su: [f.skillUses.char, f.skillUses.cd > 0 ? Math.max(0.1, r1(f.skillUses.cd)) : 0],
     // 화면 좌하단 스탯판에 쓰는 값 (공격력·모든피해·공격속도·회전력)
     st: [r2(f.st.atk), r2(f.st.dmg), r2(f.st.aspd), r2(f.st.rot)],
     // 벽 튕김·스킬 효과음 횟수. 서버에는 소리가 없으므로 클라이언트가 증가분만큼 재생한다.

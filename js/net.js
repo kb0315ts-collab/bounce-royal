@@ -565,7 +565,9 @@ function netFighter(view, meta, seat) {
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
     satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),
-    skillUses: { char: (view.su||[0,0,0])[0], weapon: (view.su||[0,0,0])[1], common: (view.su||[0,0,0])[2] },
+    // 무기 칸은 남은 쿨타임(초)이다. 버튼은 '지금 쓸 수 있나'만 보므로 0/1로도 준다.
+    skillCd: (view.su||[0,0])[1] || 0,
+    skillUses: { char: (view.su||[0,0,0])[0], weapon: ((view.su||[0,0])[1] || 0) > 0 ? 0 : 1, common: (view.su||[0,0,0])[2] },
     skillMax: { char: (view.sx||[1,1,1])[0], weapon: (view.sx||[1,1,1])[1], common: (view.sx||[1,1,1])[2] },
     isMe: view.p === seat,
   };
