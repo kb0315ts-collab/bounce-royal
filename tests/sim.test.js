@@ -57,7 +57,7 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval, WEAPONS.bow.projSpeed], [8, 1.5, 300]);
   assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [3, 7, 0.12, 3]);
   assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [15, 2.5]);
-  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval], [10, 3]);
+  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval], [9, 3.5]);
   assert.equal(WEAPONS.mine.maxMines, undefined, '지뢰 설치 개수 제한은 없앴다');
 });
 

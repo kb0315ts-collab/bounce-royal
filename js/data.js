@@ -38,7 +38,7 @@ const WEAPONS = {
     desc:'상대를 자동으로 겨누는 느리고 강한 마법 투사체. 벽에 한 번 반사된다.', stat:{atk:1,spd:.15,rng:.8,mob:.7},
     skillName:'마력 폭주', skillDesc:'3초간 자신이 발사한 모든 마법 투사체의 크기가 2배가 된다.' },
   // maxMines를 없앴다. 이제 제한 없이 깔아 둘 수 있다.
-  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:10, interval:3.0, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
+  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:9, interval:3.5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
     desc:'휘두르지 않고 이동 경로에 지뢰를 설치한다. 공간 장악형.', stat:{atk:.8,spd:.3,rng:.5,mob:.75},
     skillName:'원격 폭파', skillDesc:'1초 후 설치된 모든 지뢰를 하나당 피해 18, 반경 93으로 동시 폭파한다.' },
 };
