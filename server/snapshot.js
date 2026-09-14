@@ -55,6 +55,9 @@ function snapshot(battle) {
     // 투사체도 이 목록에는 남고, seq 덕분에 같은 소리를 두 번 내지 않는다.
     sd: battle.soundId,
     se: (battle.soundEvents || []).map(e => ({ seq: e.seq, id: e.id, x: r1(e.x), y: r1(e.y), t: r2(e.t) })),
+    // 실제 적중 기록. 렌더러가 팝업 숫자로 스킬 적중을 추측하지 않게 한다.
+    ce: (battle.commentaryEvents || []).map(e => ({ seq: e.seq, t: r2(e.t), type: e.type,
+      actor: e.actor, target: e.target, source: e.source, amount: r2(e.amount) })),
     cd: battle.phase === 'count' ? r1(battle.countT) : 0,
     ot: battle.overtime ? r1(battle.otT) : null,
     sh: r1(battle.shake),

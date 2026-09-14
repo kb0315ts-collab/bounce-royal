@@ -235,6 +235,7 @@ body{display:flex;align-items:center;justify-content:center}
 <link rel="stylesheet" href="css/visual-polish.css">
 <link rel="stylesheet" href="css/casual-renewal.css">
 <link rel="stylesheet" href="css/cosmic-sports.css">
+<link rel="stylesheet" href="css/commentary.css">
 </head>
 <body>
 <main id="app" aria-label="바운스 로얄 720×1280 세로 게임 화면" data-render-target="720x1280">
@@ -248,6 +249,49 @@ body{display:flex;align-items:center;justify-content:center}
       <div id="hud-round">ROUND 1</div><div id="hud-map">다이아 경기장</div><div id="hud-timer">30.0</div><div id="ot-tag">연장전 · 5초간 가속 → 1.5배속</div>
     </div>
     <div id="hud-spec">관전 중</div>
+    <aside id="commentator" hidden aria-label="우주 스포츠 중계">
+      <button id="caster-toggle" type="button" aria-label="해설자 입마개 씌우기. 마지막 GG 연출은 유지됩니다." aria-pressed="false">
+        <span class="caster-body" aria-hidden="true">
+          <svg id="caster-art" viewBox="0 0 128 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g stroke="#243747" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round">
+              <ellipse cx="64" cy="132" rx="31" ry="4" fill="#0d172b" stroke="none"/>
+              <g class="cactus-stem">
+                <path d="M52 112V88H37C23 88 16 77 16 65V50C16 38 32 38 32 50V63C32 69 37 72 46 72H49V43C49 10 87 8 89 36V63H95C100 63 102 59 102 53V47C102 36 117 36 117 48V58C117 71 107 80 94 80H86V112Z" fill="#79b568"/>
+                <path d="M61 105V88M61 74V43C61 32 66 26 70 25M76 91V104M104 50V56M25 56V64" fill="none" stroke="#a9d382" stroke-width="4"/>
+                <path d="M54 29L49 24M84 24L89 19M48 56L42 53M89 92L95 89M40 81L36 85" stroke-width="3"/>
+                <g class="cactus-eyes">
+                  <ellipse cx="58" cy="46" rx="10" ry="12" fill="#fff5dc"/>
+                  <ellipse cx="79" cy="44" rx="10" ry="12" fill="#fff5dc"/>
+                  <ellipse cx="60" cy="48" rx="3" ry="5" fill="#243747" stroke="none"/>
+                  <ellipse cx="77" cy="45" rx="3.4" ry="4.7" fill="#243747" stroke="none"/>
+                </g>
+                <path class="cactus-mouth-closed" d="M61 66Q69 73 77 65" fill="none" stroke-width="3.5"/>
+                <g class="cactus-mouth-open">
+                  <ellipse cx="69" cy="68" rx="8" ry="10" fill="#243747" stroke="none"/>
+                  <ellipse cx="69" cy="73" rx="5" ry="3" fill="#ef8c7b" stroke="none"/>
+                </g>
+                <g class="cactus-gag">
+                  <path class="cactus-strap" d="M46 62L88 61V73L47 76Z" fill="#c89b72" stroke-width="3"/>
+                  <path class="cactus-gag-left" d="M52 60L68 61L71 64L67 67L70 70L67 75L52 76Z" fill="#f2dcc0" stroke-width="3"/>
+                  <path class="cactus-gag-right" d="M68 61L84 59L86 74L67 75L70 70L67 67L71 64Z" fill="#f2dcc0" stroke-width="3"/>
+                </g>
+              </g>
+              <path d="M40 108H88L83 131H45Z" fill="#d98569"/>
+              <path d="M47 113H81" stroke="#f2b78b" stroke-width="3"/>
+              <rect x="36" y="102" width="56" height="11" rx="4" fill="#f1bb83"/>
+              <path d="M64 117L66 120L70 120L67 123L68 127L64 125L60 127L61 123L58 120L62 120Z" fill="#fff0b3" stroke="none"/>
+            </g>
+          </svg>
+          <span class="caster-murmur">웁…!</span>
+        </span>
+        <span id="caster-badge"><i></i> ON AIR</span>
+      </button>
+      <div id="caster-bubble" role="status" aria-live="polite" aria-atomic="true" hidden>
+        <span id="caster-label">COSMIC LIVE</span>
+        <p id="caster-copy"></p>
+        <span id="caster-gg" aria-hidden="true">GG~~!</span>
+      </div>
+    </aside>
     <button id="btn-watch-other" class="midbtn ghostbtn" type="button"><span class="icon-inline" data-ui-icon="watch"></span> 다른 전투 보기</button>
     <div id="hud-count" aria-hidden="true"></div>
     <div id="steer-control" class="disabled" role="application" aria-label="이동 조이스틱. 공은 자동으로 이동하며 누르는 동안 진행 방향이 천천히 휘어집니다." aria-disabled="true">
@@ -398,6 +442,8 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/sim.js"></script>
 <script src="js/matchmaking.js"></script>
 <script src="js/events.js"></script>
+<script src="js/commentary-core.js"></script>
+<script src="js/commentary.js"></script>
 <script src="js/render.js"></script>
 <script src="js/net.js"></script>
 <script src="js/augment-assets.js"></script>

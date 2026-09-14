@@ -403,3 +403,133 @@ test('legacy entry points remain usable and feed the same bounded engine', async
   assert.equal(engine.tone(440,.1,'triangle',.03,220,.1),true);
   assert.equal(engine.voices.size,1);
 });
+
+test('caster voice stays lazy and does not consume combat or simulation randomness', async () => {
+  const engine = newEngine({seed:173});
+  const initial = engine._randomState;
+  assert.equal(engine.chatterSyllable({index:2}),false);
+  assert.equal(engine.ctx,null);
+  assert.equal(engine._randomState,initial);
+  await engine.ensure();
+  for (let index=0;index<12;index++) {
+    engine.ctx.currentTime=index*.16;
+    assert.equal(engine.chatterSyllable({index}),true);
+  }
+  assert.equal(engine._randomState,initial,'Toy chatter has a separate cosmetic RNG');
+  engine.stopAll();
+});
+
+test('caster syllables have bounded, varied formants instead of isolated electronic beeps', async () => {
+  const engine = newEngine({seed:89});
+  await engine.ensure();
+  const pitches = new Set(), vowels = new Set();
+  for (const [index,emphasis,muffled] of [[0,false,false],[1,false,false],[2,true,false],[3,false,true],[Infinity,true,true]]) {
+    engine.stopChatter();
+    assert.equal(engine.chatterSyllable({index,emphasis,muffled}),true);
+    const voice = [...engine.voices][0];
+    assert.equal(voice.id,'caster.chatter');
+    assert.equal(voice.sources.length,3);
+    assert.ok(voice.endTime > .1 && voice.endTime <= .147);
+    assert.ok(voice.nodes.length <= 10);
+    assert.deepEqual(voice.sources.map(source=>source.type),['sawtooth','sawtooth','triangle']);
+    const filters = voice.nodes.filter(node=>node.kind==='filter');
+    assert.deepEqual(filters.map(filter=>filter.type),['bandpass','bandpass','lowpass']);
+    pitches.add(voice.sources[0].frequency.events[0][1]);
+    vowels.add(filters[0].frequency.events[1][1]);
+    for (const node of voice.nodes.filter(node=>node.kind==='gain' && node!==voice.output)) {
+      assert.ok(node.gain.events.every(event=>event[1]>=0 && event[1]<=.086));
+      assert.equal(node.gain.events.at(-1)[1],.0001,'Mouth closes with a soft release');
+    }
+  }
+  assert.ok(pitches.size>=4);
+  assert.ok(vowels.size>=4);
+  engine.stopAll();
+});
+
+test('caster variation is reproducible and cannot stack past its cooldown or voice budget', async () => {
+  const engines = [newEngine({seed:291,maxVoices:2}),newEngine({seed:291,maxVoices:2})];
+  for (const engine of engines) await engine.ensure();
+  for (let index=0;index<60;index++) {
+    const paths=[];
+    for (const engine of engines) {
+      engine.ctx.currentTime=index*.1;
+      assert.equal(engine.chatterSyllable({index}),true);
+      assert.equal(engine.chatterSyllable({index}),false,'Duplicate syllable in one tick is suppressed');
+      assert.ok(engine.voices.size<=2);
+      const latest=[...engine.voices].at(-1);
+      paths.push(latest.sources[0].frequency.events);
+    }
+    assert.deepEqual(paths[0],paths[1]);
+  }
+  for (const engine of engines) engine.stopAll();
+});
+
+test('stopChatter stops only the commentator and leaves weapon feedback alive', async () => {
+  const engine = newEngine();
+  await engine.ensure();
+  assert.equal(engine.fire('arrow'),true);
+  const arrow=[...engine.voices][0];
+  assert.equal(engine.chatterSyllable(),true);
+  const chatter=[...engine.voices].find(voice=>voice.id==='caster.chatter');
+  engine.stopChatter();
+  assert.equal(chatter.finished,true);
+  assert.ok(chatter.nodes.every(node=>node.disconnected));
+  assert.equal(arrow.finished,false);
+  assert.deepEqual([...engine.voices],[arrow]);
+  assert.equal(engine.chatterSyllable({muffled:true}),true,'A new gag state can begin without an old cooldown');
+  engine.stopAll();
+});
+
+test('caster chatter cannot steal the last combat voice slot', async () => {
+  const engine = newEngine({maxVoices:1});
+  await engine.ensure();
+  engine.fire('bullet');
+  const shot=[...engine.voices][0];
+  assert.equal(engine.chatterSyllable({emphasis:true}),false);
+  assert.equal(shot.finished,false);
+  assert.deepEqual([...engine.voices],[shot]);
+  engine.stopAll();
+  assert.equal(engine.chatterSyllable(),true);
+  const chatter=[...engine.voices][0];
+  assert.equal(engine.fire('bullet'),true);
+  assert.equal(chatter.finished,true);
+  engine.stopAll();
+});
+
+test('caster respects master mute, zero volume, suspended context and tab visibility', async () => {
+  const listeners = new Map();
+  const document = {hidden:false,addEventListener:(id,fn)=>listeners.set(id,fn),removeEventListener:id=>listeners.delete(id)};
+  const engine = newEngine({document,volume:0});
+  await engine.ensure();
+  assert.equal(engine.chatterSyllable(),false);
+  engine.volume=.5;
+  engine.muted=true;
+  assert.equal(engine.chatterSyllable({muffled:true,emphasis:true}),false);
+  engine.muted=false;
+  engine.ctx.state='suspended';
+  assert.equal(engine.chatterSyllable(),false);
+  engine.ctx.state='running';
+  assert.equal(engine.chatterSyllable(),true);
+  document.hidden=true;
+  listeners.get('visibilitychange')();
+  assert.equal(engine.voices.size,0);
+  assert.equal(engine.chatterSyllable(),false);
+  document.hidden=false;
+  assert.equal(engine.chatterSyllable(),true);
+  engine.destroy();
+  assert.equal(engine.voices.size,0);
+});
+
+test('sound lab can audition the toy voice without changing combat recipes', async () => {
+  const cue=catalog.find(item=>item.id==='caster.chatter');
+  assert.ok(cue);
+  assert.equal(cue.group,'인터페이스');
+  assert.ok(cue.duration<.4);
+  const engine=newEngine();
+  assert.equal(await engine.preview(cue.id),true);
+  const voice=[...engine.voices][0];
+  assert.equal(voice.sources.length,6);
+  assert.ok(voice.sources.some(source=>source.starts[0]>.1),'Preview has two separate syllables');
+  engine.stopChatter();
+  assert.equal(engine.voices.size,0);
+});

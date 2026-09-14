@@ -532,7 +532,8 @@ function netFighter(view, meta, seat) {
   return {
     uid: view.u, pid: view.p, kind: 'main',
     isAI: meta ? meta.isAI : true,
-    player: { id: view.p, charId: meta ? meta.charId : 'cat', color: meta ? meta.color : '#4da6ff' },
+    player: { id: view.p, charId: meta ? meta.charId : 'cat', color: meta ? meta.color : '#4da6ff',
+      streak: meta && Number.isFinite(meta.streak) ? meta.streak : 0 },
     name: meta ? meta.name : ('P' + view.p),
     color: meta ? meta.color : '#4da6ff',
     charId: meta ? meta.charId : 'cat',
@@ -584,6 +585,8 @@ function netBattleView(snap, players, seat) {
     soundSource: 'server',
     // 배열 존재 여부가 구형 서버 fallback과 신규 이벤트 경로를 가른다.
     soundEvents: Array.isArray(snap.se) ? snap.se : undefined,
+    // 이전 서버에 ce가 없어도 시합은 정상적으로 표시된다.
+    commentaryEvents: Array.isArray(snap.ce) ? snap.ce : undefined,
     countT: snap.cd || 0,
     overtime: snap.ot != null,
     otT: snap.ot != null ? snap.ot : 0,

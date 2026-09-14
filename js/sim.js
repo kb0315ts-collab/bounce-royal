@@ -23,6 +23,26 @@ const STEER_BOUNCE_LOCK = 0.15;            // 벽 반사 직후에는 반사 방
 let UID = 0;
 let SOUND_BATTLE_UID = 0; // 소리는 게임 엔티티 ID나 난수 흐름을 소비하지 않는다.
 const SOUND_EVENT_TTL = 1.2, SOUND_EVENT_CAP = 96;
+const COMMENTARY_EVENT_TTL = 2, COMMENTARY_EVENT_CAP = 96;
+
+// 관전용 사실 기록. 난수·엔티티 UID·전투 판정과 독립적이며 화면에서만 소비한다.
+// source: weapon:<weaponId>, skill:<weaponId>, char:<charId>,
+// augment:swordBeam|bayonet|rocketStart|staticShock|shockwave|lightning|chainBolt|
+// missile|shuriken|satellite|miniBall|minionRevenge, dot:bleed|flame.
+// actor/target은 분열체도 원래 참가자의 UID다. 소환수에 맞힌 공격은 기록하지 않는다.
+function battleCommentary(b, type, actor, target, source, amount = 0) {
+  if (!b || b.demo || !Array.isArray(b.commentaryEvents)) return;
+  const owner = teamOwner(actor), victim = teamOwner(target);
+  if (!owner || (type === 'hit' && (!isFighterBody(target) || amount <= 0))) return;
+  b.commentaryEvents.push({ seq: ++b.commentarySeq, t: b.simT || 0, type,
+    actor: owner.uid, target: victim ? victim.uid : 0, source, amount });
+  pruneBattleCommentary(b);
+}
+
+function pruneBattleCommentary(b) {
+  const cutoff = (b.simT || 0) - COMMENTARY_EVENT_TTL;
+  while (b.commentaryEvents.length && (b.commentaryEvents[0].t < cutoff || b.commentaryEvents.length > COMMENTARY_EVENT_CAP)) b.commentaryEvents.shift();
+}
 
 function battleSound(b, id, body, cooldown = 0) {
   if (!b || b.demo || !Array.isArray(b.soundEvents)) return;
@@ -678,6 +698,8 @@ class Battle {
     this.soundSeq = 0;
     this.soundEvents = [];
     this.soundCooldowns = new Map();
+    this.commentarySeq = 0;
+    this.commentaryEvents = [];
     this.eventFfa = !!opts.eventFfa;
     this.eventPowerSupply = !!opts.powerSupply;
     this.eventTwoPillars = !!opts.twoPillars;
@@ -895,6 +917,7 @@ class Battle {
     }
     this.updateFx(fxDt);
     pruneBattleSounds(this);
+    pruneBattleCommentary(this);
   }
 
   updateFx(rdt) {
@@ -968,7 +991,7 @@ class Battle {
           if (d < m.r + br) {
             const n = normDir(body.x - m.x, body.y - m.y);
             if (m.cd <= 0) {
-              dealDamage(this, m.owner, body, m.dmg * m.owner.st.dmg, { kind: 'auto' });
+              dealDamage(this, m.owner, body, m.dmg * m.owner.st.dmg, { kind: 'auto', commentarySource: 'augment:miniBall' });
               m.cd = 0.8;
             }
             m.x -= n.x * (m.r + br - d); m.y -= n.y * (m.r + br - d);
@@ -1311,13 +1334,13 @@ function updateTimers(b, f, dt) {
   }
   // 폭탄 스킬
   if (prev.fuse > 0 && T.fuse === 0 && !f.mainDead && !f.dead) {
-    explodeAt(b, f, f.x, f.y, 100, 26 * f.st.dmg, 'auto', false, 'skill.bomb.explode');
+    explodeAt(b, f, f.x, f.y, 100, 26 * f.st.dmg, 'auto', false, 'skill.bomb.explode', 'char:bomb');
     popup(b, f.x, f.y - f.radius - 24, '시한폭발!', '#ffb14d', true);
   }
   // 지뢰 원격 폭파
   if (prev.det > 0 && T.det === 0 && !f.mainDead && !f.dead) {
     const own = b.mines.filter(m => m.owner === f);
-    for (const m of own) explodeMine(b, m, 1.5, 18);
+    for (const m of own) explodeMine(b, m, 1.5, 18, 'skill:mine');
     b.mines = b.mines.filter(m => m.owner !== f);
     if (own.length) popup(b, f.x, f.y - f.radius - 24, '원격 폭파!', '#ffb14d', true);
   }
@@ -1377,9 +1400,9 @@ function moveFighter(b, f, dt) {
       if (segDist(e.x, e.y, px, py, f.x, f.y) < e.radius + f.radius) {
         f.dashHit.add(e.uid);
         if (f.dash.kind === 'dash') {
-          weaponDamage(b, f, e, 40);
+          weaponDamage(b, f, e, 40, 'skill:dagger');
         } else {
-          dealDamage(b, f, e, 26 * f.st.dmg, { kind: 'auto' });
+          dealDamage(b, f, e, 26 * f.st.dmg, { kind: 'auto', commentarySource: 'char:bball' });
         }
         addFx(b, { type: 'ring', x: e.x, y: e.y, r0: 10, r1: 80, color: '#ffd24d', dur: 0.3 });
         b.shake = Math.min(16, b.shake + 10);
@@ -1394,7 +1417,7 @@ function rocketSweepHits(b, f, x0, y0, x1, y1) {
       if (f.rocketHits.has(body.uid)) continue;
       if (segDist(body.x, body.y, x0, y0, x1, y1) > f.radius + bodyRadius(body)) continue;
       f.rocketHits.add(body.uid);
-      dealDamage(b, f, body, 24 * f.st.dmg, { kind: 'auto' });
+      dealDamage(b, f, body, 24 * f.st.dmg, { kind: 'auto', commentarySource: 'augment:rocketStart' });
       addFx(b, { type: 'ring', x: body.x, y: body.y, r0: 8, r1: 70, color: '#8ed8ff', dur: 0.3 });
       popup(b, body.x, body.y - bodyRadius(body) - 28, '로켓 관통!', '#8ed8ff', true);
     }
@@ -1442,7 +1465,7 @@ function onWallBounce(b, f, n) {
     popup(b, f.x, f.y - f.radius - 20, '로켓 종료', '#8ed8ff');
   }
   if (f.flags.wallClimb) healFighter(b, f, f.maxHp * 0.01, true);
-  if (f.flags.shockwave) { battleSound(b, 'augment.shockwave', f); explodeAt(b, f, f.x, f.y, 75, 7 * f.st.dmg, 'auto', true); }
+  if (f.flags.shockwave) { battleSound(b, 'augment.shockwave', f); explodeAt(b, f, f.x, f.y, 75, 7 * f.st.dmg, 'auto', true, undefined, 'augment:shockwave'); }
   if (f.flags.reflectCharge) {
     f.bounceRun += n;
     if (f.bounceRun >= 3 && !f.charged) { f.charged = true; f.bounceRun = 0; battleSound(b, 'augment.reflect', f); addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 44, color: '#ffe08a', dur: 0.3 }); }
@@ -1476,7 +1499,7 @@ function tryStatic(b, a, c) {
   let dmg = 5 * a.st.dmg;
   if (a.flags.staticUp) dmg *= 1.6;
   if (a.flags.staticFast) dmg *= 0.55 + a.st.move / 320;
-  dealDamage(b, a, c, dmg, { kind: 'auto' });
+  dealDamage(b, a, c, dmg, { kind: 'auto', commentarySource: 'augment:staticShock' });
   boltFx(b, a.x, a.y, c.x, c.y);
 }
 
@@ -1491,7 +1514,7 @@ function registerBodyCollision(b, a, c) {
     }
     if (self.rocketActive && !self.rocketHits.has(other.uid)) {
       self.rocketHits.add(other.uid);
-      dealDamage(b, self, other, 24 * self.st.dmg, { kind: 'auto' });
+      dealDamage(b, self, other, 24 * self.st.dmg, { kind: 'auto', commentarySource: 'augment:rocketStart' });
       addFx(b, { type: 'ring', x: other.x, y: other.y, r0: 8, r1: 70, color: '#8ed8ff', dur: 0.3 });
       popup(b, other.x, other.y - other.radius - 28, '로켓 관통!', '#8ed8ff', true);
     }
@@ -1500,8 +1523,8 @@ function registerBodyCollision(b, a, c) {
 
 function tryDashHit(b, a, c) {
   if (a.timers.dashT <= 0 || !a.dashHit || a.dashHit.has(c.uid)) return;
-  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, 40); }
-  else dealDamage(b, a, c, 26 * a.st.dmg, { kind: 'auto' });
+  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, 40, 'skill:dagger'); }
+  else dealDamage(b, a, c, 26 * a.st.dmg, { kind: 'auto', commentarySource: 'char:bball' });
   a.dashHit.add(c.uid);
   b.shake = Math.min(16, b.shake + 10);
 }
@@ -1544,6 +1567,7 @@ function updateWeapon(b, f, dt) {
   if (f.timers.stun > 0) { f.meleeContact.clear(); return; }
   const wp = WEAPONS[f.weaponId];
   const fr = f.st.fr;
+  const meleeSource = f.spinRemaining > 0 && f.weaponId === 'sword' ? 'skill:sword' : undefined;
   // 회전하거나(근접·회전 난사) 상대를 조준하거나(그 외 원거리·지뢰) 둘 중 하나다.
   if (f.timers.weaponLock <= 0) {
     let applied;
@@ -1581,12 +1605,12 @@ function updateWeapon(b, f, dt) {
   }
   if (f.timers.weaponLock > 0 || f.charging) {
     // 무기 정지/충전 중에는 발사 없음 (회전만)
-    if (f.timers.weaponLock <= 0 && wp.type === 'melee') meleeHits(b, f, dt);
+    if (f.timers.weaponLock <= 0 && wp.type === 'melee') meleeHits(b, f, dt, undefined, meleeSource);
     else f.meleeContact.clear();
     return;
   }
   if (wp.type === 'melee') {
-    meleeHits(b, f, dt);
+    meleeHits(b, f, dt, undefined, meleeSource);
   } else if (f.weaponId === 'bow') {
     f.cd.fire -= dt * fr;
     if (f.cd.fire <= 0) { f.cd.fire = wp.interval; fireBow(b, f); }
@@ -1647,7 +1671,7 @@ function updateWeapon(b, f, dt) {
  * 칼날 판정에 새로 들어온 순간에만 1회 피해를 주고, 칼날에서 완전히
  * 벗어났다가 다시 닿아야 다음 타격이 나간다. 칼날마다 따로 추적하므로
  * 쌍단검은 각 칼날이 독립적으로 한 번씩 맞힌다. */
-function meleeHits(b, f, dt, override) {
+function meleeHits(b, f, dt, override, commentarySource) {
   const wp = WEAPONS[f.weaponId];
   const def = override || { reach: wp.reach, tip: wp.tip, dmg: wp.dmg };
   const ws = weaponScale(f);
@@ -1666,7 +1690,7 @@ function meleeHits(b, f, dt, override) {
         const key = blade + ':' + body.uid;
         if (f.meleeContact.has(key)) { contact.add(key); continue; }
         // 무적 등으로 피해가 들어가지 않았다면 접촉으로 치지 않고 다음 프레임에 다시 시도한다
-        if (weaponDamage(b, f, body, def.dmg) > 0) {
+        if (weaponDamage(b, f, body, def.dmg, commentarySource || (override ? 'augment:bayonet' : undefined)) > 0) {
           contact.add(key);
           f.sfxSlash++;
           battleSound(b, f.weaponId === 'sword' ? 'weapon.sword.hit' : 'weapon.dagger.hit', body, 0.045);
@@ -1744,6 +1768,8 @@ function spawnProj(b, owner, o) {
   // 느리게 날아가는 만큼 오래 살아야 사거리가 그대로다. 유도 선회도 같이 늦춘다.
   o.life /= GAME_SPEED;
   if (o.homing) o.homing *= GAME_SPEED;
+  // 회전 난사 탄환은 스킬이 끝난 후 적중해도 발사 당시 출처를 유지한다.
+  if (o.kind === 'bullet' && owner.timers.gunBarrage > 0) o.commentarySource = 'skill:pistol';
   b.projectiles.push(o);
   if (o.kind === 'beam') battleSound(b, 'augment.beam', owner);
   else if (o.kind === 'missile') battleSound(b, 'augment.missile', owner, 0.05);
@@ -1753,8 +1779,11 @@ function spawnProj(b, owner, o) {
 
 function projectileHit(b, p, body) {
   const owner = p.owner;
+  const source = p.kind === 'charge' ? 'skill:bow' : p.kind === 'beam' ? 'augment:swordBeam'
+    : p.kind === 'orb' && !owner.dead && owner.timers.rampage > 0 ? 'skill:staff'
+      : p.commentarySource || (p.weapon ? 'weapon:' + ({ arrow: 'bow', bullet: 'pistol', orb: 'staff' }[p.kind] || owner.weaponId) : 'augment:' + p.kind);
   const dealt = p.weapon
-    ? weaponDamage(b, owner, body, p.dmg)
+    ? weaponDamage(b, owner, body, p.dmg, source)
     : dealDamage(b, owner, body, p.dmg * owner.st.dmg, { kind: 'auto', autoType: p.kind });
   if (dealt <= 0) return;
   // 화살 넉백
@@ -1768,7 +1797,7 @@ function projectileHit(b, p, body) {
   }
 }
 
-function weaponDamage(b, f, body, baseDmg) {
+function weaponDamage(b, f, body, baseDmg, commentarySource) {
   let mult = 1;
   if (f.charged) { f.charged = false; f.bounceRun = 0; mult *= 1.3; addFx(b, { type: 'ring', x: body.x, y: body.y, r0: 8, r1: 50, color: '#ffe08a', dur: 0.25 }); }
   if (f.counterReady) { f.counterReady = false; mult *= 1.3; }
@@ -1778,7 +1807,7 @@ function weaponDamage(b, f, body, baseDmg) {
     if (n >= 5) { mult *= 1.5; popup(b, body.x, body.y - bodyRadius(body) - 40, '표식 발동!', '#ffd24d'); }
   }
   const raw = baseDmg * f.st.atk * f.st.dmg * mult;
-  const dealt = dealDamage(b, f, body, raw, { kind: 'weapon' });
+  const dealt = dealDamage(b, f, body, raw, { kind: 'weapon', commentarySource: commentarySource || 'weapon:' + f.weaponId });
   if (dealt > 0) {
     onWeaponHitEffects(b, f, body);
   }
@@ -1917,7 +1946,7 @@ function spawnBolt(b, f) {
       boltFx(b, tx, ty, cx, cy);
       for (const ef of b.enemiesOf(f)) {
         for (const body of b.bodiesOf(ef)) {
-          if (dist(cx, cy, body.x, body.y) < 36 + bodyRadius(body)) dealDamage(b, f, body, 6 * f.st.dmg, { kind: 'auto', autoType: 'lightning' });
+          if (dist(cx, cy, body.x, body.y) < 36 + bodyRadius(body)) dealDamage(b, f, body, 6 * f.st.dmg, { kind: 'auto', autoType: 'lightning', commentarySource: 'augment:chainBolt' });
         }
       }
     }
@@ -1925,13 +1954,13 @@ function spawnBolt(b, f) {
 }
 
 /* ---------------- 지뢰/폭발 ---------------- */
-function explodeMine(b, m, scale = 1, damage = m.dmg) {
+function explodeMine(b, m, scale = 1, damage = m.dmg, commentarySource = 'weapon:mine') {
   const R = m.blast * scale;
   explodeFx(b, m.x, m.y, R, '#ffb14d', 'weapon.mine.explode');
   for (const e of b.enemiesOf(m.owner)) {
     for (const body of b.bodiesOf(e)) {
       if (dist(m.x, m.y, body.x, body.y) < R + bodyRadius(body)) {
-        weaponDamage(b, m.owner, body, damage);
+        weaponDamage(b, m.owner, body, damage, commentarySource);
         if (m.owner.flags.freezeMine && body.kind === 'main') {
           body.timers.freeze = 2;
         }
@@ -1939,12 +1968,12 @@ function explodeMine(b, m, scale = 1, damage = m.dmg) {
     }
   }
 }
-function explodeAt(b, src, x, y, radius, dmg, kind, small, sound = 'battle.explosion') {
+function explodeAt(b, src, x, y, radius, dmg, kind, small, sound = 'battle.explosion', commentarySource) {
   if (small) addFx(b, { type: 'ring', x, y, r0: radius * 0.3, r1: radius, color: '#8ea6ff', dur: 0.25 });
   else explodeFx(b, x, y, radius, '#ffb14d', sound);
   for (const e of b.enemiesOf(src)) {
     for (const body of b.bodiesOf(e)) {
-      if (dist(x, y, body.x, body.y) < radius + bodyRadius(body)) dealDamage(b, src, body, dmg, { kind });
+      if (dist(x, y, body.x, body.y) < radius + bodyRadius(body)) dealDamage(b, src, body, dmg, { kind, commentarySource });
     }
   }
 }
@@ -1984,8 +2013,16 @@ function dealDamage(b, src, body, raw, opts = {}) {
     t.shield -= ab; dmg -= ab;
     if (ab > 0) popup(b, body.x + rand(-8, 8), body.y - br - 6, '보호막', '#7fd8ff');
   }
+  const hpBefore = body.hp;
   body.hp -= dmg;
+  const commentaryDamage = Math.min(Math.max(0, hpBefore), Math.max(0, dmg));
   if (actorBody) resolveHealthThresholds(b, t);
+  // 면역·보호막·과잉 피해를 제외한 실제 체력 피해만 기록한다. 생존 증강의
+  // 후속 회복은 공격 적중 사실을 취소하지 않으며 지속 피해는 별도 출처다.
+  const commentarySource = opts.commentarySource || (opts.autoType
+    ? (opts.autoType === 'bleed' || opts.autoType === 'flame' ? 'dot:' : 'augment:') + opts.autoType
+    : opts.kind === 'weapon' && src ? 'weapon:' + src.weaponId : 'damage:other');
+  battleCommentary(b, 'hit', src, body, commentarySource, commentaryDamage);
   if (src && src.player) src.player.totalDmg = (src.player.totalDmg || 0) + dmg;
   const val = Math.max(1, Math.round(dmg));
   popup(b, body.x + rand(-10, 10), body.y - br - 4, val, opts.kind === 'auto' ? '#c9d6ff' : '#ffffff');
@@ -2021,7 +2058,7 @@ function killBody(b, body, src) {
     const arr = body.owner.summons;
     const i = arr.indexOf(body); if (i >= 0) arr.splice(i, 1);
     sparks(b, body.x, body.y, 10, body.owner.color, 180);
-    if (body.owner.flags.minionRevenge) explodeAt(b, body.owner, body.x, body.y, 80, 20 * body.owner.st.dmg, 'auto', false, 'augment.minion-explode');
+    if (body.owner.flags.minionRevenge) explodeAt(b, body.owner, body.x, body.y, 80, 20 * body.owner.st.dmg, 'auto', false, 'augment.minion-explode', 'augment:minionRevenge');
     return;
   }
   if (body.kind === 'split') {
@@ -2158,6 +2195,7 @@ function useSkill(b, f, slot) {
       popup(b, f.x, f.y - f.radius - 24, '차지 중…', '#ffe08a');
       f.sfxSkill++;
       battleSound(b, 'skill.bow.charge', f);
+      battleCommentary(b, 'skill', f, null, 'skill:bow');
       return true;
     }
     case 'pistol': {
@@ -2186,6 +2224,7 @@ function useSkill(b, f, slot) {
     staff: 'skill.staff.overload', mine: 'skill.mine.remote',
   }[id];
   if (cue) battleSound(b, cue, f);
+  if (cue) battleCommentary(b, 'skill', f, null, (slot === 'char' ? 'char:' : 'skill:') + id);
   return true;
 }
 
