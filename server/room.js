@@ -12,6 +12,7 @@
  * ============================================================ */
 const core = require('./game-core.js');
 const { snapshot } = require('./snapshot.js');
+const { annotate: annotateMatchConclusion } = require('../js/match-conclusion.js');
 
 const TICK_HZ = 60;
 const SNAP_HZ = 20;
@@ -461,6 +462,7 @@ class Room {
 
     if (this.phase === 'battle' && this.battles) {
       for (const b of this.battles) b.update(dt);
+      annotateMatchConclusion(this, preview => Room.prototype.resolveRound.call(preview));
       this.snapAcc += dt;
       if (this.snapAcc >= 1 / SNAP_HZ) {
         this.snapAcc = 0;

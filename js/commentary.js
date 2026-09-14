@@ -37,7 +37,7 @@
     cancelAnimationFrame(frame); frame = 0;
     murmurUntil = 0; finale = false;
     host.hidden = true;
-    host.classList.remove('is-murmuring', 'is-match-finale');
+    host.classList.remove('is-murmuring', 'is-match-finale', 'is-arena-finale');
     const hud = el('hud');
     hud?.classList.remove('with-commentator');
     if (hud && host.parentNode !== hud) hud.appendChild(host);
@@ -100,6 +100,10 @@
     const hud = el('hud');
     if (!b || b.demo || document.hidden || !hud || hud.classList.contains('hidden')) { hide(); return; }
     const now = performance.now();
+    if (b.result && b.matchConclusion) {
+      if (!finalized) showFinale(director.decideMatch(b.matchConclusion, now, matchSerial), now, true);
+      return;
+    }
     const key = (b.soundSource || 'local') + ':' + b.soundId + ':' + b.fighters.map(f => f.uid).join(',');
     if (key !== lastKey) { clearSpeech(); lastKey = key; }
     const line = director.observe(b, now);
@@ -111,11 +115,15 @@
   }
   function onScreen(id) {
     if (id === 'scr-intro' || id === 'scr-weapon') { finalized = false; matchSerial++; }
+    if (id === 'scr-over') host.classList.remove('is-arena-finale');
     if (id && id !== 'scr-over') hide();
   }
   function finishMatch(players) {
     if (finalized) return;
     const now = performance.now(), line = director.finishMatch(players, now, matchSerial);
+    showFinale(line, now);
+  }
+  function showFinale(line, now, arena = false) {
     if (!line) return;
     finalized = true;
     if (document.hidden) return;
@@ -123,8 +131,10 @@
     finale = true;
     el('app').appendChild(host);
     host.hidden = false; host.classList.add('is-match-finale');
+    host.classList.toggle('is-arena-finale', arena);
     speak(line, now);
   }
+  function hideForHud() { if (!finale) hide(); }
   button.addEventListener('click', event => {
     event.stopPropagation(); muted = !muted;
     try { localStorage.setItem(storeKey, muted ? '1' : '0'); } catch (_) { /* Session-only fallback. */ }
@@ -136,5 +146,5 @@
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) hide(); });
   paintMute();
-  root.BounceRoyalCommentary = Object.freeze({ observe, hide, onScreen, finishMatch, get muted() { return muted; } });
+  root.BounceRoyalCommentary = Object.freeze({ observe, hide, hideForHud, onScreen, finishMatch, get muted() { return muted; } });
 })(globalThis);

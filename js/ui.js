@@ -21,7 +21,7 @@ function showScreen(id) {
 }
 function hudVisible(visible) {
   $('hud')?.classList.toggle('hidden', !visible);
-  if (!visible && typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.hide();
+  if (!visible && typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.hideForHud();
   if (!visible && typeof window.BounceRoyalClearSteerInput === 'function') window.BounceRoyalClearSteerInput();
 }
 

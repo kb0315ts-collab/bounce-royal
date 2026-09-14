@@ -50,6 +50,9 @@ function fighterView(f) {
 function snapshot(battle) {
   return {
     ph: battle.phase,
+    // Final-match decision travels WITH the decisive death/timeout snapshot,
+    // before the existing roundEnd/gameOver presentation delays.
+    ...(battle.matchConclusion ? { mc: battle.matchConclusion } : {}),
     t: r1(battle.simT),
     // 소리가 난 순간을 짧게 보관한다. 두 스냅샷 사이에 명중해 사라진
     // 투사체도 이 목록에는 남고, seq 덕분에 같은 소리를 두 번 내지 않는다.

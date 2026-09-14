@@ -44,21 +44,24 @@
       return { kind, priority, actor: actorOf(fighter), text, label, gg };
     }
 
-    // Only the match-over UI may call this, after authoritative final ranks arrive.
-    // A fighter dying (including the last fighter of a FFA round) is not match-over.
-    // Pass a stable session key when reconnects may recreate the players array.
+    // Authoritative match decision, not just the winner of one battle.
+    decideMatch(champion, nowMilliseconds, matchKey) {
+      if (!champion || champion.id == null || matchKey == null || this.finishedMatches.has(matchKey)) return null;
+      this.finishedMatches.add(matchKey);
+      if (this.finishedMatches.size > 64) this.finishedMatches.delete(this.finishedMatches.values().next().value);
+      this.lastSpoken = finite(nowMilliseconds);
+      return this.line('gg', 100, champion,
+        'GG~~! ' + nameOf(champion.name) + ', 최종 우승입니다!', '최종 승부', true);
+    }
+
+    // Result-screen fallback for reconnects, old servers or offscreen fast-sim.
     finishMatch(players, nowMilliseconds, matchKey = players) {
       if (!Array.isArray(players) || !players.length || matchKey == null) return null;
       const ranks = new Set(players.map(player => player && player.rank));
       if (ranks.size !== players.length || players.some(player => !player ||
         !Number.isInteger(player.rank) || player.rank < 1 || player.rank > players.length)) return null;
-      if (this.finishedMatches.has(matchKey)) return null;
-      this.finishedMatches.add(matchKey);
-      if (this.finishedMatches.size > 64) this.finishedMatches.delete(this.finishedMatches.values().next().value);
       const champion = players.find(player => player.rank === 1);
-      this.lastSpoken = finite(nowMilliseconds);
-      return this.line('gg', 100, champion,
-        'GG~~! ' + nameOf(champion.name) + ', 최종 우승입니다!', '최종 결과', true);
+      return this.decideMatch({ ...champion, id: champion.id ?? champion.uid ?? 0 }, nowMilliseconds, matchKey);
     }
 
     lead(battle) {

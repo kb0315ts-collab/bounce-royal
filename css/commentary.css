@@ -39,6 +39,7 @@
 .is-burst .cactus-gag-left{animation:caster-gag-left .55s ease-out forwards}
 .is-burst .cactus-gag-right{animation:caster-gag-right .55s ease-out forwards}
 #commentator.is-match-finale{z-index:65;top:18cqw;left:3cqw}
+#commentator.is-arena-finale{top:21.5cqw;left:2.1cqw}
 /* Keep the spectator chip below the timer, away from the speech bubble. */
 #hud.with-commentator #hud-spec{left:auto;right:2.5cqw;top:34cqw;max-width:27cqw;transform:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:2.1cqw;padding:1cqw}
 @keyframes cactus-idle{50%{transform:rotate(-2deg)}}

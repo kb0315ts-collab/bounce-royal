@@ -699,6 +699,9 @@ const Game = {
     if (this.mode === 'multi') { if (typeof BounceRoyalMulti !== 'undefined') BounceRoyalMulti.update(dt); return; }
     if (this.state === 'battle' && this.battles) {
       for (const b of this.battles) b.update(dt);
+      if (!this.resolving && typeof BounceRoyalMatchConclusion !== 'undefined') {
+        BounceRoyalMatchConclusion.annotate(this, preview => applyResultsFor(preview, preview.battles));
+      }
       const fb = this.focus;
       if (fb) {
         if (fb._lastPhase !== fb.phase) {

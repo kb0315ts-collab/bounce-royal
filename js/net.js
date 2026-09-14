@@ -587,6 +587,7 @@ function netBattleView(snap, players, seat) {
     soundEvents: Array.isArray(snap.se) ? snap.se : undefined,
     // 이전 서버에 ce가 없어도 시합은 정상적으로 표시된다.
     commentaryEvents: Array.isArray(snap.ce) ? snap.ce : undefined,
+    matchConclusion: snap.mc || undefined,
     countT: snap.cd || 0,
     overtime: snap.ot != null,
     otT: snap.ot != null ? snap.ot : 0,

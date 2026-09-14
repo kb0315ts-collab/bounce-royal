@@ -55,6 +55,7 @@ const source = [
   read('js/sim.js'),
   read('js/matchmaking.js'),
   read('js/events.js'),
+  read('js/match-conclusion.js'),
   read('js/main.js'),
   `globalThis.__roundFlowApi = {
     Game, aliveOf, makeBattlesFor, applyResultsFor, ffaPlacements, resetGameEventState,
@@ -70,6 +71,20 @@ const {
   stageEventVote, commitEventVoteResult, ROUND_RESOLVE_MS, ROUND_ADVANCE_MS,
 } = context.__roundFlowApi;
 const realFastSim = Game.fastSim;
+
+require('node:test')('local settlement preview announces final hit without early coin loss', () => {
+  const state={players:[makePlayer(0,2),makePlayer(1,1),makePlayer(2,0),makePlayer(3,0)],round:7,elimCounter:3};
+  state.players.slice(2).forEach(p=>p.eliminated=true);
+  resetGameEventState(state);
+  state.battles=makeBattlesFor(state).battles;
+  const b=state.battles[0],winner=b.fighters.find(f=>f.player.id===0);
+  b.finish(winner,'격파');
+  const before=JSON.stringify(state.players);
+  const decision=context.BounceRoyalMatchConclusion.annotate(state,p=>applyResultsFor(p,p.battles));
+  assert.equal(decision.id,0);assert.equal(JSON.stringify(state.players),before);
+  applyResultsFor(state,state.battles);
+  assert.equal(state.players[1].coins,0);
+});
 
 let passed = 0;
 function test(name, fn) {

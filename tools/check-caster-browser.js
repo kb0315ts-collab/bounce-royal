@@ -1,11 +1,12 @@
 'use strict';
-// node tools/check-caster-browser.js <playwright module> <screenshot directory>
+// node tools/check-caster-browser.js <playwright module> <screenshot directory> [base URL]
 // All fixtures are isolated in the browser; they never change production data.
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { chromium } = require(process.argv[2] || 'playwright');
 const shots = process.argv[3];
+const baseUrl = process.argv[4] || 'http://localhost:8080/';
 (async () => {
   if (shots) fs.mkdirSync(shots, { recursive: true });
   const browser = await chromium.launch({ headless: true });
@@ -15,7 +16,7 @@ const shots = process.argv[3];
   page.on('response', r => { if (r.status() >= 400) failed.push(r.status() + ' ' + r.url()); });
   const shot = async name => { if (shots) await page.screenshot({ path:path.join(shots, name + '.png') }); };
   try {
-    await page.goto('http://localhost:8080/');
+    await page.goto(baseUrl);
     await page.evaluate(() => document.fonts.ready);
     assert.equal(await page.locator('#commentator').isVisible(), false, 'no caster on title video');
     // A real server room proves snapshots, rendering and controls work together.
@@ -28,7 +29,7 @@ const shots = process.argv[3];
     await page.waitForSelector('#commentator:not([hidden])');
     await page.waitForSelector('#caster-art .cactus-stem');
     const server = await page.evaluate(() => ({ url:BounceRoyalNet.serverUrl, events:Array.isArray(Multi.view.commentaryEvents) }));
-    assert.match(server.url, /^ws:\/\/localhost:8080/); assert.equal(server.events, true);
+    assert.equal(new URL(server.url).host, new URL(baseUrl).host); assert.equal(server.events, true);
     await shot('server-battle');
     await page.click('#caster-toggle');
     assert.equal(await page.getAttribute('#caster-toggle','aria-pressed'), 'true');
@@ -98,23 +99,39 @@ const shots = process.argv[3];
     await page.waitForTimeout(450);
     assert.equal(await page.evaluate(()=>casterVoiceCalls.length),silentCalls,'gag stops babble immediately');
     await page.evaluate(() => {
-      Game.players.forEach((p,i)=>p.rank=i+1);Game.players[0].name='별사탕';
-      hudVisible(false);Game.state='over';showGameOver(Game.players,Game.human,()=>Game.returnToTitle());
+      Game.players.forEach((p,i)=>Object.assign(p,{coins:i===0?2:i===1?1:0,eliminated:i>1,elimOrder:i>1?i:0}));
+      Game.players[0].name='별사탕'; Game.round=7; Game.elimCounter=4;
+      Game.resolving=false;
+      window.casterTest=new Battle('diamond',Game.players.slice(0,2));
+      Game.battles=[casterTest]; Game.focus=Game.ownBattle=casterTest;
+      updatePlayersPanel(Game);
+      casterTest.phase='fight'; casterTest.simT=.01; renderBattle(casterTest);
+      dealDamage(casterTest,casterTest.fighters[0],casterTest.fighters[1],10000,{kind:'projectile'});
+      // Real local update: annotate, render GG, then schedule normal settlement.
+      Game.update(0);
     });
-    assert.equal(await page.locator('#commentator.is-match-finale.is-gg.is-burst').count(),1);
+    assert.equal(await page.locator('#commentator.is-match-finale.is-arena-finale.is-gg.is-burst').count(),1);
+    assert.deepEqual(await page.evaluate(()=>({state:Game.state,coins:Game.players[1].coins})),
+      {state:'battle',coins:1},'GG starts on decisive frame, before result screen or coin settlement');
+    assert.equal(await page.evaluate(()=>casterTest.fighters[1].dead),true,'actual lethal hit decides the battle');
     assert.match(await page.locator('#caster-copy').innerText(), /별사탕.*우승/);
     assert.equal(await page.locator('#commentator').evaluate(e=>e.parentElement.id),'app','finale survives hidden HUD');
-    await page.waitForTimeout(300); await shot('gg-burst');
+    await page.waitForTimeout(300); await shot('gg-decisive');
     await page.waitForFunction(()=>casterVoiceCalls.some(call=>call.played&&call.emphasis));
     await page.click('#caster-toggle');
     assert.equal(await page.locator('#commentator.is-burst').count(),0,'ungagging during GG clears the cloth');
     await page.click('#caster-toggle');
     assert.equal(await page.locator('#commentator.is-burst').count(),1,'gagging during GG also bursts the cloth');
-    await page.waitForTimeout(2400);
+    await page.waitForFunction(()=>Game.state==='over');
+    assert.equal(await page.locator('#commentator.is-arena-finale').count(),0,'result screen uses result layout');
+    assert.equal(await page.locator('#commentator.is-gg').count(),1,'ongoing GG survives HUD closing');
+    await page.waitForTimeout(1300);
     await page.evaluate(() => renderBattle(casterTest));
     assert.equal(await page.locator('#caster-bubble').isVisible(), false);
     assert.equal(await page.locator('#commentator.is-muted:not(.is-burst)').count(),1,'gag returns, preference remains');
     assert.equal(await page.locator('#commentator').isVisible(),false,'finale clears without active combat frames');
+    assert.equal(await page.evaluate(()=>casterVoiceCalls.filter(call=>call.emphasis&&call.index===0).length),1,
+      'result screen does not restart final voice');
     await page.evaluate(()=>showGameOver(Game.players,Game.human,()=>Game.returnToTitle()));
     assert.equal(await page.locator('#commentator').isVisible(),false,'duplicate final result cannot replay GG');
     await page.evaluate(() => { hudVisible(false); showScreen('scr-title'); });
@@ -122,6 +139,6 @@ const shots = process.argv[3];
     await page.reload();
     assert.equal(await page.evaluate(() => BounceRoyalCommentary.muted),true,'gag persists across reload');
     assert.deepEqual(errors,[]); assert.deepEqual(failed,[]);
-    console.log('PASS: cactus art, live telemetry, 320/390/720 layouts, real babble/mouth cues, silent gag, plain round result, full-match GG only, finale cleanup/dedup, no JS/HTTP errors');
+    console.log('PASS: cactus art, live telemetry, 320/390/720 layouts, real babble/mouth cues, silent gag, plain round result, decisive-frame GG before settlement, result transition without replay, finale cleanup/dedup, no JS/HTTP errors');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode=1; });
