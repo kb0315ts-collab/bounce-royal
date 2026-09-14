@@ -57,7 +57,8 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval, WEAPONS.bow.projSpeed], [8, 1.5, 300]);
   assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [3, 7, 0.12, 3]);
   assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [15, 2.5]);
-  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval, WEAPONS.mine.maxMines], [10, 3, 5]);
+  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval], [10, 3]);
+  assert.equal(WEAPONS.mine.maxMines, undefined, '지뢰 설치 개수 제한은 없앴다');
 });
 
 test('정리된 기획 증강 93종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
@@ -163,8 +164,12 @@ test('권총 회전 난사는 1.5초간 돌면서 재장전 없이 난사한다'
     turned += Math.abs(step);
   }
   assert.ok(guard >= 89 && guard <= 91, '약 1.5초간 유지되어야 한다 (실제 ' + guard + '틱)');
-  assert.ok(turned > Math.PI * 2 * 2.5,
-    '난사 중 여러 바퀴 돌아야 한다 (실제 ' + (turned / (Math.PI * 2)).toFixed(1) + '바퀴)');
+  // 회전은 GAME_SPEED만큼 느리고 지속시간(1.5초)은 실시간이라, 바퀴 수는
+  // '초당 2바퀴 x 1.5초 x 경기 진행 속도'가 기준이 된다.
+  const expectRev = 2 * 1.5 * GAME_SPEED;
+  assert.ok(turned > Math.PI * 2 * expectRev * 0.85,
+    '난사 중 여러 바퀴 돌아야 한다 (기대 ' + expectRev.toFixed(1) +
+    '바퀴 안팎, 실제 ' + (turned / (Math.PI * 2)).toFixed(1) + '바퀴)');
   const bullets = b.projectiles.filter(p => p.kind === 'bullet').length;
   assert.ok(bullets >= 10 && bullets <= 16, '재장전 없이 연속 발사해야 한다 (실제 ' + bullets + '발)');
 });
@@ -222,7 +227,11 @@ test('믹서기는 정확히 두 바퀴 돌며 검기 시너지를 두 번 발�
     computeStats(f);
     updateWeapon(b, f, 1 / 60);
   }
-  assert.ok(guard >= 59 && guard <= 62, '두 바퀴는 약 1초여야 한다 (실제 ' + guard + '틱)');
+  // 두 바퀴라는 '회전량'은 그대로고, 회전이 GAME_SPEED만큼 느리니 걸리는
+  // 시간만 그만큼 늘어난다.
+  const expectTicks = 60 / GAME_SPEED;
+  assert.ok(guard >= expectTicks - 2 && guard <= expectTicks + 3,
+    '두 바퀴는 약 ' + expectTicks.toFixed(0) + '틱이어야 한다 (실제 ' + guard + '틱)');
   assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9,
     '두 바퀴를 돌면 제자리로 돌아와야 한다');
   const beams = b.projectiles.filter(p => p.kind === 'beam');
@@ -242,13 +251,17 @@ test('마력 폭주는 3초간 기존·신규 마법 투사체 크기만 2배로
   b.updateProjectiles(0.1);
   assert.equal(p.r, 18);
   assert.equal(fresh.r, 18);
-  assert.ok(Math.abs(p.x - WEAPONS.staff.projSpeed * 0.1) < 1e-9, '이동속도는 변하면 안 된다');
+  // 스킬이 속도를 건드리지 않는다는 확인이다. 실제 날아가는 속도에는
+  // 경기 진행 속도(GAME_SPEED)가 곱해진다.
+  assert.ok(Math.abs(p.x - WEAPONS.staff.projSpeed * GAME_SPEED * 0.1) < 1e-9,
+    '이동속도는 변하면 안 된다');
   updateTimers(b, f, 3.01);
   const x = p.x;
   b.updateProjectiles(0.01);
   assert.equal(p.r, 9);
   assert.equal(fresh.r, 9);
-  assert.ok(Math.abs(p.x - x - WEAPONS.staff.projSpeed * 0.01) < 1e-9);
+  assert.ok(Math.abs(p.x - x - WEAPONS.staff.projSpeed * GAME_SPEED * 0.01) < 1e-9,
+    '폭주가 끝나도 속도는 그대로다');
 });
 
 test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용된다', () => {
@@ -490,8 +503,9 @@ test('로켓 관통은 매우 빠르게 돌진하며 이동 경로의 적을 통
 
   const startX = f.x;
   const beforeHp = e.hp;
-  const dt = 0.3;
-  const ordinaryDistance = CHARACTERS.cat.move * WEAPONS.sword.moveMult * dt;
+  // 경기 진행 속도만큼 느리게 나아가므로, 같은 거리를 보려면 시간을 그만큼 준다.
+  const dt = 0.3 / GAME_SPEED;
+  const ordinaryDistance = CHARACTERS.cat.move * WEAPONS.sword.moveMult * GAME_SPEED * dt;
   moveFighter(b, f, dt);
 
   assert.ok(f.x - startX >= ordinaryDistance * 3.5, '로켓 돌진은 평상시 이동보다 훨씬 빨라야 한다');
@@ -813,7 +827,10 @@ function meleeTrial(weaponId, dist, seconds, opts = {}) {
   f.x = 0; f.y = 0; f.weaponAngle = opts.startAngle === undefined ? -1.6 : opts.startAngle;
   e.maxHp = 1e9; e.hp = 1e9;
   let prev = e.hp, hits = 0, onBlade = 0, left = false;
-  for (let i = 0; i < 60 * seconds; i++) {
+  // 이 시험들은 '몇 바퀴 도는 동안'을 보는 것이지 벽시계를 보는 게 아니다.
+  // 회전이 GAME_SPEED만큼 느려졌으니 창도 그만큼 늘려야 같은 바퀴 수가 돈다.
+  const ticks = Math.round(60 * seconds / GAME_SPEED);
+  for (let i = 0; i < ticks; i++) {
     e.x = dist; e.y = 0;
     computeStats(f);
     if (opts.forcedFr !== undefined) f.st.fr = opts.forcedFr;

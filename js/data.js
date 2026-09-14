@@ -37,7 +37,8 @@ const WEAPONS = {
   staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:15, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
     desc:'상대를 자동으로 겨누는 느리고 강한 마법 투사체. 벽에 한 번 반사된다.', stat:{atk:1,spd:.15,rng:.8,mob:.7},
     skillName:'마력 폭주', skillDesc:'3초간 자신이 발사한 모든 마법 투사체의 크기가 2배가 된다.' },
-  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:10, interval:3.0, maxMines:5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
+  // maxMines를 없앴다. 이제 제한 없이 깔아 둘 수 있다.
+  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:10, interval:3.0, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
     desc:'휘두르지 않고 이동 경로에 지뢰를 설치한다. 공간 장악형.', stat:{atk:.8,spd:.3,rng:.5,mob:.75},
     skillName:'원격 폭파', skillDesc:'1초 후 설치된 모든 지뢰를 하나당 피해 18, 반경 93으로 동시 폭파한다.' },
 };
@@ -117,7 +118,7 @@ const AUGMENTS = [
   { id:'frost',       cat:'cc', name:'냉기', desc:'무기 적중 시 상대 이동속도 -10% (3초, 최대 3중첩)' },
   { id:'gravityWell', cat:'cc', name:'중력장', desc:'10초마다 상대 진행 방향을 자신 쪽으로 변경' },
   // ---- 자동 공격 ----
-  { id:'missile',    cat:'auto', name:'유도 미사일', desc:'3초마다 피해 3의 유도탄 2발 발사' },
+  { id:'missile',    cat:'auto', name:'유도 미사일', desc:'3초마다 피해 2의 유도탄 2발 발사' },
   { id:'missilePlus',cat:'auto', name:'미사일 증식', desc:'유도 미사일 +1발', req:'missile' },
   { id:'missileUp',  cat:'auto', name:'고폭 탄두', desc:'미사일 피해 +30%', req:'missile' },
   { id:'flame',      cat:'auto', name:'화염 흔적', desc:'지나간 자리에 2초간 불꽃 생성, 밟는 동안 초당 피해 1' },

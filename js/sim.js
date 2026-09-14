@@ -883,16 +883,12 @@ class Battle {
         // 서서히 오르고, 그 이후 남은 시간은 그 배속을 유지한다.
         this.timeScale = 1 + (OVERTIME_SPEED - 1) * Math.min(1, (OVERTIME - this.otT) / OVERTIME_RAMP);
       }
-      // 움직임용. 시계는 실시간으로 가고 그 안의 움직임만 느리게 간다.
-      // 연출도 같이 늦춰야 폭발 고리가 공보다 빨리 퍼지지 않는다.
-      // (연장 가속은 움직임에만 걸리므로 연출에는 timeScale을 빼고 준다)
-      fxDt = rdt * GAME_SPEED;
-      this.step(clockDt * GAME_SPEED);
+      this.step(clockDt);
     } else if (this.phase === 'ending') {
       // 거의 멈춘 상태에서 시작해 서서히 풀린다. 파편과 팝업도 같은 속도로
       // 흘러야 화면 전체가 느려진 것처럼 보인다.
       const k = 1 - Math.max(0, this.endT) / ENDING_TIME;
-      fxDt = rdt * (0.10 + 0.45 * k * k) * GAME_SPEED;
+      fxDt = rdt * (0.10 + 0.45 * k * k);
       this.step(fxDt);
       this.endT -= rdt;
       if (this.endT <= 0) this.finished = true;
@@ -961,7 +957,7 @@ class Battle {
     // 벽이나 다른 몸체와 부딪힐 때만 방향이 바뀐다.
     for (const m of summons) {
       m.cd = Math.max(0, m.cd - dt);
-      m.x += m.vx * m.spd * dt; m.y += m.vy * m.spd * dt;
+      m.x += m.vx * m.spd * GAME_SPEED * dt; m.y += m.vy * m.spd * GAME_SPEED * dt;
       m.spin += dt * 7;
       this.arena.collideBody(m);
       // 적 본체 접촉 공격
@@ -1048,7 +1044,7 @@ class Battle {
       const enlargedOrb = p.kind === 'orb' && !p.owner.dead && p.owner.timers.rampage > 0;
       if (p.baseR == null) p.baseR = p.r;
       p.r = p.baseR * (enlargedOrb ? 2 : 1);
-      const projSpd = p.spd;
+      const projSpd = p.spd * GAME_SPEED;
       p.x += p.vx * projSpd * dt; p.y += p.vy * projSpd * dt;
       // 벽
       if (this.arena.reflectProj(p)) {
@@ -1336,7 +1332,7 @@ function updateTimers(b, f, dt) {
   if (prev.dashPrep > 0 && T.dashPrep === 0 && f.dashPrepDir && !f.mainDead && !f.dead) {
     const nd = normDir(f.dashPrepDir.x, f.dashPrepDir.y);
     f.dash = { dx: nd.x, dy: nd.y, spd: 780, kind: 'dash' };
-    T.dashT = 0.35; f.dashHit = new Set();
+    T.dashT = 0.35 / GAME_SPEED; f.dashHit = new Set();
     battleSound(b, 'skill.dagger.dash', f);
     addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 8, r1: 60, color: '#8ef', dur: 0.3 });
   }
@@ -1355,12 +1351,15 @@ function moveFighter(b, f, dt) {
   const wasRocket = f.rocketActive;
   if (f.timers.dashPrep > 0) { /* 정지 */ }
   else if (f.timers.dashT > 0 && f.dash) {
-    f.x += f.dash.dx * f.dash.spd * dt;
-    f.y += f.dash.dy * f.dash.spd * dt;
+    f.x += f.dash.dx * f.dash.spd * GAME_SPEED * dt;
+    f.y += f.dash.dy * f.dash.spd * GAME_SPEED * dt;
   }
   else if (!(f.timers.bind > 0)) {
-    f.x += f.vx * f.st.move * dt;
-    f.y += f.vy * f.st.move * dt;
+    // 경기 진행 속도는 여기처럼 '실제로 나아가는 자리'에서만 곱한다.
+    // dt에 걸면 쿨타임·출혈 같은 초 단위 약속까지 늘어나 설명과 어긋나고,
+    // st에 걸면 스탯판에 표시되는 숫자가 깎인다.
+    f.x += f.vx * f.st.move * GAME_SPEED * dt;
+    f.y += f.vy * f.st.move * GAME_SPEED * dt;
   }
   const n = b.arena.collideBody(f);
   // High-speed rocket movement can cross a body completely in one tick, so
@@ -1460,7 +1459,7 @@ function onWallBounce(b, f, n) {
       if (e) {
         const nd = normDir(e.x - f.x, e.y - f.y);
         f.dash = { dx: nd.x, dy: nd.y, spd: 690, kind: 'rush' };
-        f.timers.dashT = 0.55; f.dashHit = new Set();
+        f.timers.dashT = 0.55 / GAME_SPEED; f.dashHit = new Set();
         battleSound(b, 'skill.basketball.rush', f);
         popup(b, f.x, f.y - f.radius - 24, '3바운드!', '#ffd24d', true);
         addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 10, r1: 70, color: '#ffd24d', dur: 0.35 });
@@ -1553,10 +1552,10 @@ function updateWeapon(b, f, dt) {
       applied = BOW_CHARGE_ROT * dt;
       f.charging.spin += applied;
     } else if (f.spinRemaining > 0) {
-      applied = Math.min(f.spinRemaining, TAU / 0.5 * dt);
+      applied = Math.min(f.spinRemaining, TAU / 0.5 * GAME_SPEED * dt);
       f.spinRemaining = Math.max(0, f.spinRemaining - applied);
     } else {
-      applied = f.st.rot * dt;
+      applied = f.st.rot * GAME_SPEED * dt;
     }
     if (applied === 0) {
       // 표창처럼 상대의 현재 위치를 그대로 겨눈다
@@ -1566,7 +1565,9 @@ function updateWeapon(b, f, dt) {
     f.weaponAngle = (f.weaponAngle + applied) % TAU;
     if (f.flags.swordBeam) {
       f.spinAcc += Math.abs(applied);
-      if (f.spinAcc >= TAU) {
+      // 딱 한 바퀴에서 끊길 때 부동소수점 오차로 마지막 검기가 통째로 빠졌다.
+      // (믹서기는 정확히 두 바퀴인데 누적이 TAU에 1e-15만큼 못 미쳐 한 번만 나갔다.)
+      if (f.spinAcc >= TAU - 1e-9) {
         f.spinAcc -= TAU;
         const nd = normDir(f.vx, f.vy);
         spawnProj(b, f, { kind: 'beam', x: f.x + nd.x * f.radius, y: f.y + nd.y * f.radius, ang: Math.atan2(nd.y, nd.x), spd: 430, dmg: 15, r: 12, life: 1.6, pierce: true, weapon: true });
@@ -1625,7 +1626,7 @@ function updateWeapon(b, f, dt) {
     if (f.cd.fire <= 0) { f.cd.fire = wp.interval; fireStaff(b, f); }
   } else if (f.weaponId === 'mine') {
     f.cd.mine -= dt * fr;
-    if (f.cd.mine <= 0 && b.mines.filter(m => m.owner === f).length < wp.maxMines) {
+    if (f.cd.mine <= 0) {
       f.cd.mine = wp.interval;
       const big = f.flags.bigMine;
       const balloon = f.timers.balloon > 0 ? 1.6 : 1;
@@ -1740,6 +1741,9 @@ function spawnProj(b, owner, o) {
   o.baseR = o.r;
   o.uid = ++UID; o.owner = owner; o.vx = Math.cos(o.ang); o.vy = Math.sin(o.ang);
   o.bounces = o.bounces || 0; o.pierce = !!o.pierce; o.life = o.life || 4;
+  // 느리게 날아가는 만큼 오래 살아야 사거리가 그대로다. 유도 선회도 같이 늦춘다.
+  o.life /= GAME_SPEED;
+  if (o.homing) o.homing *= GAME_SPEED;
   b.projectiles.push(o);
   if (o.kind === 'beam') battleSound(b, 'augment.beam', owner);
   else if (o.kind === 'missile') battleSound(b, 'augment.missile', owner, 0.05);
@@ -1871,7 +1875,7 @@ function autoSystems(b, f, dt) {
 function updateSatellites(b, f, dt) {
   if (f.mainDead || f.dead) return;
   for (const s of f.satellites) {
-    s.ang += 2.7 * dt;
+    s.ang += 2.7 * GAME_SPEED * dt;
     s.cd = Math.max(0, s.cd - dt);
     const sx = f.x + Math.cos(s.ang) * (f.radius + 42);
     const sy = f.y + Math.sin(s.ang) * (f.radius + 42);

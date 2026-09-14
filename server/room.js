@@ -44,7 +44,9 @@ class Room {
     this.closed = false;
     this.round = 0;
     this.elimCounter = 1;
-    this.refreshes = 0;
+    // 새로고침 횟수는 사람마다 따로다. 방에 하나만 두었더니 A가 쓰면 B도
+    // 못 쓰게 되어 있었다 (재현됨). pid -> 남은 횟수.
+    this.refreshes = new Map();
     this.battles = null;
     this.phase = 'weapon';
     this.deadline = 0;
@@ -374,7 +376,7 @@ class Room {
     }
     if (this.aliveOf().length <= 1) return this.gameOver();
 
-    this.refreshes++;
+    for (const p of this.players) this.refreshes.set(p.id, (this.refreshes.get(p.id) || 0) + 1);
     this.augmentState = new Map();
     const humans = this.players.filter(p => !p.isAI && !p.eliminated);
     if (!humans.length) { this.startRound(); return; }
@@ -383,7 +385,7 @@ class Room {
       const total = core.eventAugmentPickCount(this, p);
       const offers = core.rollAugmentOffers(p);
       this.augmentState.set(p.id, { left: total, total, offers });
-      this.send(p, { t: 'augmentOffers', offers, left: total, total, refreshes: this.refreshes, seconds: AUGMENT_TIME, fullSeconds: AUGMENT_TIME });
+      this.send(p, { t: 'augmentOffers', offers, left: total, total, refreshes: this.refreshes.get(p.id) || 0, seconds: AUGMENT_TIME, fullSeconds: AUGMENT_TIME });
     }
   }
   onAugment(player, augId) {
@@ -396,17 +398,17 @@ class Room {
     st.left--;
     if (st.left > 0 && player.coins > 0) {
       st.offers = core.rollAugmentOffers(player);
-      this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
+      this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes.get(player.id) || 0, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
     }
     this.maybeFinishAugment();
   }
   onRefresh(player) {
-    if (this.phase !== 'augment' || this.refreshes <= 0) return;
+    if (this.phase !== 'augment' || (this.refreshes.get(player.id) || 0) <= 0) return;
     const st = this.augmentState.get(player.id);
     if (!st || st.left <= 0) return;
-    this.refreshes--;
+    this.refreshes.set(player.id, this.refreshes.get(player.id) - 1);
     st.offers = core.rollAugmentOffers(player);
-    this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
+    this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes.get(player.id) || 0, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
   }
   maybeFinishAugment() {
     const done = Array.from(this.augmentState.values()).every(st => st.left <= 0);
@@ -525,7 +527,7 @@ class Room {
       this.send(player, { t: 'weaponOffers', ids: this.offers.get(player.id), seconds: this.timeLeft(), players: this.publicPlayers() });
     } else if (this.phase === 'augment' && this.augmentState) {
       const st = this.augmentState.get(player.id);
-      if (st && st.left > 0) this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
+      if (st && st.left > 0) this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes.get(player.id) || 0, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
     } else if (this.phase === 'event' && !this.eventVotes.has(player.id)) {
       this.send(player, { t: 'eventOffers', offers: this.eventOffers, seconds: this.timeLeft(), players: this.publicPlayers() });
     }
