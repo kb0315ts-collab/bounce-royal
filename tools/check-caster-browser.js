@@ -48,6 +48,8 @@ const baseUrl = process.argv[4] || 'http://localhost:8080/';
       const chatter=SFX.chatterSyllable.bind(SFX);
       SFX.chatterSyllable=options=>{const played=chatter(options);casterVoiceCalls.push({played,...options});return played;};
       Game.newMatch('cat', 'bow', {mode:'friendly'});
+      // This regression checks GG itself; the dedicated broadcast test covers replay.
+      BounceRoyalHighlights.play();
       Game.state = 'battle'; Game.mode = 'single'; Game.battles = null;
       showScreen(null); hudVisible(true); TitleDemo.sync(); updatePlayersPanel(Game);
       window.casterTest = new Battle('diamond', Game.players.slice(0,2));

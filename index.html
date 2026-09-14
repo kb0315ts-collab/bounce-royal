@@ -387,6 +387,7 @@ body{display:flex;align-items:center;justify-content:center}
     <div class="phase-timer hidden" id="aug-timer"><i></i><b></b></div>
     <div class="selection-body">
       <div class="subt" id="aug-sub">새로운 증강 하나를 획득합니다.</div>
+      <div class="caster-dock" id="augment-caster-dock"></div>
       <div class="cards" id="aug-cards"></div>
       <div id="aug-meta"><div class="refresh-row"><button class="midbtn ghostbtn refresh-btn" id="btn-refresh" type="button"><span class="icon-inline" data-ui-icon="refresh"></span> 새로고침</button><span class="refresh-count-pill">보유 <b id="refresh-count">0</b>회</span></div><div id="aug-myinfo"></div><div class="aug-owned-wrap"><div id="aug-owned"></div></div></div>
     </div>
@@ -398,6 +399,7 @@ body{display:flex;align-items:center;justify-content:center}
     <div class="event-body">
       <div class="event-kicker">3라운드 완료 · 새로운 변수!</div>
       <div class="subt" id="event-sub">이번 게임에 적용할 이벤트를 하나 선택하세요.</div>
+      <div class="caster-dock" id="event-caster-dock"></div>
       <div class="event-cards" id="event-cards" role="list" aria-label="이벤트 선택지"></div>
       <div id="event-status" role="status" aria-live="polite">네 명이 각각 한 표를 행사합니다.</div>
       <section class="event-result hidden" id="event-result" aria-labelledby="event-result-title">
@@ -443,8 +445,10 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/matchmaking.js"></script>
 <script src="js/events.js"></script>
 <script src="js/match-conclusion.js"></script>
+<script src="js/broadcast-core.js"></script>
 <script src="js/commentary-core.js"></script>
 <script src="js/commentary.js"></script>
+<script src="js/highlights.js"></script>
 <script src="js/render.js"></script>
 <script src="js/net.js"></script>
 <script src="js/augment-assets.js"></script>

@@ -117,6 +117,7 @@ const Multi = {
 
     net.on('roundEnd', m => {
       this.clearSteer();
+      if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.rememberReport(m.reports, net.seat);
       const me = m.players.find(p => p.id === net.seat);
       for (const line of m.lines || []) {
         if (line.kind === 'win' && line.winner === net.seat) { banner('승리!', line.why || '', 1200); SFX.win(); }

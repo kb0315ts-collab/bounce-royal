@@ -11,6 +11,7 @@
   let muted = false, until = 0, murmurUntil = 0, nextMurmur = 0, lastKey = null;
   let gg = false, finale = false, finalized = false, matchSerial = 0;
   let frame = 0, voiceUntil = 0, nextSyllable = 0, mouthUntil = 0, syllable = 0;
+  let studio = null, studioTimer = 0, report = null, screenId = null;
   try { muted = localStorage.getItem(storeKey) === '1'; } catch (_) { /* Session-only fallback. */ }
   const sound = () => typeof SFX !== 'undefined' ? SFX : null;
   function paintMute() {
@@ -37,7 +38,7 @@
     cancelAnimationFrame(frame); frame = 0;
     murmurUntil = 0; finale = false;
     host.hidden = true;
-    host.classList.remove('is-murmuring', 'is-match-finale', 'is-arena-finale');
+    host.classList.remove('is-murmuring', 'is-match-finale', 'is-arena-finale', 'is-studio');
     const hud = el('hud');
     hud?.classList.remove('with-commentator');
     if (hud && host.parentNode !== hud) hud.appendChild(host);
@@ -91,11 +92,12 @@
     until = now + (gg ? 2500 : Math.min(3300, Math.max(2500, text.length * 65)));
     // The cloth splits before the final voice starts.
     nextSyllable = now + (gg && muted ? 220 : 0);
-    voiceUntil = now + (gg ? 1950 : Math.min(1750, 500 + text.length * 45));
+    voiceUntil = nextSyllable + root.BounceRoyalBroadcastCore.voiceDuration(text);
     syllable = 0;
     wake();
   }
   function observe(b) {
+    if (studio || b?.isReplay) return;
     if (finale) return;
     const hud = el('hud');
     if (!b || b.demo || document.hidden || !hud || hud.classList.contains('hidden')) { hide(); return; }
@@ -114,9 +116,44 @@
     speak(line, now);
   }
   function onScreen(id) {
-    if (id === 'scr-intro' || id === 'scr-weapon') { finalized = false; matchSerial++; }
+    if (id === screenId && (id === 'scr-augment' || id === 'scr-event')) return;
+    screenId = id;
+    clearTimeout(studioTimer); studioTimer = 0; studio = null;
+    if (id === 'scr-intro' || id === 'scr-weapon') {
+      finalized = false; matchSerial++; report = null;
+      root.BounceRoyalHighlights?.reset();
+    }
+    if (id === 'scr-title') { report = null; root.BounceRoyalHighlights?.reset(); }
     if (id === 'scr-over') host.classList.remove('is-arena-finale');
+    if (id === 'scr-replay' && finale) return;
     if (id && id !== 'scr-over') hide();
+    if (id === 'scr-augment') studioLines(root.BounceRoyalBroadcastCore.recapLines(report, WEAPONS, CHARACTERS), '지난 전투 돌아보기', 'augment-caster-dock');
+    if (id === 'scr-event') studioLines(root.BounceRoyalBroadcastCore.eventIntro(), '이벤트 투표 타임', 'event-caster-dock');
+  }
+  function rememberReport(rows, playerId) {
+    report = rows && Object.prototype.hasOwnProperty.call(rows, playerId) ? rows[playerId] : null;
+  }
+  function studioLines(lines, title, dockId, silentFirst = false) {
+    clearTimeout(studioTimer); hide();
+    studio = { lines, title, dockId, index:0 };
+    const dock = el(dockId);
+    if (!dock) { studio=null; return; }
+    dock.appendChild(host); host.hidden=false; host.classList.add('is-studio');
+    const next = () => {
+      if (!studio || document.hidden) return;
+      const text = studio.lines[studio.index++];
+      if (text && !muted) {
+        speak({text,label:studio.title},performance.now());
+        if (silentFirst) { stopVoice(); silentFirst = false; }
+        // Keep the text readable after the short babble has stopped.
+        until = performance.now()+Math.min(6500,Math.max(4000,text.length*75));
+      } else if (muted) murmur(performance.now());
+      if(studio.index<studio.lines.length)studioTimer=setTimeout(next,6800);
+    };
+    next();
+  }
+  function eventResult(event, player) {
+    studioLines(root.BounceRoyalBroadcastCore.eventWinner(event,player), '이번 게임의 이벤트', 'event-caster-dock');
   }
   function finishMatch(players) {
     if (finalized) return;
@@ -134,7 +171,7 @@
     host.classList.toggle('is-arena-finale', arena);
     speak(line, now);
   }
-  function hideForHud() { if (!finale) hide(); }
+  function hideForHud() { if (!finale && !studio) hide(); }
   button.addEventListener('click', event => {
     event.stopPropagation(); muted = !muted;
     try { localStorage.setItem(storeKey, muted ? '1' : '0'); } catch (_) { /* Session-only fallback. */ }
@@ -143,8 +180,20 @@
     if (!gg) clearSpeech();
     if (muted && !gg) { nextMurmur = 0; murmur(performance.now()); }
     if (!muted) host.classList.remove('is-murmuring', 'is-burst');
+    if (!muted && studio) {
+      const current=studio;
+      studioLines(current.lines.slice(Math.max(0,current.index-1)),current.title,current.dockId);
+    }
   });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) hide(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { clearTimeout(studioTimer); hide(); }
+    else if (studio) {
+      const current=studio;
+      studioLines(current.lines.slice(Math.max(0,current.index-1)),current.title,current.dockId,true);
+    }
+  });
   paintMute();
-  root.BounceRoyalCommentary = Object.freeze({ observe, hide, hideForHud, onScreen, finishMatch, get muted() { return muted; } });
+  root.BounceRoyalCommentary = Object.freeze({ observe, hide, hideForHud, onScreen, finishMatch, rememberReport,
+    eventResult, studioLines, remainingFinale:()=>finale?Math.max(0,until-performance.now()):0,
+    get muted() { return muted; } });
 })(globalThis);

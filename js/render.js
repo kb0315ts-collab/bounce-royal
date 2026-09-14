@@ -185,7 +185,7 @@ class BattleScene extends Phaser.Scene {
   }
 
   update() {
-    const b = pendingBattle;
+    const b = window.BounceRoyalHighlights?.view || pendingBattle;
     this.textIndex = 0;
     this.gBack.clear();
     for (const g of [this.gArena, this.gArenaGlow, this.gGround, this.gGroundGlow,
@@ -246,6 +246,8 @@ function renderBattle(b) {
   pendingBattle = b;
   watchBattleSounds(b);
   if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.observe(b);
+  if (typeof BounceRoyalHighlights !== 'undefined' && typeof Game !== 'undefined'
+    && (Game.state === 'battle' || Game.state === 'roundResult')) BounceRoyalHighlights.capture(b);
 }
 
 /* ---------------- 전투 오디오 이벤트 ---------------- */

@@ -34,9 +34,23 @@ function battleCommentary(b, type, actor, target, source, amount = 0) {
   if (!b || b.demo || !Array.isArray(b.commentaryEvents)) return;
   const owner = teamOwner(actor), victim = teamOwner(target);
   if (!owner || (type === 'hit' && (!isFighterBody(target) || amount <= 0))) return;
+  recordRoundFact(b, owner, type, source, amount);
   b.commentaryEvents.push({ seq: ++b.commentarySeq, t: b.simT || 0, type,
     actor: owner.uid, target: victim ? victim.uid : 0, source, amount });
   pruneBattleCommentary(b);
+}
+
+// Cumulative presentation facts survive event pruning and missed snapshots.
+// Amounts are effective HP damage/healing, never attempted damage or overheal.
+function recordRoundFact(b, owner, type, source, amount = 0) {
+  if (!b || b.demo || !owner || !owner.player) return;
+  const rows = b.roundReport || (b.roundReport = Object.create(null));
+  const row = rows[owner.player.id] || (rows[owner.player.id] = {
+    id: owner.player.id, damage: {}, healing: {}, skills: {}, releases: {},
+  });
+  const bucket = type === 'hit' ? row.damage : type === 'heal' ? row.healing
+    : type === 'release' ? row.releases : type === 'skill' ? row.skills : null;
+  if (bucket) bucket[source] = (bucket[source] || 0) + (type === 'hit' || type === 'heal' ? amount : 1);
 }
 
 function pruneBattleCommentary(b) {
@@ -714,6 +728,7 @@ class Battle {
     // 1대1은 서로 만날 확률을 높이기 위해 경기장을 좁힌다. 4인 난투는 그대로 둔다.
     if (this.arena.type === 'diamond' && players.length <= 2) this.arena.L = DUEL_ARENA_L;
     this.fighters = players.map(p => buildFighter(p, this));
+    for (const f of this.fighters) recordRoundFact(this, f, 'init', '');
     this.placeFighters();
     this.phase = 'count';         // count → fight → ending
     this.countT = COUNT_TIME;
@@ -1742,6 +1757,7 @@ function fireStaff(b, f) {
 
 function releaseCharge(b, f) {
   if (!f.charging || f.charging.t < 0.2) return false;
+  battleCommentary(b, 'release', f, null, 'skill:bow');
   battleSound(b, 'skill.bow.release', f);
   spawnProj(b, f, {
     kind: 'charge', x: f.x + Math.cos(f.weaponAngle) * (f.radius + 10), y: f.y + Math.sin(f.weaponAngle) * (f.radius + 10),
@@ -1821,7 +1837,7 @@ function onWeaponHitEffects(b, f, body) {
   if (f.flags.warmonger) f.warmStacks = Math.min(5, f.warmStacks + 1);
   if (f.flags.rotMomentum) f.rotStacks = Math.min(8, f.rotStacks + 1);
   if (f.flags.chase) f.timers.chase = 3;
-  if (f.flags.vampiric) healFighter(b, f, f.maxHp * 0.05, true);
+  if (f.flags.vampiric) healFighter(b, f, f.maxHp * 0.05, true, 'vampiric');
   if (f.flags.dualPhase) f.timers.untouchable = Math.max(f.timers.untouchable, 1);
 }
 
@@ -2029,16 +2045,17 @@ function dealDamage(b, src, body, raw, opts = {}) {
     // min만 쓰면 큰 흔들림이 작은 피격 때문에 오히려 줄어든다.
     b.shake = Math.max(b.shake, Math.min(11, b.shake + Math.min(8, 2.5 + dmg * 0.18)));
   }
-  if (src && src.flags && src.flags.lifesteal) healFighter(b, src, dmg * src.flags.lifesteal, true);
+  if (src && src.flags && src.flags.lifesteal) healFighter(b, src, dmg * src.flags.lifesteal, true, 'lifesteal');
   if (body.hp <= 0 && !body.downPending) { body.downPending = true; killBody(b, body, src); }
   return dmg;
 }
 
-function healFighter(b, f, amount, quiet) {
+function healFighter(b, f, amount, quiet, source = 'heal') {
   if (f.mainDead || f.dead || amount <= 0) return;
   const before = f.hp;
   const missing = Math.max(0, f.maxHp - before);
   f.hp = Math.min(f.maxHp, f.hp + amount);
+  if (f.hp > before) recordRoundFact(b, teamOwner(f), 'heal', source, f.hp - before);
   if (f.hp - before >= 0.5) battleSound(b, 'augment.heal', f, 0.7);
   if (!quiet && f.hp - before >= 1) popup(b, f.x, f.y - f.radius - 6, '+' + Math.round(f.hp - before), '#7dffa8');
 }

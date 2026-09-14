@@ -303,7 +303,8 @@ class Room {
     }
 
     this.setPhase('roundEnd', ROUND_END_TIME);
-    this.broadcast({ t: 'roundEnd', lines, players: this.publicPlayers(), seconds: ROUND_END_TIME });
+    this.broadcast({ t: 'roundEnd', lines, players: this.publicPlayers(), seconds: ROUND_END_TIME,
+      reports: Object.assign({}, ...this.battles.map(b => b.roundReport || {})) });
   }
 
   applyLoss(player) {

@@ -696,6 +696,7 @@ function showEventVoteResult(result = {}, onContinue) {
     finalPortrait?.classList.add('winner');
     document.querySelectorAll('#event-cards .event-card').forEach(card => card.classList.toggle('winning', card.dataset.eventId === winningKey));
     if (status) status.textContent = `${winnerName}님의 표가 당첨되어 최종 이벤트가 결정되었습니다.`;
+    if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.eventResult(winningEvent, playerSource(winnerPlayer));
     if (typeof SFX !== 'undefined' && SFX && typeof SFX.play === 'function') SFX.play('ui.vote.win');
     const vibrationEnabled = typeof Profile === 'undefined' || Profile.data?.vibration !== false;
     if (vibrationEnabled && navigator.vibrate) navigator.vibrate([35, 45, 70]);
@@ -874,6 +875,8 @@ function showResult(title, lines, buttonText, onDone) {
 }
 
 function showGameOver(players, human, onRestart) {
+  // Retransmitted final results must not cover an already-running highlight.
+  if (typeof BounceRoyalHighlights !== 'undefined' && BounceRoyalHighlights.view) return;
   showScreen('scr-over');
   const myRank = human?.rank || 4, champion = myRank === 1;
   $('over-rank').innerHTML = champion ? `<span class="icon-inline">${iconMarkup('ranked', '◆')}</span> 1위!` : `${myRank}위`;
@@ -889,6 +892,7 @@ function showGameOver(players, human, onRestart) {
   });
   $('btn-restart').onclick = () => { playUI(); onRestart?.(); };
   if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.finishMatch(players);
+  if (typeof BounceRoyalHighlights !== 'undefined') BounceRoyalHighlights.play();
 }
 
 /* ---------------- 전투 HUD ---------------- */

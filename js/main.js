@@ -786,6 +786,8 @@ const Game = {
 
   resolveRound() {
     if (typeof closePlayerDetail === 'function') closePlayerDetail();
+    if (typeof BounceRoyalCommentary !== 'undefined') BounceRoyalCommentary.rememberReport(
+      Object.assign({}, ...(this.battles || []).map(b=>b.roundReport || {})), this.human?.id);
     setWatchOtherButton(false);
     applyResultsFor(this, this.battles);
     updatePlayersPanel(this);
