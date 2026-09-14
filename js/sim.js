@@ -2351,15 +2351,29 @@ function aiUpdate(b, f, dt) {
     while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
     switch (f.weaponId) {
       case 'sword': if (d < f.radius + wp.reach * weaponScale(f) + 55) use('weapon'); break;
-      case 'dagger': if (d > 130 && d < 430) use('weapon'); break;
+      // 돌진은 780 x 0.35초라 270px 남짓 간다. 430px에서 걸면 닿지 못하고
+      // 빈 곳으로 뛰어들어 오히려 맞기만 한다.
+      case 'dagger': if (d > 120 && d < 300) use('weapon'); break;
       case 'bow':
         // 발사는 위쪽 매 프레임 조준 검사가 맡는다. 여기서는 충전 시작만 판단한다.
         if (!f.charging && d < 520) use('weapon');
         break;
-      case 'pistol': if (d < 430 && Math.abs(diff) < 0.5) use('weapon'); break;
-      case 'staff': if (b.simT > 7 || eHpP < 0.45) use('weapon'); break;
+      // 회전 난사는 켜는 순간 자동 조준을 버리고 사방으로 뿌린다.
+      // 430px에서 켜면 대부분 빗나가고, 그동안 조준 사격을 통째로 잃는다.
+      // 뿌리는 각도가 360도라 조준 여부는 상관없고 거리만 본다.
+      case 'pistol': if (d < 200) use('weapon'); break;
+      // 마력 폭주는 '날아가는 마법'을 3초간 키우는 스킬이다. 화면에 마법이
+      // 없으면 통째로 버리는 셈인데, 전에는 7초만 지나면 그냥 썼다.
+      case 'staff':
+        // 날아가는 마법이 상대 근처까지 갔을 때 키워야 실제로 맞는다.
+        // 그냥 '마법이 있으면'으로 잡으면 쏘자마자 써 버려 3초가 헛돈다.
+        if (b.projectiles.some(p => p.owner === f && p.kind === 'orb'
+          && dist(p.x, p.y, e.x, e.y) < 220)) use('weapon');
+        break;
       case 'mine': {
-        const near = b.mines.some(m => m.owner === f && dist(m.x, m.y, e.x, e.y) < 150);
+        // 터뜨려 봐야 폭발 반경(기본 62) 안에 있어야 맞는다. 150px로 잡아
+        // 두어 두 배 넘게 먼 지뢰를 그냥 날리고 있었다.
+        const near = b.mines.some(m => m.owner === f && dist(m.x, m.y, e.x, e.y) < m.blast * 0.9);
         if (near) use('weapon');
         break;
       }
