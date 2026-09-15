@@ -394,6 +394,9 @@ function applyAugmentBattle(f, id, player) {
     case 'm_big': Fl.bigMine = 1; break;
     case 'm_heal': Fl.healMine = 1; break;
     case 'm_freeze': Fl.freezeMine = 1; break;
+    case 'sh_magnet': Fl.discMagnet = 1; break;
+    case 'sh_ricochet': Fl.discRicochet = 1; break;
+    case 'sh_grip': Fl.discGrip = 1; break;
     case 'f_pressure': Fl.flamePressure = 1; break;
     case 'f_ember': Fl.flameEmber = 1; break;
     case 'f_thrust': Fl.flameThrust = 1; break;
@@ -433,8 +436,9 @@ function buildFighter(player, battle) {
     sfxSlash: 0,        // 근접 무기가 벤 횟수. 위와 같은 이유로 센다
 
     hist: [], histT: 0,
-    // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
-    flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0 },
+    // 방패. disc가 있으면 던져져 있는 상태이고 그동안은 무기가 없다.
+    disc: null,
+    gripT: 0,          // 주운 직후 피해 감소가 남은 시간 (단단한 손)
     // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
     flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0 },
     // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
@@ -1595,6 +1599,8 @@ function startWeaponCd(f) {
 }
 
 function updateCooldowns(b, f, dt) {
+  if (f.disc) updateDisc(b, f, dt);
+  f.gripT = Math.max(0, (f.gripT || 0) - dt);
   f.skillUses.cd = Math.max(0, (f.skillUses.cd || 0) - dt);
   // 버튼과 파리티가 같은 값을 보게 쿨타임을 그대로 비춰 둔다.
   f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1;
@@ -1656,7 +1662,9 @@ function updateWeapon(b, f, dt) {
     return;
   }
   if (wp.type === 'melee') {
-    meleeHits(b, f, dt, undefined, meleeSource);
+    // 방패는 던져 둔 동안 근접 판정이 없다 — 무기가 손에 없다.
+    if (f.weaponId === 'shield' && f.disc) f.meleeContact.clear();
+    else meleeHits(b, f, dt, undefined, meleeSource);
   } else if (f.weaponId === 'bow') {
     f.cd.fire -= dt * fr;
     if (f.cd.fire <= 0) { f.cd.fire = wp.interval; fireBow(b, f); }
@@ -1717,6 +1725,70 @@ function updateWeapon(b, f, dt) {
  * 칼날 판정에 새로 들어온 순간에만 1회 피해를 주고, 칼날에서 완전히
  * 벗어났다가 다시 닿아야 다음 타격이 나간다. 칼날마다 따로 추적하므로
  * 쌍단검은 각 칼날이 독립적으로 한 번씩 맞힌다. */
+/* ═══════════ 방패 ═══════════
+ *
+ * 평소엔 검처럼 돌다가 던지면 날아가고, 주울 때까지 무기가 없다.
+ * 던지고 쫓아가서 줍는 순환이 이 무기의 전부다.
+ *
+ * 횟수 제한을 두지 않는다 — 주워야만 다시 던질 수 있으니 회수가 곧 제한이다. */
+function throwDisc(b, f) {
+  if (f.disc) return false;                       // 이미 던져 두었다
+  const wp = WEAPONS.shield;
+  const a = f.weaponAngle;
+  const ws = weaponScale(f);
+  f.disc = {
+    x: f.x + Math.cos(a) * (f.radius + 12), y: f.y + Math.sin(a) * (f.radius + 12),
+    vx: Math.cos(a), vy: Math.sin(a), spd: wp.throwSpd,
+    r: 15 * ws, owner: f, bounces: 0, hits: new Map(), resting: false,
+    // 던진 자리가 이미 회수 반경 안이라, 한 번 벗어나기 전에는 주울 수 없다.
+    // 이게 없으면 던지는 즉시 도로 주워져 무기가 아예 손을 떠나지 않는다.
+    armed: false,
+  };
+  battleSound(b, 'weapon.shield.throw', f);
+  addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 8, r1: 44, color: '#8fe3d0', dur: 0.25 });
+  return true;
+}
+
+function updateDisc(b, f, dt) {
+  const d = f.disc;
+  if (!d) return;
+  const wp = WEAPONS.shield;
+  if (!d.resting) {
+    d.spd *= Math.pow(wp.decel, dt);              // 초당 x0.82
+    d.x += d.vx * d.spd * GAME_SPEED * dt;
+    d.y += d.vy * d.spd * GAME_SPEED * dt;
+    if (b.arena.reflectProj(d)) {
+      d.bounces++;
+      battleSound(b, 'battle.bounce', d, 0.08);
+      sparks(b, d.x, d.y, 3, '#b7ffe9', 90);
+    }
+    if (d.spd < wp.restSpd) { d.resting = true; d.spd = 0; }
+    // 적중 — 관통해 계속 간다. 대상마다 잠깐 재타격을 막는다.
+    const mult = f.flags.discRicochet ? 1 + 0.25 * Math.min(3, d.bounces) : 1;
+    for (const e of b.enemiesOf(f)) {
+      for (const body of b.bodiesOf(e)) {
+        if ((d.hits.get(body.uid) || 0) > b.simT) continue;
+        if (dist(d.x, d.y, body.x, body.y) > d.r + bodyRadius(body)) continue;
+        if (weaponDamage(b, f, body, wp.throwDmg * mult) > 0) {
+          d.hits.set(body.uid, b.simT + wp.throwLock);
+          battleSound(b, 'weapon.shield.hit', body, 0.05);
+        }
+      }
+    }
+  }
+  // 회수 — 주인이 닿으면 다시 든다
+  const pad = (f.flags.discMagnet ? 55 : wp.pickupPad);
+  const reach = f.radius + d.r + pad;
+  const away = dist(f.x, f.y, d.x, d.y);
+  if (!d.armed) { if (away > reach) d.armed = true; return; }
+  if (away < reach) {
+    f.disc = null;
+    if (f.flags.discGrip) f.gripT = 5;
+    battleSound(b, 'weapon.shield.catch', f);
+    addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 40, color: '#8fe3d0', dur: 0.3 });
+  }
+}
+
 /* ═══════════ 화염방사기 ═══════════
  *
  * 이 게임에서 자동으로 공격하지 않는 유일한 무기다. 버튼을 누르고 있는
@@ -2254,6 +2326,7 @@ function dealDamage(b, src, body, raw, opts = {}) {
   let dmg = raw;
   if (t.flags.ironDefense && b.simT < 5) dmg *= 0.6;
   dmg *= (t.perm.dmgTaken || 1);
+  if (t.gripT > 0) dmg *= 0.7;   // 단단한 손 — 주운 직후 5초간
   if (actorBody && t.shield > 0) {
     const ab = Math.min(t.shield, dmg);
     t.shield -= ab; dmg -= ab;
@@ -2464,6 +2537,10 @@ function useSkill(b, f, slot) {
       f.timers.rampage = 3;
       popup(b, f.x, f.y - f.radius - 24, '마력 폭주!', '#c9a0ff', true);
       break;
+    case 'shield':
+      if (!throwDisc(b, f)) return false;   // 던져 둔 채로는 다시 못 던진다
+      popup(b, f.x, f.y - f.radius - 24, '투척!', '#8fe3d0');
+      break;
     case 'chain':
       chainSwap(b, f);
       popup(b, f.x, f.y - f.radius - 24, '위치 교환!', '#9fd0ff');
@@ -2481,6 +2558,7 @@ function useSkill(b, f, slot) {
     bomb: 'skill.bomb.arm', bball: 'skill.basketball.arm', balloon: 'skill.balloon.inflate',
     sword: 'skill.sword.spin', dagger: 'skill.dagger.prepare', pistol: 'skill.pistol.barrage',
     staff: 'skill.staff.overload', mine: 'skill.mine.remote', chain: 'skill.chain.swap',
+    shield: null,   // 투척 소리는 throwDisc가 직접 낸다
   }[id];
   if (cue) battleSound(b, cue, f);
   if (cue) battleCommentary(b, 'skill', f, null, (slot === 'char' ? 'char:' : 'skill:') + id);
@@ -2560,7 +2638,10 @@ function aiChooseSteer(b, f, e) {
   const toward = Math.atan2(e.y - f.y, e.x - f.x);
   let angle = toward;
 
-  if (wp.type === 'cone') {
+  if (f.weaponId === 'shield' && f.disc) {
+    // 던져 놓았으면 줍는 것이 최우선이다. 무기가 없는 동안은 싸울 수 없다.
+    angle = Math.atan2(f.disc.y - f.y, f.disc.x - f.x) + rand(-0.12, 0.12);
+  } else if (wp.type === 'cone') {
     // 화염방사기는 붙어야 쓴다. 조향이 곧 조준이라 상대 쪽을 향한다.
     angle = toward + rand(-0.2, 0.2);
   } else if (wp.type === 'chain') {
@@ -2658,6 +2739,8 @@ function aiUpdate(b, f, dt) {
     while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
     switch (f.weaponId) {
       // 위치 교환은 상대가 붙었을 때가 값어치가 가장 크다 — 그 자리에 추가 남는다.
+      // 방패는 맞을 만한 거리에서만 던진다. 빗나가면 주우러 가는 동안 무방비다.
+      case 'shield': if (!f.disc && d > 90 && d < 300) use('weapon'); break;
       case 'chain': if (d < f.radius + 70) use('weapon'); break;
       // 화염방사기는 사거리 안일 때만 뿜고, 벗어나면 끈다. 연료가 바닥이면 쉰다.
       case 'flame': {

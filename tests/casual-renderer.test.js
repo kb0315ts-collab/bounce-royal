@@ -121,7 +121,11 @@ test('every retained arena, projectile and comic effect draws without writes or 
   }
   const owner = { color: '#ff6879' };
   r.drawGroundFx(g, g, deepFreeze({ stickies: [{ x: 0, y: 0, r: 14, life: 1 }],
-    flames: [{ x: 4, y: 8, r: 12, life: 1 }], mines: [{ x: 9, y: 5, r: 11, arm: 0, owner }] }));
+    flames: [{ x: 4, y: 8, r: 12, life: 1 }], mines: [{ x: 9, y: 5, r: 11, arm: 0, owner }],
+    // 던져 둔 방패는 날 때와 멈췄을 때가 다르게 그려진다 — 둘 다 태운다.
+    fighters: [{ color: '#ff6879', disc: { x: 30, y: 12, r: 15, resting: false } },
+      { color: '#59c6ff', disc: { x: -40, y: 20, r: 15, resting: true } },
+      { color: '#ffd24d', disc: null }] }));
   const kinds = ['arrow', 'charge', 'bullet', 'orb', 'missile', 'shuriken', 'beam'];
   r.drawProjectiles(g, g, deepFreeze({ projectiles: kinds.map((kind, i) => ({ kind, x: i * 20, y: 0, r: 8, ang: 0.4, owner })) }));
   const sc = { useText() { return { setAlpha() {} }; } };

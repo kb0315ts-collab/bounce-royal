@@ -47,6 +47,8 @@ function fighterView(f) {
     // fl(피격 플래시)도 실어야 한다. 분열체는 본체와 따로 맞고 따로 번쩍인다.
     sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0) })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
+    // 던져 둔 방패. 모두에게 보여야 한다. [x, y, 반지름, 멈췄나]
+    ...(f.disc ? { dc: [r1(f.disc.x), r1(f.disc.y), r1(f.disc.r), f.disc.resting ? 1 : 0] } : {}),
     // 화염방사기. fo는 분사 중인지, fu는 남은 연료(0~100)다.
     // 불길은 모두에게 보여야 하고 연료 게이지는 자기 버튼에 쓴다.
     ...(f.flame && f.weaponId === 'flame'

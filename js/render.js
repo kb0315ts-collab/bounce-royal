@@ -476,6 +476,22 @@ function drawGroundFx(g, glow, b) {
     g.fillTriangle(fl.x, fl.y + R * 0.3, fl.x + R * 0.5, fl.y - R * 0.75, fl.x + R * 0.7, fl.y + R * 0.3);
     g.fillStyle(0xffef8c, a); g.fillEllipse(fl.x, fl.y, R * 0.7, R * 0.75);
   }
+  // 던져 둔 방패 — 날아가는 동안 돌고, 멈추면 바닥에 눕는다.
+  for (const f of b.fighters) {
+    const d = f.disc;
+    if (!d) continue;
+    const t = performance.now() / 1000;
+    const spin = d.resting ? 0 : t * 9;
+    g.fillStyle(CASUAL_INK, 0.2);
+    g.fillEllipse(d.x + 2, d.y + 6, d.r * 2.3, d.r * (d.resting ? 1.5 : 1.1));
+    g.save(); g.translateCanvas(d.x, d.y); g.rotateCanvas(spin);
+    g.fillStyle(0x6fd3bb, 1); g.fillCircle(0, 0, d.r);
+    g.lineStyle(3.2, CASUAL_INK, 1); g.strokeCircle(0, 0, d.r);
+    g.fillStyle(0xb6f0e2, 1); g.fillCircle(0, 0, d.r * 0.62);
+    g.lineStyle(2.4, 0x2f8f7c, 1); g.strokeCircle(0, 0, d.r * 0.62);
+    g.fillStyle(toInt(ownerPlayerColor(f)), 1); g.fillCircle(0, 0, d.r * 0.28);
+    g.restore();
+  }
   for (const m of b.mines) {
     const armed = m.arm <= 0;
     const mr = m.r || 11;
@@ -615,6 +631,8 @@ function drawWeaponG(g, f) {
   // 쇠사슬은 추가 세계 좌표에 따로 있어서 회전 좌표계로 그릴 수 없다.
   if (f.weaponId === 'chain') { drawChainG(g, f, ws); return; }
   if (f.weaponId === 'flame') { drawFlameG(g, f, ws); return; }
+  // 던져 둔 동안은 손에 무기가 없다 — 몸에는 아무것도 그리지 않는다.
+  if (f.weaponId === 'shield' && f.disc) return;
   g.save();
   g.translateCanvas(f.x, f.y);
   g.rotateCanvas(f.weaponAngle);
@@ -697,6 +715,22 @@ function drawWeaponG(g, f) {
         g.fillStyle(0xd3f0ed, 1); g.fillRect(R * 0.6 + 30, -7, 5, 14);
         g.lineStyle(2, CASUAL_INK, 1); g.beginPath(); g.moveTo(R * 0.6 + 14, 0); g.lineTo(R * 0.6 + 34, 0); g.strokePath();
       }
+      break;
+    }
+    case 'shield': {
+      const w = 34 * ws, h = 40 * ws, x0 = R * 0.45;
+      // 굵은 먹선 + 밝은 면 + 안쪽 판, 다른 무기와 같은 문법
+      g.fillStyle(0x6fd3bb, 1);
+      g.beginPath();
+      g.moveTo(x0, -h / 2); g.lineTo(x0 + w * 0.72, -h / 2);
+      g.lineTo(x0 + w, 0); g.lineTo(x0 + w * 0.72, h / 2); g.lineTo(x0, h / 2);
+      g.closePath(); g.fillPath();
+      g.lineStyle(3.2, CASUAL_INK, 1); g.strokePath();
+      g.fillStyle(0xb6f0e2, 1);
+      g.fillTriangle(x0 + 5, -h * 0.3, x0 + w * 0.7, 0, x0 + 5, h * 0.3);
+      g.lineStyle(2.4, 0x2f8f7c, 1);
+      g.beginPath(); g.moveTo(x0 + 8, 0); g.lineTo(x0 + w * 0.8, 0); g.strokePath();
+      g.fillStyle(toInt(ownerPlayerColor(f)), 1); g.fillCircle(x0 + w * 0.42, 0, 5 * ws);
       break;
     }
     case 'staff': {

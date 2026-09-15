@@ -62,8 +62,8 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
 });
 
 test('기획 증강 96종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
-  assert.equal(AUGMENTS.length, 99, '쇠사슬·화염방사기 전용 6종이 더해져 99다');
-  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 99);
+  assert.equal(AUGMENTS.length, 102, '신규 무기 3종의 전용 증강 9개가 더해져 102다');
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 102);
   // 새로 들어온 것과 이름이 바뀐 것
   for (const id of ['p_shotgun', 's_double']) assert.ok(AUG_BY_ID[id], id);
   for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas',

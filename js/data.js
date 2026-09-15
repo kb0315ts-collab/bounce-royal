@@ -42,6 +42,13 @@ const WEAPONS = {
   staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:15, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
     desc:'상대를 자동으로 겨누는 느리고 강한 마법 투사체. 벽에 한 번 반사된다.', stat:{atk:1,spd:.15,rng:.8,mob:.7},
     skillName:'마력 폭주', skillDesc:'3초간 자신이 발사한 모든 마법 투사체의 크기가 2배가 된다.' },
+  /* 평소엔 검처럼 돌며 닿으면 피해. 스킬로 바라보는 방향에 던진다.
+   * 던진 뒤에는 주울 때까지 무기가 없으니 신중해야 한다.
+   * 횟수 제한이 필요 없다 — 주워야만 다시 던질 수 있어 제한이 저절로 걸린다. */
+  shield: { name:'방패', ico:'🛡️', type:'melee', dmg:16, reach:42, tip:14, rot:2.2, moveMult:0.95,
+    throwSpd:520, throwDmg:22, decel:0.82, restSpd:40, pickupPad:18, throwLock:0.4,
+    desc:'몸에 붙여 휘두르다 던질 수 있다. 던진 뒤에는 주울 때까지 무기가 없다.', stat:{atk:.65,spd:.5,rng:.45,mob:.65},
+    skillName:'투척', skillDesc:'방패가 바라보는 방향으로 던진다. 주워야 다시 던질 수 있다.' },
   /* 자동 공격이 없는 첫 무기. 스킬 버튼을 누르고 있는 동안만 조향 방향으로
    * 분사하고 연료를 쓴다. 떼면 다시 찬다. 투사체가 없어 피할 수 없는 대신
    * 사거리가 짧고 연료가 상한 역할을 한다.
@@ -191,6 +198,9 @@ const AUGMENTS = [
   { id:'s_bounce',cat:'weapon', weapon:'staff', name:'이중 반사', desc:'마법 투사체 벽 반사 +1회' },
   { id:'m_big',   cat:'weapon', weapon:'mine', name:'대형 지뢰', desc:'지뢰를 밟는 판정 범위와 폭발 피해 판정 범위 증가' },
   { id:'m_heal',  cat:'weapon', weapon:'mine', name:'회복 지뢰', desc:'자신이 지뢰를 밟으면 체력 8% 회복' },
+  { id:'sh_magnet',  cat:'weapon', weapon:'shield', name:'자기 방패', desc:'회수 반경이 크게 늘어 스쳐 지나가도 주워진다' },
+  { id:'sh_ricochet',cat:'weapon', weapon:'shield', name:'튕기는 방패', desc:'벽에 튕길 때마다 피해 +25% (3회까지, 최대 2배)' },
+  { id:'sh_grip',    cat:'weapon', weapon:'shield', name:'단단한 손', desc:'방패를 주운 직후 5초간 받는 피해 -30%' },
   { id:'f_pressure',cat:'weapon', weapon:'flame', name:'압축 연료', desc:'사거리가 길어지는 대신 분사 각도가 좁아진다' },
   { id:'f_ember', cat:'weapon', weapon:'flame', name:'잔불', desc:'불길이 닿은 바닥에 2초간 화염이 남는다' },
   { id:'f_thrust',cat:'weapon', weapon:'flame', name:'역분사', desc:'분사하는 동안 반대 방향으로 밀려난다. 조향으로는 못 하는 기동이 열린다' },
