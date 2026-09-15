@@ -15,6 +15,23 @@ function chainPts(h) {
   return out;
 }
 
+// Keep the original four flag bits stable for existing clients.
+function visualFlags(f) {
+  const flags = f.flags || {};
+  return (flags.giantBlade ? 1 : 0) | (flags.dualDagger ? 2 : 0)
+    | (flags.shotgun ? 4 : 0) | (flags.bayonet ? 8 : 0)
+    | (flags.chainLong ? 16 : 0) | (flags.chainBarbed ? 32 : 0) | (flags.chainTwin ? 64 : 0)
+    | (flags.flamePressure ? 128 : 0) | (flags.flameEmber ? 256 : 0) | (flags.flameThrust ? 512 : 0)
+    | (flags.discGrip ? 1024 : 0) | (flags.discMagnet ? 2048 : 0) | (flags.discRicochet ? 4096 : 0);
+}
+
+// Input may stay held while stunned or disarmed; only paint actual spray.
+function flameFiring(f) {
+  const t = f.timers || {};
+  return !!(f.flame && f.flame.on && f.flame.fuel > 0
+    && !f.dead && !f.mainDead && !(t.stun > 0) && !(t.weaponLock > 0));
+}
+
 function fighterView(f) {
   const t = f.timers;
   return {
@@ -33,8 +50,7 @@ function fighterView(f) {
     ch: f.charging ? Math.max(0.05, Math.min(1, r1(f.charging.t))) : 0,
     gf: r1(f.gunFlash || 0),
     // 무기 모양에 영향을 주는 증강만 비트로 싣는다
-    fg: (f.flags.giantBlade ? 1 : 0) | (f.flags.dualDagger ? 2 : 0)
-      | (f.flags.shotgun ? 4 : 0) | (f.flags.bayonet ? 8 : 0),
+    fg: visualFlags(f),
     // 권총 재장전 상태(총검술 표시용)
     rl: f.gun && f.gun.reloadT > 0 ? 1 : 0,
     vx: Math.round(f.vx * 100) / 100, vy: Math.round(f.vy * 100) / 100,
@@ -58,20 +74,23 @@ function fighterView(f) {
       u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0),
       h: Math.round(s.hp), m: r1(s.maxHp), sh: Math.round(s.shield || 0),
       a: r2(s.weaponAngle), ch: s.charging ? Math.max(0.05, Math.min(1, r1(s.charging.t))) : 0,
+      fg: visualFlags(s),
       rl: s.gun && s.gun.reloadT > 0 ? 1 : 0,
       ...(s.disc ? { dc: [r1(s.disc.x), r1(s.disc.y), r1(s.disc.r), s.disc.resting ? 1 : 0] } : {}),
+      ...(s.gripT > 0 ? { gt: Math.max(0.1, r1(s.gripT)) } : {}),
       ...(s.flame && f.weaponId === 'flame'
-        ? { fo: s.flame.on && s.flame.fuel > 0 ? 1 : 0 } : {}),
+        ? { fo: flameFiring(s) ? 1 : 0 } : {}),
       ...(s.chainHeads && s.chainHeads.length
-        ? { cn: s.chainHeads.flatMap(h => [r1(h.x), r1(h.y)]) } : {}),
+        ? { cn: s.chainHeads.flatMap(chainPts) } : {}),
     })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
     // 던져 둔 방패. 모두에게 보여야 한다. [x, y, 반지름, 멈췄나]
     ...(f.disc ? { dc: [r1(f.disc.x), r1(f.disc.y), r1(f.disc.r), f.disc.resting ? 1 : 0] } : {}),
+    ...(f.gripT > 0 ? { gt: Math.max(0.1, r1(f.gripT)) } : {}),
     // 화염방사기. fo는 분사 중인지, fu는 남은 연료(0~100)다.
     // 불길은 모두에게 보여야 하고 연료 게이지는 자기 버튼에 쓴다.
     ...(f.flame && f.weaponId === 'flame'
-      ? { fo: f.flame.on && f.flame.fuel > 0 ? 1 : 0, fu: Math.round(f.flame.fuel) } : {}),
+      ? { fo: flameFiring(f) ? 1 : 0, fu: Math.round(f.flame.fuel) } : {}),
     // 쇠사슬. 줄은 마디로 꺾이므로 추만 보내면 클라이언트는 막대기를 그린다.
     // 마디 전부를 공에서 추 순서로 싣는다 — 줄 하나당 CHAIN_SEGS개 점이고,
     // 마지막 점이 추다. 이중 사슬이면 그게 두 벌 이어진다.

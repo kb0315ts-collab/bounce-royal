@@ -488,7 +488,22 @@ function drawGroundFx(g, glow, b) {
       const spin = d.resting ? 0 : t * 9;
       g.fillStyle(CASUAL_INK, 0.2);
       g.fillEllipse(d.x + 2, d.y + 6, d.r * 2.3, d.r * (d.resting ? 1.5 : 1.1));
+      if (d.resting) {
+        // A loose, low pickup cue, not a second collision outline.
+        g.lineStyle(1.8, toInt(ownerPlayerColor(owner)), 0.45 + Math.sin(t * 4) * 0.1);
+        g.strokeEllipse(d.x, d.y + 4, d.r * 3.2, d.r * 1.55);
+      }
       g.save(); g.translateCanvas(d.x, d.y); g.rotateCanvas(spin);
+      if (!d.resting) {
+        // Two bounded spin streaks work on live snapshots and replays alike.
+        for (let i = 0; i < 2; i++) {
+          const a = i * Math.PI + 0.25;
+          g.lineStyle(2.5, 0xfff6dc, 0.72);
+          g.beginPath(); g.arc(0, 0, d.r + 5, a, a + 1.1); g.strokePath();
+          g.lineStyle(1.8, toInt(ownerPlayerColor(owner)), 0.62);
+          g.beginPath(); g.arc(0, 0, d.r + 8, a + 0.2, a + 0.8); g.strokePath();
+        }
+      }
       discFaceG(g, 0, 0, d.r, toInt(ownerPlayerColor(owner)));
       g.restore();
     }
@@ -629,16 +644,22 @@ function drawBallG(g, f, x, y, r, opts = {}) {
  * 한 군데서 그려서 둘이 갈라지지 않게 한다.
  * 테두리 리벳 넷이 도는 것을 보이게 해 준다 (원은 그냥 돌면 안 보인다). */
 function discFaceG(g, x, y, r, own) {
-  g.fillStyle(0x6fd3bb, 1); g.fillCircle(x, y, r);
-  g.lineStyle(3.2, CASUAL_INK, 1); g.strokeCircle(x, y, r);
-  g.fillStyle(0xb6f0e2, 1); g.fillCircle(x, y, r * 0.62);
-  g.lineStyle(2.4, 0x2f8f7c, 1); g.strokeCircle(x, y, r * 0.62);
-  g.fillStyle(CASUAL_INK, 0.55);
+  g.fillStyle(0xffd256, 1); g.fillCircle(x, y, r);
+  g.lineStyle(Math.max(2.3, r * 0.16), CASUAL_INK, 1); g.strokeCircle(x, y, r);
+  g.fillStyle(0xfff6dc, 1); g.fillCircle(x, y, r * 0.8);
+  g.lineStyle(Math.max(1.2, r * 0.08), CASUAL_INK, 1); g.strokeCircle(x, y, r * 0.8);
+  g.fillStyle(0x95dac4, 1); g.fillCircle(x, y, r * 0.59);
+  g.lineStyle(Math.max(1.4, r * 0.1), CASUAL_INK, 1); g.strokeCircle(x, y, r * 0.59);
+  g.lineStyle(Math.max(1.2, r * 0.12), 0xffffff, 0.9);
+  g.beginPath(); g.arc(x, y, r * 0.46, Math.PI * 1.08, Math.PI * 1.48); g.strokePath();
   for (let i = 0; i < 4; i++) {
-    const a = i * TAU / 4 + 0.79;
-    g.fillCircle(x + Math.cos(a) * r * 0.81, y + Math.sin(a) * r * 0.81, r * 0.1);
+    const a = i * TAU / 4;
+    g.lineStyle(Math.max(1.3, r * 0.1), CASUAL_INK, 1);
+    g.beginPath(); g.moveTo(x + Math.cos(a) * r * 0.87, y + Math.sin(a) * r * 0.87);
+    g.lineTo(x + Math.cos(a) * r * 0.97, y + Math.sin(a) * r * 0.97); g.strokePath();
   }
-  g.fillStyle(own, 1); g.fillCircle(x, y, r * 0.28);
+  g.fillStyle(own, 1); g.fillCircle(x, y, r * 0.25);
+  g.lineStyle(Math.max(1.3, r * 0.1), CASUAL_INK, 1); g.strokeCircle(x, y, r * 0.25);
 }
 
 function drawWeaponG(g, f) {
@@ -776,8 +797,9 @@ function bladeShape(g, x0, bladeLen, w) {
   g.lineStyle(1.1, 0xffffff, 1); g.beginPath(); g.moveTo(x0 + 4, -w * 0.26); g.lineTo(x0 + bladeLen * 0.74, -w * 0.26); g.strokePath();
 }
 
-/* 화염방사기 — 짧은 노즐과, 분사 중일 때만 나오는 불꽃 원뿔.
- * 불꽃은 삼각 두 겹(바깥 주황 / 안쪽 노랑)에 끝의 작은 불똥으로 만든다. */
+/* A mint fuel tank + cream/gold nozzle. The moving flame tongues remain
+ * WITHIN the real center-based cone, including the pressure augment's range.
+ * No emitters, randomness, glow filters, or simulation state mutations. */
 function drawFlameG(g, f, ws) {
   const wp = WEAPONS.flame;
   const R = f.radius;
@@ -788,42 +810,70 @@ function drawFlameG(g, f, ws) {
   g.save();
   g.translateCanvas(f.x, f.y);
   g.rotateCanvas(a);
-  // 노즐 — 굵은 먹선 + 밝은 면, 다른 무기와 같은 문법
-  g.fillStyle(CASUAL_INK, 1); g.fillRoundedRect(R * 0.4, -7.5, 24, 15, 4);
-  g.fillStyle(0xd06a3a, 1); g.fillRoundedRect(R * 0.4 + 2, -5.5, 20, 11, 3);
-  g.fillStyle(0xffd256, 1); g.fillCircle(R * 0.4 + 21, 0, 4);
-  g.lineStyle(2.4, CASUAL_INK, 1); g.strokeCircle(R * 0.4 + 21, 0, 4);
-  if (f.flame && f.flame.on) {
+  const nozzle = R * 0.45, x0 = nozzle + 27 * ws;
+  const firing = f.flame && f.flame.on && f.flame.fuel > 0 && !f.dead && !f.mainDead &&
+    !(f.timers && (f.timers.weaponLock > 0 || f.timers.stun > 0));
+  if (firing && range > x0) {
     const t = performance.now() / 1000;
-    const x0 = R * 0.4 + 24;
-    const wob = 1 + Math.sin(t * 22) * 0.06;
-    const tip = x0 + (range - x0) * wob;
-    const spread = Math.tan(half) * tip;
-    g.fillStyle(0xff8a3c, 0.85);
-    g.fillTriangle(x0, -6, tip, -spread, tip, spread);
-    g.fillStyle(0xffc83c, 0.9);
-    g.fillTriangle(x0, -4, tip * 0.78, -spread * 0.62, tip * 0.78, spread * 0.62);
-    g.fillStyle(0xfff2b0, 0.95);
-    g.fillTriangle(x0, -2.5, tip * 0.45, -spread * 0.3, tip * 0.45, spread * 0.3);
-    // 끝의 불똥 — 시간에 따라 흩어진다
+    const tip = range * (0.975 + Math.sin(t * 24) * 0.015);
+    const side = Math.sin(half) * range;
+    const tongue = (end, width, color, alpha, outline) => {
+      const length = end - x0;
+      const point = (x, y, first = false) => {
+        const bound = Math.min(x * Math.tan(half), Math.sqrt(Math.max(0, range * range - x * x))) * 0.97;
+        const py = Math.max(-bound, Math.min(bound, y));
+        if (first) g.moveTo(x, py); else g.lineTo(x, py);
+      };
+      g.beginPath(); point(x0, -Math.min(4 * ws, width * 0.22), true);
+      point(x0 + length * 0.52, -width * 0.67);
+      point(x0 + length * 0.72, -width * 0.96);
+      point(x0 + length * 0.66, -width * 0.27);
+      point(x0 + length * 0.92, -width * 0.43);
+      point(x0 + length * 0.81, -width * 0.08);
+      point(end, 0);
+      point(x0 + length * 0.82, width * 0.29);
+      point(x0 + length * 0.87, width * 0.72);
+      point(x0 + length * 0.62, width * 0.50);
+      point(x0 + length * 0.58, width * 0.84);
+      point(x0, Math.min(4 * ws, width * 0.22)); g.closePath();
+      g.fillStyle(color, alpha); g.fillPath();
+      if (outline) { g.lineStyle(1.8 * ws, 0xc8623e, 0.8); g.strokePath(); }
+    };
+    tongue(tip, side * 0.88, 0xff9850, 0.9, true);
+    tongue(x0 + (tip - x0) * 0.88, side * 0.56, 0xffd256, 0.96, false);
+    tongue(x0 + (tip - x0) * 0.66, side * 0.27, 0xfff6dc, 1, false);
+    // Three small embers move down the cone; none extend its apparent reach.
     for (let i = 0; i < 3; i++) {
-      const k = (t * 1.6 + i * 0.33) % 1;
-      const px = x0 + (tip - x0) * k;
-      const py = Math.sin(t * 13 + i * 2.1) * spread * k * 0.8;
-      g.fillStyle(0xffe08a, 0.7 * (1 - k));
-      g.fillCircle(px, py, 3.5 * (1 - k) + 1);
+      const k = (t * 2.8 + i / 3) % 1;
+      const sr = (1.6 + (1 - k) * 1.2) * ws;
+      const px = Math.min(range - sr * 2.1, x0 + (tip - x0) * k);
+      const py = Math.sin(t * 10 + i * 2.1) * side * k * 0.35;
+      g.fillStyle(0xfff6dc, (1 - k) * 0.85);
+      g.fillTriangle(px - sr, py - sr, px + sr * 1.5, py, px - sr, py + sr);
     }
   }
+  // A short body rather than a dark stick: tank, fuel stripe, insulated grip.
+  g.fillStyle(0xf18c66, 1); g.fillRoundedRect(nozzle + 6 * ws, 4 * ws, 8 * ws, 13 * ws, 2 * ws);
+  g.lineStyle(2.3 * ws, CASUAL_INK, 1); g.strokeRoundedRect(nozzle + 6 * ws, 4 * ws, 8 * ws, 13 * ws, 2 * ws);
+  g.fillStyle(0x95dac4, 1); g.fillRoundedRect(nozzle - 4 * ws, -14 * ws, 13 * ws, 22 * ws, 5 * ws);
+  g.lineStyle(2.3 * ws, CASUAL_INK, 1); g.strokeRoundedRect(nozzle - 4 * ws, -14 * ws, 13 * ws, 22 * ws, 5 * ws);
+  g.fillStyle(0xfff6dc, 1); g.fillRoundedRect(nozzle + 5 * ws, -6 * ws, 20 * ws, 12 * ws, 2 * ws);
+  g.lineStyle(2.3 * ws, CASUAL_INK, 1); g.strokeRoundedRect(nozzle + 5 * ws, -6 * ws, 20 * ws, 12 * ws, 2 * ws);
+  g.fillStyle(0xffd256, 1); g.fillRoundedRect(nozzle + 21 * ws, -8 * ws, 7 * ws, 16 * ws, 2 * ws);
+  g.lineStyle(2.2 * ws, CASUAL_INK, 1); g.strokeRoundedRect(nozzle + 21 * ws, -8 * ws, 7 * ws, 16 * ws, 2 * ws);
+  g.lineStyle(2 * ws, 0xffffff, 0.95); g.beginPath();
+  g.moveTo(nozzle - ws, -10 * ws); g.lineTo(nozzle + 5 * ws, -10 * ws); g.strokePath();
+  g.fillStyle(firing ? 0xfff6dc : CASUAL_INK, 1); g.fillRect(nozzle + 25 * ws, -3.2 * ws, 3 * ws, 6.4 * ws);
   g.restore();
 }
 
-/* 쇠사슬 — 줄은 마디 원을 이어 그리고 끝에 추를 단다.
- * 빠르게 돌 때 잔상을 하나 깔아 '휘둘렀다'가 눈에 보이게 한다. */
+/* Actual constraint nodes drive all links. Alternating little oval faces make
+ * them read as chain rather than a rigid rod, with no simulated visual lag. */
 function drawChainG(g, f, ws) {
   const heads = f.chainHeads || [];
   if (!heads.length) return;
   const R = f.radius;
-  const headR = 10 * ws;
+  const headR = WEAPONS.chain.headR * ws;
   const own = toInt(ownerPlayerColor(f));
   for (const h of heads) {
     const nodes = h.nodes || [];
@@ -840,27 +890,47 @@ function drawChainG(g, f, ws) {
       g.strokePath();
     };
     // 굵은 먹선 위에 밝은 선을 얹는 이 게임의 기본 문법
-    g.lineStyle(7, CASUAL_INK, 1); trace();
-    g.lineStyle(3.4, 0xc8cede, 1); trace();
-    // 마디 — 꺾이는 자리마다 고리를 하나씩 얹는다
-    for (let i = 1; i < rope.length - 1; i++) {
-      g.fillStyle(0xe6e9f2, 1); g.fillCircle(rope[i].x, rope[i].y, 3.4);
-      g.lineStyle(1.6, CASUAL_INK, 1); g.strokeCircle(rope[i].x, rope[i].y, 3.4);
+    g.lineStyle(5.4 * ws, CASUAL_INK, 1); trace();
+    g.lineStyle(2.5 * ws, 0xfff6dc, 1); trace();
+    // Inset links along each real segment: bounded even on a long/twin chain.
+    for (let i = 1; i < rope.length; i++) {
+      const p = rope[i - 1], q = rope[i];
+      const length = Math.hypot(q.x - p.x, q.y - p.y);
+      const count = Math.min(3, Math.max(1, Math.floor(length / (10 * ws))));
+      const angle = Math.atan2(q.y - p.y, q.x - p.x);
+      for (let j = 0; j < count; j++) {
+        const k = (j + 0.5) / count;
+        const x = p.x + (q.x - p.x) * k, y = p.y + (q.y - p.y) * k;
+        const wide = (i + j) % 2 === 0;
+        g.save(); g.translateCanvas(x, y); g.rotateCanvas(angle);
+        g.fillStyle(wide ? 0x84dcf0 : 0xfff6dc, 1);
+        g.fillEllipse(0, 0, 7 * ws, (wide ? 5.5 : 3.6) * ws);
+        g.lineStyle(1.35 * ws, CASUAL_INK, 1);
+        g.strokeEllipse(0, 0, 7 * ws, (wide ? 5.5 : 3.6) * ws);
+        if (f.flags.chainBarbed && j === 0 && i % 2 === 0) {
+          g.fillStyle(0xfff6dc, 1);
+          g.fillTriangle(-3 * ws, -2 * ws, ws, -8 * ws, 4 * ws, -ws);
+          g.strokeTriangle(-3 * ws, -2 * ws, ws, -8 * ws, 4 * ws, -ws);
+          g.fillTriangle(3 * ws, 2 * ws, -ws, 8 * ws, -4 * ws, ws);
+          g.strokeTriangle(3 * ws, 2 * ws, -ws, 8 * ws, -4 * ws, ws);
+        }
+        g.restore();
+      }
     }
-    // 추 — 바닥 그림자, 몸통, 먹선, 주인 색 한 점, 가시 넷
+    // The head stays compact and weighty; the player-colour hub identifies it.
     g.fillStyle(CASUAL_INK, 0.16); g.fillEllipse(h.x + 2, h.y + 5, headR * 2.2, headR * 1.3);
-    g.fillStyle(0x9aa3bb, 1); g.fillCircle(h.x, h.y, headR);
-    g.lineStyle(3, CASUAL_INK, 1); g.strokeCircle(h.x, h.y, headR);
-    g.lineStyle(3, CASUAL_INK, 1);
-    for (let i = 0; i < 4; i++) {
-      const a = i * TAU / 4 + 0.4;
-      g.beginPath();
-      g.moveTo(h.x + Math.cos(a) * headR * 0.8, h.y + Math.sin(a) * headR * 0.8);
-      g.lineTo(h.x + Math.cos(a) * (headR + 5), h.y + Math.sin(a) * (headR + 5));
-      g.strokePath();
-    }
-    g.fillStyle(0xd7dcea, 1); g.fillCircle(h.x - headR * 0.3, h.y - headR * 0.32, headR * 0.34);
-    g.fillStyle(own, 1); g.fillCircle(h.x, h.y, headR * 0.3);
+    const last = nodes[nodes.length - 1] || { x: f.x, y: f.y };
+    g.save(); g.translateCanvas(h.x, h.y); g.rotateCanvas(Math.atan2(h.y - last.y, h.x - last.x));
+    g.fillStyle(0xfff6dc, 1); g.fillRoundedRect(-headR * 1.25, -headR * 0.3, headR * 0.7, headR * 0.6, headR * 0.1);
+    g.lineStyle(1.8 * ws, CASUAL_INK, 1); g.strokeRoundedRect(-headR * 1.25, -headR * 0.3, headR * 0.7, headR * 0.6, headR * 0.1);
+    g.fillStyle(0x95b1c7, 1); g.fillCircle(0, 0, headR);
+    g.lineStyle(2.4 * ws, CASUAL_INK, 1); g.strokeCircle(0, 0, headR);
+    g.fillStyle(0x7797b0, 1); g.fillEllipse(headR * 0.12, headR * 0.28, headR * 1.5, headR * 0.97);
+    g.lineStyle(2 * ws, 0xfff6dc, 1); g.beginPath();
+    g.arc(0, 0, headR * 0.67, Math.PI * 1.02, Math.PI * 1.47); g.strokePath();
+    g.fillStyle(own, 1); g.fillCircle(headR * 0.06, headR * 0.1, headR * 0.32);
+    g.lineStyle(1.5 * ws, CASUAL_INK, 1); g.strokeCircle(headR * 0.06, headR * 0.1, headR * 0.32);
+    g.restore();
   }
 }
 
@@ -880,6 +950,17 @@ function bladeUnit(g, R, bladeLen, w, off) {
 function drawFighterAura(g, f, x, y, r) {
   const T = f.timers || {}, now = performance.now() / 1000;
   const dx = Number.isFinite(f.vx) ? f.vx : 0, dy = Number.isFinite(f.vy) ? f.vy : 0;
+  if (f.gripT > 0) {
+    // Mint brackets distinguish the temporary catch guard from white immunity.
+    const alpha = Math.min(0.9, f.gripT * 1.8);
+    for (let i = 0; i < 2; i++) {
+      const a = i * Math.PI - 0.64;
+      g.lineStyle(5, CASUAL_INK, alpha * 0.7);
+      g.beginPath(); g.arc(x, y, r + 5.5, a, a + 1.28); g.strokePath();
+      g.lineStyle(2.8, 0x95dac4, alpha);
+      g.beginPath(); g.arc(x, y, r + 5.5, a, a + 1.28); g.strokePath();
+    }
+  }
   const forceTrail = !!f.rocketActive || T.dashT > 0 || (f.st && f.st.move > 205);
   if (forceTrail && (dx || dy)) {
     const strength = f.rocketActive ? 1 : T.dashT > 0 ? 0.82 : 0.35;
@@ -942,11 +1023,14 @@ function drawFighterAura(g, f, x, y, r) {
  * 본체 것을 그대로 두면 추와 불길이 분열체 수만큼 겹쳐 그려진다. */
 function splitProxy(f, sp, sr) {
   return Object.assign({}, f, {
+    uid: sp.uid != null ? sp.uid : f.uid,
     x: sp.x, y: sp.y, radius: sr, r: sr,
     flash: sp.flash || 0,
     mainDead: false, dead: false,
     weaponAngle: sp.weaponAngle != null ? sp.weaponAngle : f.weaponAngle,
     timers: sp.timers || f.timers,
+    flags: sp.flags || f.flags,
+    gripT: sp.gripT || 0,
     charging: sp.charging !== undefined ? sp.charging : f.charging,
     gun: sp.gun !== undefined ? sp.gun : f.gun,
     chainHeads: sp.chainHeads || null,
@@ -967,7 +1051,7 @@ function drawUnits(g, b) {
       if (sp.dead) continue;
       const sr = sp.r || sp.radius || 12;
       const proxy = splitProxy(f, sp, sr);
-      drawFighterAura(g, sp, sp.x, sp.y, sr);
+      drawFighterAura(g, proxy, sp.x, sp.y, sr);
       drawBallG(g, proxy, sp.x, sp.y, sr, { spin: proxy.weaponAngle });
       drawWeaponG(g, proxy);
     }
@@ -1338,6 +1422,14 @@ function drawLoadoutPortrait(target, charId, weaponId, color = '#4da6ff') {
     mainDead: false, flash: 0, gunFlash: 0, charging: null,
     flags: {}, timers: { balloon: 0, rampage: 0, immune: 0, untouchable: 0, freeze: 0, actingDead: 0 },
   };
+  // Portrait-only pose. Do not initialize physics or change a real fighter to
+  // show equipment: the same drawChainG simply receives a small hanging chain.
+  if (weaponId === 'chain') {
+    f.chainHeads = [{ x: f.x + 55, y: f.y + 4, nodes: [
+      { x: f.x + 20, y: f.y - 16 }, { x: f.x + 35, y: f.y - 19 },
+      { x: f.x + 49, y: f.y - 13 },
+    ] }];
+  }
   drawWeapon(c, f);
   drawBall(c, f, f.x, f.y, f.radius);
   c.restore();

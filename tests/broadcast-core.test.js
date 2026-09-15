@@ -25,7 +25,7 @@ function runtime() {
   const ctx = vm.createContext({ console, Math: math, performance, Map, Set });
   const names = ['Battle', 'battleCommentary', 'recordRoundFact', 'pruneBattleCommentary',
     'spawnProj', 'projectileHit', 'useSkill', 'updateTimers', 'weaponDamage', 'dealDamage',
-    'healFighter', 'netBattleView', 'lerpSnapshot'];
+    'healFighter', 'netBattleView', 'lerpSnapshot', 'updateWeapon'];
   vm.runInContext(['js/data.js', 'js/sim.js', 'js/net.js'].map(file =>
     fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n')
     + '\nglobalThis.api = {' + names.join(',') + '};', ctx);
@@ -332,4 +332,44 @@ test('재생 보간은 실제 UID와 짧은 회전각을 쓰며 원본 프레임
   assert.equal(view.human(), view.fighters[0]);
   assert.equal(view.isReplay, true);
   assert.deepEqual(json([before, after]), saved);
+});
+
+test('신무기 리플레이는 전체 사슬·분열체·화염·방패를 순환 참조 없이 보존하고 보간한다', () => {
+  const r = runtime(), b = r.battle({weaponId:'chain'}, {weaponId:'shield'}), [a, shield] = b.fighters;
+  b.phase = 'fight';
+  r.updateWeapon(b,a,1/60); r.useSkill(b,shield,'weapon');
+  b.spawnSplits(a);
+  for(const s of a.splitBalls) r.updateWeapon(b,s,1/60);
+  a.flame = {on:true,firing:true,fuel:40}; shield.gripT=3;
+  const before = paintFrame(b);
+  assert.equal(before.fighters[1].disc.owner,undefined);
+  assert.equal(before.fighters[1].disc.contact,undefined);
+  assert.equal(before.fighters[1].gripT,3);
+  assert.deepEqual(before.fighters[0].flame,{on:true,firing:true,fuel:40});
+  assert.equal(before.fighters[0].chainHeads[0].nodes.length,4);
+  assert.equal(before.fighters[0].chainHeads[0]._sweep,undefined);
+  for(const body of [a,...a.splitBalls]) {
+    body.x+=20;
+    for(const head of body.chainHeads) {
+      head.x+=20; for(const node of head.nodes) node.x+=20;
+    }
+  }
+  shield.disc.x+=40;
+  const after=paintFrame(b), saved=json([before,after]);
+  const mid=playbackFrame(before,after,.5);
+  assert.equal(mid.fighters[0].chainHeads[0].x,before.fighters[0].chainHeads[0].x+10);
+  assert.equal(mid.fighters[0].chainHeads[0].nodes[0].x,before.fighters[0].chainHeads[0].nodes[0].x+10);
+  assert.equal(mid.fighters[0].splitBalls[0].chainHeads[0].x,before.fighters[0].splitBalls[0].chainHeads[0].x+10);
+  assert.equal(mid.fighters[1].disc.x,before.fighters[1].disc.x+20);
+  assert.deepEqual(json([before,after]),saved);
+});
+
+test('짧은 쇠사슬 위치 교환도 리플레이에서 추와 공이 서로 미끄러져 지나가지 않는다', () => {
+  const r=runtime(), b=r.battle({weaponId:'chain'}), a=b.fighters[0];
+  b.phase='fight'; r.updateWeapon(b,a,1/60);
+  const before=paintFrame(b);
+  assert.equal(r.useSkill(b,a,'weapon'),true);
+  const after=paintFrame(b), mid=playbackFrame(before,after,.5);
+  assert.equal(mid.fighters[0].x,after.fighters[0].x);
+  assert.deepEqual(mid.fighters[0].chainHeads,after.fighters[0].chainHeads);
 });

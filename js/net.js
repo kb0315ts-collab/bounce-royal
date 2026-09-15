@@ -428,6 +428,22 @@ function lerpAngle(a, b, k) {
 }
 function lerp(a, b, k) { return a + (b - a) * k; }
 
+// World-space weapons must move at the same render rate as their owner.
+// Shape/count changes and teleports use the latest geometry without blending.
+function lerpWeaponGeometry(a, b, k, jump) {
+  const out = {};
+  if (b.cn) {
+    const canMix = a.cn && a.cn.length === b.cn.length
+      && b.cn.every((value, i) => i % 2 || Math.hypot(value - a.cn[i], b.cn[i + 1] - a.cn[i + 1]) <= jump);
+    out.cn = canMix ? b.cn.map((value, i) => lerp(a.cn[i], value, k)) : b.cn;
+  }
+  if (b.dc) {
+    const canMix = a.dc && Math.hypot(b.dc[0] - a.dc[0], b.dc[1] - a.dc[1]) <= jump;
+    out.dc = canMix ? [lerp(a.dc[0], b.dc[0], k), lerp(a.dc[1], b.dc[1], k), b.dc[2], b.dc[3]] : b.dc;
+  }
+  return out;
+}
+
 /* uid로 짝지어 위치만 섞는다. 짝이 없으면(새로 생긴 것) 최신 값을 그대로 쓴다. */
 /* body가 참이면 무기 각도와 체력도 섞는다. 분열체는 본체처럼 제 무기를
  * 돌리므로, 위치만 섞으면 무기가 20Hz 계단으로 튄다. */
@@ -442,6 +458,7 @@ function lerpById(prevList, nextList, k, jump, body) {
     if (body) {
       if (q.a != null && s.a != null) mixed.a = lerpAngle(q.a, s.a, k);
       if (q.h != null && s.h != null) mixed.h = lerp(q.h, s.h, k);
+      Object.assign(mixed, lerpWeaponGeometry(q, s, k, jump));
     }
     return Object.assign({}, s, mixed);
   });
@@ -466,13 +483,19 @@ function lerpSnapshot(a, b, k, spanMs) {
   out.t = lerp(a.t, b.t, k);
   out.sh = lerp(a.sh, b.sh, k);
   const jump = maxTravel(spanMs > 0 ? spanMs : SNAP_INTERVAL_MS);
+  // A chain swap can be shorter than maxTravel. Its authoritative skill event
+  // still means an instant exchange, not a ball sliding through the rope.
+  const oldEvents = new Set((a.ce || []).map(e => e.seq));
+  const swapped = new Set((b.ce || []).filter(e => e.type === 'skill'
+    && e.source === 'skill:chain' && !oldEvents.has(e.seq)).map(e => e.actor));
   // 전투원: 같은 uid끼리만 섞는다
   const prev = new Map(a.f.map(f => [f.u, f]));
   out.f = b.f.map(f => {
     const p = prev.get(f.u);
     if (!p) return f;
+    if (swapped.has(f.u)) return f; // commentary actor is the parent even for splits
     if (Math.hypot(f.x - p.x, f.y - p.y) > jump) return f;   // 순간이동은 그대로 스냅
-    return Object.assign({}, f, {
+    return Object.assign({}, f, lerpWeaponGeometry(p, f, k, jump), {
       x: lerp(p.x, f.x, k), y: lerp(p.y, f.y, k),
       // 반지름은 섞지 않는다. 전투 중 크기는 풍선 스킬(1.6배)처럼 계단식으로만
       // 바뀌므로, 섞으면 즉발이어야 할 스킬 발동이 50ms 램프로 뭉개진다.
@@ -543,6 +566,8 @@ function chainHeadsOf(cn) {
   if (!cn || !cn.length) return NET_EMPTY;
   const pts = [];
   for (let i = 0; i + 1 < cn.length; i += 2) pts.push({ x: cn[i], y: cn[i + 1] });
+  // Older servers sent only one or two heads for split fighters.
+  if (pts.length < NET_CHAIN_SEGS) return pts.map(p => ({ ...p, vx: 0, vy: 0, nodes: [] }));
   const out = [];
   for (let i = 0; i + NET_CHAIN_SEGS <= pts.length; i += NET_CHAIN_SEGS) {
     const rope = pts.slice(i, i + NET_CHAIN_SEGS);
@@ -550,6 +575,15 @@ function chainHeadsOf(cn) {
     out.push({ x: head.x, y: head.y, vx: 0, vy: 0, nodes: rope.slice(0, -1) });
   }
   return out;
+}
+
+function netVisualFlags(fg) {
+  return {
+    giantBlade: !!(fg & 1), dualDagger: !!(fg & 2), shotgun: !!(fg & 4), bayonet: !!(fg & 8),
+    chainLong: !!(fg & 16), chainBarbed: !!(fg & 32), chainTwin: !!(fg & 64),
+    flamePressure: !!(fg & 128), flameEmber: !!(fg & 256), flameThrust: !!(fg & 512),
+    discGrip: !!(fg & 1024), discMagnet: !!(fg & 2048), discRicochet: !!(fg & 4096),
+  };
 }
 
 function netFighter(view, meta, seat) {
@@ -581,21 +615,20 @@ function netFighter(view, meta, seat) {
       actingDead: ti.ad || 0, stun: ti.st || 0, balloon: ti.ba || 0,
       rampage: ti.ra || 0, gunBarrage: ti.gb || 0, berserk: ti.be || 0,
     },
-    flags: {
-      giantBlade: !!(fg & 1), dualDagger: !!(fg & 2),
-      shotgun: !!(fg & 4), bayonet: !!(fg & 8),
-    },
+    flags: netVisualFlags(fg),
     // 스냅샷은 h/m으로 싣고 렌더러는 hp/maxHp를 읽는다 (소환수 체력바)
     summons: (view.sm || NET_EMPTY).map(s => ({ u: s.u, x: s.x, y: s.y, r: s.r, hp: s.h, maxHp: s.m })),
     // 분열체도 체력바와 무기를 그린다. 세계 좌표를 쓰는 무기(사슬·방패)는
     // 본체 것을 빌려 쓰면 두 번 그려지므로 제 것만 넘긴다.
     splitBalls: (view.sp || NET_EMPTY).map(s => ({
+      uid: s.u, flags: netVisualFlags(s.fg == null ? fg : s.fg),
       dead: false, x: s.x, y: s.y, r: s.r, radius: s.r, flash: s.fl || 0,
       hp: s.h, maxHp: s.m, shield: s.sh || 0,
       weaponAngle: s.a || 0,
       charging: s.ch ? { t: s.ch } : null,
       gun: { reloadT: s.rl ? 1 : 0, focus: false },
       disc: s.dc ? { x: s.dc[0], y: s.dc[1], r: s.dc[2], resting: !!s.dc[3] } : null,
+      gripT: s.gt || 0,
       flame: { on: !!s.fo, fuel: 100, idle: 0 },
       chainHeads: s.cn ? chainHeadsOf(s.cn) : null,
     })),
@@ -604,6 +637,7 @@ function netFighter(view, meta, seat) {
     satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),
     // 던져 둔 방패. 그리기에만 쓴다.
     disc: view.dc ? { x: view.dc[0], y: view.dc[1], r: view.dc[2], resting: !!view.dc[3] } : null,
+    gripT: view.gt || 0,
     // 화염방사기 — 불길을 그리고 연료 게이지를 채운다.
     flame: { on: !!view.fo, fuel: view.fu == null ? 100 : view.fu, idle: 0 },
     // 쇠사슬의 추. 그리기에만 쓰므로 위치만 있으면 된다.

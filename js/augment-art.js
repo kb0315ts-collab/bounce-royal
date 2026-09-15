@@ -66,6 +66,21 @@
     path('M0-32V32M-28-16L28 16M-28 16L28-16M-8-24L0-16L8-24M-8 24L0 16L8 24M-25-4L-14-8L-15-20M25 4L14 8L15 20M-25 4L-14 8L-15 20M25-4L14-8L15-20', 'none', `stroke="${C.blue}" stroke-width="3.5"`);
   const target = circle(0, 0, 26, C.cream) + circle(0, 0, 13, C.coral, 'stroke-width="3.5"') +
     line('M0-35V-22M0 35V22M-35 0H-22M35 0H22');
+  // Match the actual new weapons: cream/gold rim + mint disc, mint fuel tank,
+  // and chunky blue-steel weights. These are not the generic defence/orbit art.
+  const disc = circle(0, 0, 30, C.gold) + circle(0, 0, 24, C.cream, 'stroke-width="3"') +
+    circle(0, 0, 17, C.mint, 'stroke-width="3.5"') + circle(0, 0, 7, C.blue, 'stroke-width="3"') +
+    path('M-14-7Q-10-15-3-16', 'none', `stroke="${C.white}" stroke-width="4"`) + line('M0-28V-25M28 0H25M0 28V25M-28 0H-25');
+  const chainWeight = path('M-7-16H7V-12L15-6V7L7 15H-7L-15 7V-6L-7-12Z', '#95b1c7') +
+    path('M-10-3Q-7-10 0-10', 'none', `stroke="${C.cream}" stroke-width="3.5"`) + circle(2, 3, 4.5, C.gold, 'stroke-width="2.5"');
+  const chainLinks = path('M-23-29Q-31-11-17 1L5 17', 'none', 'stroke-width="8"') +
+    path('M-23-29Q-31-11-17 1L5 17', 'none', `stroke="${C.cream}" stroke-width="3.5"`) +
+    ellipse(-24, -22, 5, 8, C.cream, 'stroke-width="3.5"') +
+    ellipse(-22, -7, 5, 8, C.blue, 'stroke-width="3.5" transform="rotate(-30 -22 -7)"');
+  const weightedChain = chainLinks + group(chainWeight, 16, 17, 1.18);
+  const flameJet = path('M-17-5L-3-16L-5-6L18-29L13-9L34-13L24 1L32 13L13 11L13 24L-16 6Z', C.orange) +
+    path('M-18 0L6-10L1 0L23 2L8 10L-18 5Z', '#ffef8c', noStroke) +
+    path('M-33-9H-15V10H-33Z', C.mint) + path('M-20-9V10', 'none', `stroke="${C.cream}" stroke-width="4"`);
 
   // Shared primary silhouettes. Repetition within a family is deliberate:
   // the badge changes the rule, not the identity of its weapon/stat.
@@ -78,6 +93,15 @@
       path('M-24 15Q-20 29-7 31L-11 22M-7 31L-18 33', 'none', `stroke="${C.ink}" stroke-width="4"`),
     allStats: streaks + group(sword, -7, -8, .81) + group(ball(C.gold), 15, 13, .65),
     shield, coin, clock, flame, lightning: bolt, missile, shuriken, beam, mine, orb, gun, snow, target,
+    disc, weightedChain, flameJet,
+    barbedChain: chainLinks + path('M-27-8L-37-11L-29 2M-13-1L-9-13L-5 6M-7 12L-15 23L-1 20', C.cream, 'stroke-width="3.5"') +
+      group(chainWeight, 16, 17, 1.18),
+    twinChain: path('M-22-19L0 0L23 20', 'none', 'stroke-width="9"') +
+      path('M-22-19L0 0L23 20', 'none', `stroke="${C.cream}" stroke-width="3.5"`) +
+      group(chainWeight, -22, -20, .88) + group(chainWeight, 22, 20, .88) + ball(C.blue, 11),
+    emberJet: group(flameJet, 0, -10, .87) + ellipse(7, 25, 28, 7, C.coral, 'stroke-width="3"') +
+      path('M-9 23L-4 8L2 19L13 4L14 19L22 15L19 29H-6Z', C.orange, 'stroke-width="3.5"') +
+      path('M3 24L9 16L12 25Z', '#ffef8c', noStroke),
     rocketBall: path('M-17-15L-36-4L-27 2L-38 17L-14 15Z', C.orange) + group(ball(), 9, -3, 1),
     shockwave: ellipse(0, 8, 35, 24, 'none', `stroke="${C.blueDark}" stroke-width="5"`) +
       ellipse(0, 8, 27, 15, 'none', 'stroke-width="3.5"') + group(ball(), 0, -7, .64),
@@ -159,6 +183,11 @@
     freeze: snow,
     rotation: path('M-26-8A27 27 0 0 1 25-10L14-12M25-10L28-23M26 8A27 27 0 0 1-25 10L-14 12M-25 10L-28 23', 'none', `stroke="${C.blueDark}" stroke-width="6"`),
     push: path('M-28 0H29M10-20L30 0L10 20', 'none', `stroke="${C.blueDark}" stroke-width="9"`),
+    recoil: path('M29 0H-29M-9-20L-30 0L-9 20', 'none', `stroke="${C.blueDark}" stroke-width="9"`),
+    magnet: path('M-27-27H-11V4Q0 20 11 4V-27H27V5Q0 48-27 5Z', C.coral) +
+      path('M-27-27H-11V-12H-27ZM11-27H27V-12H11Z', C.cream, 'stroke-width="3"'),
+    grip: path('M-22 7V-4Q-22-12-15-12V-22Q-15-30-7-27Q-4-36 4-28Q14-32 17-21Q27-23 28-13V7L17 20V30H-14V19Z', C.gold) +
+      path('M-15-9H6Q15-6 10 3H-7M-6-25V-14M5-25V-14M17-20V-10', 'none', 'stroke-width="3.5"'),
   });
 
   // Descriptors deliberately describe semantics, not art-title guesses.
@@ -258,15 +287,15 @@
     ['m_big', 'mine', 'expand', 'area', '실제 여섯 접점·크림 원판·색 중앙의 지뢰 + 확대: 감지와 폭발 범위 증가.'],
     ['m_heal', 'mine', 'heal', 'self-trigger', '같은 지뢰 + 회복 십자: 자신이 밟으면 회복.'],
     ['m_freeze', 'mine', 'freeze', 'slow', '같은 지뢰 + 얼음 결정: 밟은 상대의 이동·공격속도 감소.'],
-    ['sh_magnet', 'shield', 'more', 'pickup', '방패 + 추가 표시: 회수 반경이 늘어 스쳐 지나가도 주워진다.'],
-    ['sh_ricochet', 'shield', 'wall', 'bounce-damage', '방패 + 벽: 벽에 튕길 때마다 피해가 올라간다.'],
-    ['sh_grip', 'shield', 'hurt', 'guard', '방패 + 피격 표시: 주운 직후 잠시 받는 피해가 줄어든다.'],
-    ['f_pressure', 'flame', 'contract', 'focus', '불꽃 + 좁힘: 사거리가 길어지는 대신 분사 각도가 좁아진다.'],
-    ['f_ember', 'flameTrail', 'hit', 'lingering', '바닥에 남는 불길 + 타격 표시: 불길이 닿은 자리에 화염이 남는다. 지속시간을 늘리는 끈질긴 화염과 갈린다.'],
-    ['f_thrust', 'flame', 'push', 'recoil', '불꽃 + 밀림: 분사하는 반대 방향으로 밀려나 기동이 열린다.'],
-    ['c_long', 'orbit', 'expand', 'reach', '공을 도는 궤도 + 확대: 사슬이 길어져 훑는 범위가 넓어진다.'],
-    ['c_barbed', 'orbit', 'hit', 'line-damage', '같은 궤도 + 타격 표시: 추뿐 아니라 사슬 줄에도 판정이 생긴다.'],
-    ['c_twin', 'doubleOrbit', 'more', 'twin-head', '궤도 둘 + 추가 표시: 반대편에도 추가 하나 달린다. 위성 증식과 헷갈리지 않게 배지로 가른다.'],
+    ['sh_magnet', 'disc', 'magnet', 'pickup', '실제 원형 방패 + 말굽자석: 더 넓은 범위에서 회수한다.'],
+    ['sh_ricochet', 'disc', 'wall', 'bounce-damage', '같은 원형 방패 + 반사 화살표: 벽에 튕길 때마다 피해가 올라간다.'],
+    ['sh_grip', 'disc', 'grip', 'guard', '같은 원형 방패 + 꽉 쥔 장갑: 주운 직후 받는 피해가 줄어든다.'],
+    ['f_pressure', 'flameJet', 'contract', 'focus', '실제 노즐과 분사 불길 + 압축 화살표: 더 좁고 길어지는 불꽃.'],
+    ['f_ember', 'emberJet', null, 'lingering', '노즐에서 뿜은 불 아래 바닥 잔불: 이동 화염 흔적과 다른 화염방사기 전용 증강.'],
+    ['f_thrust', 'flameJet', 'recoil', 'recoil', '오른쪽으로 분사하는 노즐 + 왼쪽 화살표: 불꽃의 반대편으로 밀려난다.'],
+    ['c_long', 'weightedChain', 'expand', 'reach', '실제 마디 사슬과 철제 추 + 확장 화살표: 길어진 사슬.'],
+    ['c_barbed', 'barbedChain', null, 'line-damage', '추에 이어진 사슬 줄에 큰 삼각 가시: 줄에도 공격 판정이 생긴다.'],
+    ['c_twin', 'twinChain', null, 'twin-head', '가운데 플레이어 공 양쪽에 사슬로 연결된 동일한 두 추: 이중 사슬.'],
   ];
 
   const descriptors = Object.create(null);

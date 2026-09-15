@@ -965,8 +965,9 @@ function skillSlotInfo(fighter, slot) {
   const name = slot === 'char'
     ? (CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬')
     : (weapon?.skillName || '무기 스킬');
-  const iconKey = slot === 'char' ? fighter.charId : fighter.weaponId;
-  const icon = SKILL_ICONS[iconKey];
+  const baseKey = slot === 'char' ? fighter.charId : fighter.weaponId;
+  const iconKey = slot === 'weapon' && ['flame', 'chain', 'shield'].includes(baseKey) ? 'skill-' + baseKey : baseKey;
+  const icon = SKILL_ICONS[baseKey];
   return { name, icon: icon || '◆', iconKey, uses, max: 1, cd, cdMax };
 }
 function updateSteerControl(battle, fighter) {

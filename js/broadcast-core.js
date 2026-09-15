@@ -41,10 +41,15 @@
     return [`${name(player?.name)}님의 선택, 「${event.name}」 당첨! ${event.desc || ''}`];
   }
   const json = value => value == null ? value : JSON.parse(JSON.stringify(value));
-  const bodyFields = 'uid pid x y vx vy radius r hp maxHp shield dead mainDead flash gunFlash weaponAngle weaponId charId color name charging rocketActive spinRemaining flags timers st gun satellites'.split(' ');
+  const bodyFields = 'uid pid x y vx vy radius r hp maxHp shield dead mainDead flash gunFlash weaponAngle weaponId charId color name charging rocketActive spinRemaining flags timers st gun satellites flame gripT'.split(' ');
+  const paintPoint = p => ({ x:p.x, y:p.y, vx:p.vx || 0, vy:p.vy || 0, r:p.r });
   function paintBody(f) {
     const out = {};
     for (const key of bodyFields) if (f[key] !== undefined) out[key] = json(f[key]);
+    out.chainHeads = (f.chainHeads || []).map(h=>({...paintPoint(h),nodes:(h.nodes || []).map(paintPoint)}));
+    // A thrown shield owns a cyclic fighter reference and a contact Set. Only
+    // copy paint state, never collision bookkeeping or the simulation owner.
+    out.disc = f.disc ? {...paintPoint(f.disc),resting:!!f.disc.resting,spd:f.disc.spd} : null;
     out.summons = (f.summons || []).map(s=>({x:s.x,y:s.y,r:s.r,hp:s.hp,maxHp:s.maxHp}));
     out.splitBalls = (f.splitBalls || []).map(paintBody);
     return out;
@@ -63,16 +68,26 @@
       projectiles:owned(b.projectiles), mines:owned(b.mines), flames:ground(b.flames),
       stickies:ground(b.stickies), fx:json((b.fx || []).slice(-64)),
       particles:json((b.particles || []).slice(-96)), popups:json((b.popups || []).slice(-40)),
-      me:b.human?.()?.uid };
+      me:b.human?.()?.uid,
+      swaps:Object.fromEntries((b.commentaryEvents || []).filter(e=>e.type==='skill' && e.source==='skill:chain').map(e=>[e.actor,e.seq])) };
     return frame;
   }
   function playbackFrame(a,b,t) {
+    const point = (p,q) => ({...p,x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t});
     const lerpList = (left,right,angleKey) => left.map(p=>{
       const q = right.find(q=>q.uid!=null && q.uid===p.uid);
       if(!q)return p;
-      const out={...p,x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t};
+      if ((b.swaps?.[p.uid] || 0) > (a.swaps?.[p.uid] || 0) || Math.hypot(q.x-p.x,q.y-p.y)>180) return q;
+      const out=point(p,q);
       if(angleKey && Number.isFinite(p[angleKey]) && Number.isFinite(q[angleKey]))
         out[angleKey]=p[angleKey]+Math.atan2(Math.sin(q[angleKey]-p[angleKey]),Math.cos(q[angleKey]-p[angleKey]))*t;
+      if(p.chainHeads?.length === q.chainHeads?.length) out.chainHeads = p.chainHeads?.map((h,i)=>{
+        const next=q.chainHeads[i];
+        if(h.nodes.length!==next.nodes.length)return h;
+        return {...point(h,next),nodes:h.nodes.map((n,j)=>point(n,next.nodes[j]))};
+      });
+      if(p.disc && q.disc) out.disc=point(p.disc,q.disc);
+      if(p.splitBalls && q.splitBalls) out.splitBalls=lerpList(p.splitBalls,q.splitBalls,'weaponAngle');
       return out;
     });
     const fighters=lerpList(a.fighters,b.fighters,'weaponAngle');

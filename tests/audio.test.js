@@ -318,8 +318,8 @@ test('removed cues stay silent even for old snapshots; revised sounds have exact
     assert.equal(await engine.preview(id,{variant:'previous'}),false,id);
     assert.ok(!catalog.some(item=>item.id===id));
   }
-  // 51 -> 53. 쇠사슬 타격과 위치 교환이 더해졌다.
-  assert.equal(catalog.filter(item=>item.revised && !item.internal).length,57);
+  // 새 무기의 점화·쇠추 휘두름·방패 벽 반사까지 청음실에서 확인할 수 있다.
+  assert.equal(catalog.filter(item=>item.revised && !item.internal).length,60);
   const previous=require('../js/audio-design-previous.js');
   assert.equal(previous['weapon.mine.place'].layers[0].name,'actionMine');
   assert.equal(previous['skill.bow.charge'].layers[0].name,'actionDraw');

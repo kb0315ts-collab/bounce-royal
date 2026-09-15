@@ -29,20 +29,32 @@
     bow: '<g stroke="#243747" stroke-width="4"><path d="M18 7c24 13 24 37 0 50l5-10c11-10 11-20 0-30L18 7Z" fill="#c98a50"/><path d="m18 7 31 25-31 25" stroke="#fff8df" stroke-width="2.5"/><path d="M9 32h47" stroke="#6b6549"/><path d="m47 25 12 7-12 7V25Z" fill="#d9f3e0"/><path d="m10 27 7 5-7 5" stroke="#79b657"/></g>',
     pistol: '<g stroke="#243747" stroke-width="4"><path d="m13 30 19 3-5 24H13l3-18-3-9Z" fill="#b28b68"/><path d="M8 17h44v18H8V17Z" fill="#87acb1"/><path d="M13 17v-5h35v5M24 35h18v9H30" fill="#cddad2"/><path d="M46 17v18M14 24h19" stroke="#d7eadf" stroke-width="3"/></g>',
     staff: '<g stroke="#243747" stroke-width="4"><path d="m12 54 26-34 7 5-26 34-7-5Z" fill="#a174bd"/><path d="m33 11 11-7 13 8-3 15-14 6-11-11 4-11Z" fill="#ba87e4"/><path d="m33 11 21 16-10-23-4 29" stroke="#ecd3ff" stroke-width="2.5"/><path d="m27 12-5-3M55 35l5 3" stroke="#c088d5"/></g>',
-    shield: '<g stroke="#243747" stroke-width="4"><circle cx="32" cy="32" r="25" fill="#6fd3bb"/>'
-      + '<circle cx="32" cy="32" r="15.5" fill="#b6f0e2" stroke="#2f8f7c" stroke-width="3"/>'
-      + '<circle cx="32" cy="32" r="6" fill="#2f8f7c" stroke="none"/>'
-      + '<g fill="#243747" stroke="none"><circle cx="46" cy="46" r="2.5"/><circle cx="18" cy="46" r="2.5"/>'
-      + '<circle cx="18" cy="18" r="2.5"/><circle cx="46" cy="18" r="2.5"/></g></g>',
-    flame: '<g stroke="#243747" stroke-width="4"><path d="M8 40h22v14H8z" fill="#5d6b7d"/>'
-      + '<path d="M28 42h10v10H28z" fill="#8894a6"/><circle cx="16" cy="30" r="7" fill="#c4ced9"/>'
-      + '<path d="M40 47q9-3 12-10 5 7 4 14-1 8-9 9-9 1-11-6-1-5 4-7z" fill="#ff8a3c"/>'
-      + '<path d="M45 48q5-2 6-7 3 5 2 9-1 5-5 5-5 0-5-4 0-2 2-3z" fill="#ffd256" stroke="none"/></g>',
-    chain: '<g stroke="#243747" stroke-width="4"><path d="M11 12 24 25M24 25l10 10" fill="none" stroke-linecap="round"/>'
-      + '<circle cx="11" cy="12" r="6" fill="#dfe6f2"/><circle cx="24" cy="25" r="6" fill="#dfe6f2"/>'
-      + '<circle cx="45" cy="45" r="14" fill="#9aa3bb"/>'
-      + '<path d="M45 27v-6M45 63v6M27 45h-6M63 45h6" stroke-linecap="round"/>'
-      + '<circle cx="40" cy="40" r="4" fill="#dfe6f2" stroke="none"/></g>',
+    shield: '<g stroke="#243747" stroke-width="3.5"><circle cx="32" cy="32" r="25" fill="#ffd256"/>'
+      + '<circle cx="32" cy="32" r="20" fill="#fff6dc" stroke-width="2.5"/><circle cx="32" cy="32" r="15" fill="#95dac4"/>'
+      + '<path d="M19 27a14 14 0 0 1 13-9" stroke="#ffffff" stroke-width="3"/>'
+      + '<circle cx="32" cy="32" r="6" fill="#84dcf0"/><path d="M32 9v3M55 32h-3M32 55v-3M9 32h3"/></g>',
+    flame: '<g stroke="#243747" stroke-width="3.5"><path d="M26 41 21 55H12l5-17" fill="#f18c66"/>'
+      + '<rect x="6" y="18" width="17" height="25" rx="7" fill="#95dac4"/><path d="M10 22h9M14 18v-5h7"/>'
+      + '<path d="M20 25h21v15H20Z" fill="#fff6dc"/><path d="M34 23h9v19h-9Z" fill="#ffd256"/>'
+      + '<path d="M44 28 53 19l-1 9 8-2-4 10 3 6-11-2-5-6Z" fill="#ffa544"/>'
+      + '<path d="M44 32 52 29l-2 7h-6" stroke="#ffef8c" stroke-width="3"/></g>',
+    chain: '<g stroke="#243747" stroke-width="3.5"><path d="M13 10 10 24 19 35l14 5"/>'
+      + '<ellipse cx="11" cy="16" rx="5" ry="8" fill="#fff6dc"/><ellipse cx="15" cy="29" rx="5" ry="8" transform="rotate(-35 15 29)" fill="#84dcf0"/>'
+      + '<path d="M24 32 36 41" stroke="#243747" stroke-width="9"/><path d="M24 32 36 41" stroke="#fff6dc" stroke-width="4"/>'
+      + '<path d="M40 28h8v5l7 5v10l-7 7H38l-7-7V38l9-5Z" fill="#84dcf0"/>'
+      + '<circle cx="43" cy="43" r="10" fill="#95b1c7"/><path d="M36 41q1-6 7-6" stroke="#fff6dc"/>'
+      + '<circle cx="44" cy="45" r="3.5" fill="#ffd256" stroke-width="2"/></g>',
+    'skill-shield': '<g stroke="#243747" stroke-width="3.5"><path d="M6 19h14M3 32h14M6 45h14" stroke="#84dcf0" stroke-width="5"/>'
+      + '<circle cx="39" cy="32" r="20" fill="#ffd256"/><circle cx="39" cy="32" r="15" fill="#fff6dc"/>'
+      + '<circle cx="39" cy="32" r="10" fill="#95dac4"/><circle cx="39" cy="32" r="4" fill="#84dcf0" stroke-width="2.5"/>'
+      + '<path d="M26 12q17-10 31 5M50 10l7 7-10 1" fill="none"/></g>',
+    'skill-flame': '<g stroke="#243747" stroke-width="3.5"><path d="M14 27 31 17l-2 9 21-16-5 16 15-3-9 12 8 11-20-4 2 10-26-16Z" fill="#ffa544"/>'
+      + '<path d="M16 31 37 24l-4 9 16 1-10 7-23-7Z" fill="#ffef8c" stroke="none"/>'
+      + '<rect x="4" y="24" width="15" height="16" rx="4" fill="#95dac4"/><path d="M16 24v16" stroke="#fff6dc" stroke-width="4"/></g>',
+    'skill-chain': '<g stroke="#243747" stroke-width="3.5"><path d="M13 19Q32-3 51 18l-1-9M51 18l-10-1M51 45Q32 66 13 46l1 9M13 46l10 1" stroke="#95dac4" stroke-width="5"/>'
+      + '<circle cx="15" cy="33" r="10" fill="#84dcf0"/><path d="M9 30q2-5 7-4" stroke="#fff6dc" stroke-width="3"/>'
+      + '<path d="M30 33h7" stroke-width="6"/><path d="M43 21h10l7 7v11l-7 7H43l-7-7V28Z" fill="#95b1c7"/>'
+      + '<circle cx="48" cy="33" r="5" fill="#ffd256"/><path d="M40 29h5" stroke="#fff6dc" stroke-width="3"/></g>',
     mine: '<g stroke="#243747" stroke-width="4"><path d="M13 29h38l6 17c-10 13-40 13-50 0l6-17Z" fill="#78967b"/><ellipse cx="32" cy="29" rx="21" ry="12" fill="#a9c095"/><ellipse cx="32" cy="28" rx="7" ry="5" fill="#ff8477"/><path d="M12 44h40M23 17v-6h18v6"/></g>',
     cat: '<g stroke="#243747" stroke-width="3.5" fill="#f59cbb"><ellipse cx="12" cy="24" rx="6" ry="8" transform="rotate(-24 12 24)"/><ellipse cx="25" cy="14" rx="6" ry="8"/><ellipse cx="40" cy="14" rx="6" ry="8"/><ellipse cx="53" cy="24" rx="6" ry="8" transform="rotate(24 53 24)"/><path d="M17 42c5-8 10-12 15-12s10 4 15 12c6 11-2 17-10 13l-5-2-5 2c-8 4-16-2-10-13Z"/><path d="M25 40c2-3 5-5 7-5" fill="none" stroke="#ffe4ea"/></g>',
     wak: '<g stroke="#243747" stroke-width="4"><path d="m32 5 6 16 18-7-8 17 12 8-19 3-3 17-9-14-16 9 6-18L4 28l19-4 9-19Z" fill="#ffb95f"/><path d="m35 15-14 20h11l-3 16 16-23H33l2-13Z" fill="#fff1b5" stroke-width="2.5"/></g>',
@@ -278,11 +290,11 @@
     // 단단한 손 — 주운 직후 단단해진다
     'aug-sh_grip':augmentIcon(AUG_SHAPES.shield,'<circle cx="32" cy="32" r="9"/>','<path d="M32 16v6M32 42v6M16 32h6M42 32h6"/>'),
     // 압축 연료 — 좁고 긴 불꽃
-    'aug-f_pressure':augmentIcon(AUG_SHAPES.flame,'','<path d="M12 44q20 12 40 0M20 34l10 10-11 9M52 34l-10 10 11 9"/>'),
+    'aug-f_pressure':augmentIcon(AUG_SHAPES.fire,'','<path d="M12 44q20 12 40 0M20 34l10 10-11 9M52 34l-10 10 11 9"/>'),
     // 잔불 — 바닥에 남은 불씨
-    'aug-f_ember':augmentIcon(AUG_SHAPES.flame,'<circle cx="16" cy="52" r="6"/><circle cx="32" cy="55" r="5"/><circle cx="48" cy="51" r="7"/>','<path d="M8 60h48"/>'),
+    'aug-f_ember':augmentIcon(AUG_SHAPES.fire,'<circle cx="16" cy="52" r="6"/><circle cx="32" cy="55" r="5"/><circle cx="48" cy="51" r="7"/>','<path d="M8 60h48"/>'),
     // 역분사 — 뒤로 뿜고 앞으로 밀린다
-    'aug-f_thrust':augmentIcon(AUG_SHAPES.flame,'','<path d="M40 40H10M20 30 8 40l12 10"/>'),
+    'aug-f_thrust':augmentIcon(AUG_SHAPES.fire,'','<path d="M40 40H10M20 30 8 40l12 10"/>'),
     // 사슬 연장 — 마디를 하나 더 늘린 화살표
     'aug-c_long':augmentIcon(AUG_SHAPES.chain,'','<path d="M8 56 20 44M50 8 40 18"/>',AUG_BADGES.up),
     // 가시 사슬 — 줄에 가시가 돋는다
@@ -294,6 +306,7 @@
   const aliases = Object.freeze({
     'menu-ranked':'ranked', 'menu-friendly':'friendly', 'menu-bag':'bag', 'menu-codex':'codex', 'menu-settings':'settings',
     'weapon-sword':'sword', 'weapon-dagger':'dagger', 'weapon-bow':'bow', 'weapon-pistol':'pistol', 'weapon-staff':'staff', 'weapon-mine':'mine',
+    'weapon-shield':'shield', 'weapon-flame':'flame', 'weapon-chain':'chain',
     'category-coin':'coin', 'category-copy':'copySkill',
   });
 

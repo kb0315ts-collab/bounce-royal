@@ -32,7 +32,8 @@ function runtime() {
   const names = ['Battle', 'battleSound', 'pruneBattleSounds', 'renderBattle', 'Net', 'netBattleView',
     'useSkill', 'releaseCharge', 'updateTimers', 'updateWeapon', 'onWallBounce', 'spawnProj',
     'projectileHit', 'meleeHits', 'autoSystems', 'fireBow', 'fireGun', 'fireStaff', 'fireShotgun', 'dealDamage',
-    'healFighter', 'explodeMine'];
+    'healFighter', 'explodeMine', 'setFlameInput', 'updateFlame', 'throwDisc', 'updateDisc',
+    'ensureChainHeads', 'updateChain'];
   vm.runInContext(['js/data.js', 'js/sim.js', 'js/render.js', 'js/net.js'].map(read).join('\n')
     + '\nglobalThis.api = { ' + names.join(', ') + ' };', ctx);
   let playerId = 0;
@@ -276,6 +277,86 @@ test('회전 난사는 실제 발사한 탄환만 전용 발사음으로 연결�
   assert.equal(r.played.filter(id=>id==='weapon.pistol.barrage-shot').length,shots);
   f.timers.gunBarrage=0;r.fireGun(b,f);
   assert.equal(ids(b).filter(id=>id==='weapon.pistol.fire').length,1);
+});
+
+test('화염방사 점화는 실제 분사 전이에만 나고 유지·기절·연료 고갈 중에는 반복하지 않는다', () => {
+  const r = runtime(), b = r.battle({ weaponId: 'flame' }), f = b.fighters[0];
+  b.phase = 'fight'; f.x = 0; f.y = 0; f.vx = 1; f.vy = 0;
+  b.fighters[1].x = -300; b.fighters[1].y = 150;
+  const tick = t => { b.simT = t; r.updateFlame(b, f, .01); };
+  const count = id => ids(b).filter(x => x === id).length;
+  r.setFlameInput(f, true); f.timers.stun = 1;
+  tick(0);
+  assert.equal(count('weapon.flame.ignite'), 0, '차단된 버튼 입력은 점화 아님');
+  assert.equal(count('weapon.flame.spray'), 0);
+  f.timers.stun = 0; tick(.05);
+  assert.equal(count('weapon.flame.ignite'), 1);
+  assert.equal(count('weapon.flame.spray'), 1);
+  for (let i = 1; i <= 20; i++) tick(.05 + i * .01);
+  assert.equal(count('weapon.flame.ignite'), 1, '꾹 누르는 매 틱마다 점화하지 않음');
+  f.timers.weaponLock = 1; tick(.30);
+  assert.equal(f.flame.firing, false);
+  const stoppedCount = b.soundEvents.length;
+  tick(.40);
+  assert.equal(b.soundEvents.length, stoppedCount, '무기 봉쇄 동안 분사음도 없음');
+  f.timers.weaponLock = 0; tick(.60);
+  assert.equal(count('weapon.flame.ignite'), 2, '실제 분사가 재개되면 새 점화');
+  r.setFlameInput(f, false); tick(.62);
+  f.flame.fuel = 0; f.flame.idle = 0; r.setFlameInput(f, true); tick(.90);
+  assert.equal(f.flame.firing, false);
+  assert.equal(count('weapon.flame.ignite'), 2, '연료 없는 누르기는 무음');
+  f.flame.fuel = 10; tick(1);
+  assert.equal(count('weapon.flame.ignite'), 3);
+  assert.ok(snapshot(b).se.some(e => e.id === 'weapon.flame.ignite'), '온라인에서도 같은 사건 전달');
+});
+
+test('방패는 든 채 적중·실제 원판 벽 반사·회수를 각각 다른 큐로 전달한다', () => {
+  const r = runtime(), b = r.battle({ weaponId: 'shield' }), f = b.fighters[0], e = b.fighters[1];
+  b.phase = 'fight'; f.x = 0; f.y = 0; f.weaponAngle = 0;
+  e.x = 60; e.y = 0; e.hp = e.maxHp = 1000;
+  r.meleeHits(b, f, .01); r.meleeHits(b, f, .01);
+  assert.equal(ids(b).filter(id => id === 'weapon.shield.hit').length, 1, '지속 접촉은 한 타격');
+  assert.ok(!ids(b).includes('weapon.sword.hit') && !ids(b).includes('weapon.dagger.hit'));
+  e.x = -280; e.y = 140;
+  assert.equal(r.throwDisc(b, f), true);
+  const d = f.disc;
+  d.x = b.arena.R - d.r - 1; d.y = 0; d.vx = 1; d.vy = 0;
+  b.simT = .1; r.updateDisc(b, f, .01);
+  assert.equal(d.bounces, 1); assert.ok(d.vx < 0);
+  assert.equal(ids(b).filter(id => id === 'weapon.shield.bounce').length, 1);
+  b.simT = .12; r.updateDisc(b, f, .01);
+  assert.equal(ids(b).filter(id => id === 'weapon.shield.bounce').length, 1, '벽에서 떨어진 다음 틱에는 반사음 없음');
+  d.armed = true; d.resting = true; d.x = f.x; d.y = f.y;
+  b.simT = .2; r.updateDisc(b, f, .01); r.updateDisc(b, f, .01);
+  assert.equal(f.disc, null);
+  assert.equal(ids(b).filter(id => id === 'weapon.shield.catch').length, 1);
+  assert.deepEqual(Array.from(snapshot(b).se.filter(x => x.id.startsWith('weapon.shield.')), x => x.id),
+    ['weapon.shield.hit', 'weapon.shield.throw', 'weapon.shield.bounce', 'weapon.shield.catch']);
+});
+
+test('쇠사슬은 정지 상태에서 조용하고 실제 빠른 휘두름은 쿨다운과 행동 차단을 지킨다', () => {
+  const r = runtime(), b = r.battle({ weaponId: 'chain' }), f = b.fighters[0];
+  b.phase = 'fight'; f.x = 0; f.y = 0; f.vx = 0; f.vy = 0; f.weaponAngle = 0;
+  b.fighters[1].x = -300; b.fighters[1].y = 150;
+  f._chainAnchor = { x: 0, y: 0 }; r.ensureChainHeads(f);
+  for (let i = 0; i < 8; i++) { b.simT = i / 60; r.updateChain(b, f, 1 / 60); }
+  assert.ok(!ids(b).includes('weapon.chain.swing'), '매달려 있는 추에는 상시 휘두름 소리 없음');
+  // Identical free tangential momentum for each fixture, with the real rope
+  // integrator producing displacement. No manual sound events or fake speeds.
+  const swingAt = t => {
+    f.chainHeads = []; f.weaponAngle = 0; f._chainAnchor = { x: f.x, y: f.y };
+    r.ensureChainHeads(f);
+    for (const h of f.chainHeads) for (const q of h.nodes.concat(h)) { q.vx = 0; q.vy = 600; }
+    b.simT = t; r.updateChain(b, f, 1 / 60);
+    assert.ok(f.chainHeads.some(h => Math.hypot(h.sx, h.sy) > 150), '실제로 빠르게 움직이는 추');
+  };
+  const count = () => ids(b).filter(id => id === 'weapon.chain.swing').length;
+  swingAt(.20); assert.equal(count(), 1);
+  swingAt(.21); swingAt(.57); assert.equal(count(), 1, '.38초 안쪽의 휘두름은 겹치지 않음');
+  swingAt(.59); assert.equal(count(), 2);
+  f.timers.stun = 1; swingAt(.99); assert.equal(count(), 2, '기절하면 관성으로 움직여도 무기음 없음');
+  f.timers.stun = 0; f.timers.weaponLock = 1; swingAt(1.10); assert.equal(count(), 2);
+  f.timers.weaponLock = 0; swingAt(1.20); assert.equal(count(), 3);
 });
 
 test('모든 전투 이벤트 ID가 공용 효과음 카탈로그의 실제 재생 항목과 대응한다', () => {
