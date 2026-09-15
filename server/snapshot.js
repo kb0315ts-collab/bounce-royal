@@ -47,6 +47,11 @@ function fighterView(f) {
     // fl(피격 플래시)도 실어야 한다. 분열체는 본체와 따로 맞고 따로 번쩍인다.
     sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0) })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
+    // 쇠사슬의 추. 화면에 보여야 하므로 실어야 한다. 이중 사슬이면 둘이다.
+    // 평평한 숫자 배열로 싣는다 (x0,y0, x1,y1 ...). 중첩 배열은 스냅샷 검사에 걸린다.
+    // 쇠사슬이 아니면 키 자체를 넣지 않는다 — undefined도 검사에 걸린다.
+    ...(f.chainHeads && f.chainHeads.length
+      ? { cn: f.chainHeads.flatMap(h => [r1(h.x), r1(h.y)]) } : {}),
   };
 }
 

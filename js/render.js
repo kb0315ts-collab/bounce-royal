@@ -612,6 +612,8 @@ function drawWeaponG(g, f) {
   if (f.mainDead || f.timers.stun > 0) return;
   const ws = weaponScale(f);
   const R = f.radius;
+  // 쇠사슬은 추가 세계 좌표에 따로 있어서 회전 좌표계로 그릴 수 없다.
+  if (f.weaponId === 'chain') { drawChainG(g, f, ws); return; }
   g.save();
   g.translateCanvas(f.x, f.y);
   g.rotateCanvas(f.weaponAngle);
@@ -729,6 +731,49 @@ function bladeShape(g, x0, bladeLen, w) {
   g.lineStyle(2.4, CASUAL_INK, 1); g.strokePath();
   g.fillStyle(0x88c3d0, 1); g.beginPath(); g.moveTo(x0 + 1, 0); g.lineTo(x0 + bladeLen - 2, 0); g.lineTo(x0 + bladeLen * 0.81, w * 0.35); g.lineTo(x0 + 1, w * 0.35); g.closePath(); g.fillPath();
   g.lineStyle(1.1, 0xffffff, 1); g.beginPath(); g.moveTo(x0 + 4, -w * 0.26); g.lineTo(x0 + bladeLen * 0.74, -w * 0.26); g.strokePath();
+}
+
+/* 쇠사슬 — 줄은 마디 원을 이어 그리고 끝에 추를 단다.
+ * 빠르게 돌 때 잔상을 하나 깔아 '휘둘렀다'가 눈에 보이게 한다. */
+function drawChainG(g, f, ws) {
+  const heads = f.chainHeads || [];
+  if (!heads.length) return;
+  const R = f.radius;
+  const headR = 10 * ws;
+  const own = toInt(ownerPlayerColor(f));
+  for (const h of heads) {
+    const dx = h.x - f.x, dy = h.y - f.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const ux = dx / d, uy = dy / d;
+    const x0 = f.x + ux * R * 0.55, y0 = f.y + uy * R * 0.55;
+    // 줄 — 굵은 먹선 위에 밝은 선을 얹는 이 게임의 기본 문법
+    g.lineStyle(7, CASUAL_INK, 1);
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(h.x, h.y); g.strokePath();
+    g.lineStyle(3.4, 0xc8cede, 1);
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(h.x, h.y); g.strokePath();
+    // 마디
+    const links = Math.max(2, Math.round(d / 15));
+    for (let i = 1; i < links; i++) {
+      const t = i / links;
+      const lx = x0 + (h.x - x0) * t, ly = y0 + (h.y - y0) * t;
+      g.fillStyle(0xe6e9f2, 1); g.fillCircle(lx, ly, 3.1);
+      g.lineStyle(1.6, CASUAL_INK, 1); g.strokeCircle(lx, ly, 3.1);
+    }
+    // 추 — 바닥 그림자, 몸통, 먹선, 주인 색 한 점, 가시 넷
+    g.fillStyle(CASUAL_INK, 0.16); g.fillEllipse(h.x + 2, h.y + 5, headR * 2.2, headR * 1.3);
+    g.fillStyle(0x9aa3bb, 1); g.fillCircle(h.x, h.y, headR);
+    g.lineStyle(3, CASUAL_INK, 1); g.strokeCircle(h.x, h.y, headR);
+    g.lineStyle(3, CASUAL_INK, 1);
+    for (let i = 0; i < 4; i++) {
+      const a = i * TAU / 4 + 0.4;
+      g.beginPath();
+      g.moveTo(h.x + Math.cos(a) * headR * 0.8, h.y + Math.sin(a) * headR * 0.8);
+      g.lineTo(h.x + Math.cos(a) * (headR + 5), h.y + Math.sin(a) * (headR + 5));
+      g.strokePath();
+    }
+    g.fillStyle(0xd7dcea, 1); g.fillCircle(h.x - headR * 0.3, h.y - headR * 0.32, headR * 0.34);
+    g.fillStyle(own, 1); g.fillCircle(h.x, h.y, headR * 0.3);
+  }
 }
 
 /* 손잡이 + 코등이 + 검신 한 벌. off는 회전축에서 옆으로 비켜난 정도. */

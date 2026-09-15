@@ -94,6 +94,9 @@
   "aug-s_bounce": "assets/icons/augments/s_bounce.svg?v=ae69b5a2920a",
   "aug-m_big": "assets/icons/augments/m_big.svg?v=c62edfc783ab",
   "aug-m_heal": "assets/icons/augments/m_heal.svg?v=760f264c37fd",
+  "aug-c_long": "assets/icons/augments/c_long.svg?v=7efdf5b760d8",
+  "aug-c_barbed": "assets/icons/augments/c_barbed.svg?v=50d68ce0c10d",
+  "aug-c_twin": "assets/icons/augments/c_twin.svg?v=90f402e8c0b3",
   "aug-m_freeze": "assets/icons/augments/m_freeze.svg?v=cce5fd1be6da"
 });
 })(typeof window !== 'undefined' ? window : globalThis);

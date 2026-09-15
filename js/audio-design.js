@@ -14,6 +14,8 @@
   const swish=(f0,f1,q,vol,dur,attack,delay=0)=>({...N(f0,f1,dur,vol*(q>=4?5:3.2)/.72,q,delay,attack),noiseRateVariation:.08});
   const whoosh=(pitch,vol,dur,delay=0)=>({...N(420*pitch,700*pitch,dur,vol*6/.72,5.5,delay,dur*.2),filterPath:[[0,420*pitch],[.65,2400*pitch],[1,700*pitch]],noiseRateVariation:.1});
   const sword=()=>swish(1900,500,2.3,.12,.25,.012);
+  // 쇠사슬 — 쇳덩이가 둔탁하게 박히는 소리. 검의 '슈욱'과 달리 짧고 낮게 끝난다.
+  const chainHit=()=>swish(900,220,2.0,.11,.12,.006);
   const dagger=()=>swish(2700,1250,4.5,.075,.085,.01);
   const click=(f,g,at=0)=>({...N(f,f*.7,.023,g,1.1,at,.001),gainPath:[[0,0],[.04,g],[.22,g*.28],[1,0]]});
   const elastic=(f,dur,g,at=0)=>({...T(f,f*.57,dur,g,'sine',at,.001),freqPath:[[0,f*1.5],[.10,f*.72],[.23,f],[.48,f*.64],[1,f*.57]]});
@@ -25,6 +27,10 @@
   // Protected signatures: one material layer, never buried under an extra ding.
   set('weapon.sword.hit','스겅! · 묵직한 칼날','익숙한 검의 거친 금속 마찰과 넓은 칼바람을 그대로 유지합니다.',[sword()],true);
   set('weapon.dagger.hit','샥! · 재빠른 칼끝','짧고 좁게 스치는 단검의 기존 칼날 질감을 유지합니다.',[dagger()],true);
+  set('weapon.chain.hit','퍽! · 쇳덩이 타격','짧고 낮게 끝나는 금속 타격에 사슬이 팽팽해지는 쇳소리를 얹었습니다.',
+    [chainHit(), click(520,.05,.01), T(190,150,.07,.05,'triangle',.005)]);
+  set('skill.chain.swap','휭—! · 자리바꿈','짧게 빨아들였다 튕겨 나가는 두 겹 소리로 위치가 뒤바뀐 순간을 표시합니다.',
+    [N(500,2100,.11,.16,3.2,0,.004), T(760,300,.13,.06,'triangle',.03)]);
   set('augment.shuriken','휘릭! · 작은 회전','올라갔다 내려오는 표창의 짧은 휘릭 소리를 유지합니다.',[whoosh(1.55,.075,.12)],true);
   set('augment.missile','후우릭! · 길게 추적','표창보다 낮고 길게 도는 미사일의 익숙한 바람을 유지합니다.',[whoosh(.7,.1,.26)],true);
   set('augment.beam','쉬익! · 날아가는 검기','검기의 날카로운 바람 재질을 유지해 칼날과 자연스럽게 이어집니다.',[whoosh(1,.1,.18)],true);

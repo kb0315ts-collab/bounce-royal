@@ -258,6 +258,9 @@
     ['m_big', 'mine', 'expand', 'area', '실제 여섯 접점·크림 원판·색 중앙의 지뢰 + 확대: 감지와 폭발 범위 증가.'],
     ['m_heal', 'mine', 'heal', 'self-trigger', '같은 지뢰 + 회복 십자: 자신이 밟으면 회복.'],
     ['m_freeze', 'mine', 'freeze', 'slow', '같은 지뢰 + 얼음 결정: 밟은 상대의 이동·공격속도 감소.'],
+    ['c_long', 'orbit', 'expand', 'reach', '공을 도는 궤도 + 확대: 사슬이 길어져 훑는 범위가 넓어진다.'],
+    ['c_barbed', 'orbit', 'hit', 'line-damage', '같은 궤도 + 타격 표시: 추뿐 아니라 사슬 줄에도 판정이 생긴다.'],
+    ['c_twin', 'doubleOrbit', 'more', 'twin-head', '궤도 둘 + 추가 표시: 반대편에도 추가 하나 달린다. 위성 증식과 헷갈리지 않게 배지로 가른다.'],
   ];
 
   const descriptors = Object.create(null);

@@ -1300,5 +1300,32 @@
     "modifications": "Casual color gradient; charcoal outline; scaled; original snow badge added",
     "sourceSha256": "b6e157ae69a0cb43721378465efe6240671cec9c05901288c16b61b2af95f65e",
     "sha256": "cce5fd1be6da69499a6788d33ee6a5a803ce39760d11ae0ceb1c5d3b069d46fa"
+  },
+  "c_long": {
+    "file": "assets/icons/augments/c_long.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "사슬 마디 넷과 방향 화살: 사슬이 길어진다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "steel",
+    "sha256": "7efdf5b760d82c619f42582b19c4be347759d311f82562a6c34f589de3f8a47a"
+  },
+  "c_barbed": {
+    "file": "assets/icons/augments/c_barbed.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "사슬 줄에 돋은 가시: 줄에 스쳐도 피해가 들어간다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "steel",
+    "sha256": "50d68ce0c10db073949397d8ec3a923640ee832c28f48d5c839fd496d0410208"
+  },
+  "c_twin": {
+    "file": "assets/icons/augments/c_twin.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "양쪽 끝의 추 둘: 반대편에도 추가 하나 달린다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "steel",
+    "sha256": "90f402e8c0b3b9dae5bb9af12f6edca388e50ef4e98ba7eb1ab9696638c66d97"
   }
 }

@@ -386,6 +386,12 @@ function applyAugmentBattle(f, id, player) {
     case 'm_big': Fl.bigMine = 1; break;
     case 'm_heal': Fl.healMine = 1; break;
     case 'm_freeze': Fl.freezeMine = 1; break;
+    case 'c_long': Fl.chainLong = 1; break;
+    case 'c_barbed': Fl.chainBarbed = 1; break;
+    case 'c_twin': Fl.chainTwin = 1; break;
+    case 'c_long': Fl.chainLong = 1; break;
+    case 'c_barbed': Fl.chainBarbed = 1; break;
+    case 'c_twin': Fl.chainTwin = 1; break;
   }
 }
 
@@ -419,6 +425,14 @@ function buildFighter(player, battle) {
     sfxSlash: 0,        // 근접 무기가 벤 횟수. 위와 같은 이유로 센다
 
     hist: [], histT: 0,
+    // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
+    // 이중 사슬이면 둘, 아니면 하나. 다른 무기는 빈 배열이다.
+    chainHeads: [],
+    chainHits: new Map(),   // 대상 uid -> 다음에 때릴 수 있는 시각 (재타격 잠금)
+    // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
+    // 이중 사슬이면 둘, 아니면 하나. 다른 무기는 빈 배열이다.
+    chainHeads: [],
+    chainHits: new Map(),   // 대상 uid -> 다음에 때릴 수 있는 시각 (재타격 잠금)
     // 무기 스킬은 쿨타임(cd, 초)으로 돈다. 분열체가 이 객체를 참조로 공유하므로
     // 쿨타임도 여기 넣어야 본체와 분열체가 같은 값을 본다.
     skillUses: { char: 1, weapon: 1, cd: 0 },
@@ -1563,6 +1577,14 @@ function weaponSkillCd(f) {
   return (typeof WEAPON_SKILL_CD !== 'undefined' && WEAPON_SKILL_CD[f.weaponId]) || 0;
 }
 
+/* 쿨타임을 걸 때는 버튼이 보는 값도 같은 자리에서 세운다.
+ * 따로 두었더니 활의 자동 발사 경로에서 한쪽만 갱신돼, 그 틱의 스냅샷이
+ * 서버와 클라이언트에서 다르게 보였다. */
+function startWeaponCd(f) {
+  f.skillUses.cd = weaponSkillCd(f);
+  f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1;
+}
+
 function updateCooldowns(b, f, dt) {
   f.skillUses.cd = Math.max(0, (f.skillUses.cd || 0) - dt);
   // 버튼과 파리티가 같은 값을 보게 쿨타임을 그대로 비춰 둔다.
@@ -1579,6 +1601,8 @@ function updateWeapon(b, f, dt) {
   const wp = WEAPONS[f.weaponId];
   const fr = f.st.fr;
   const meleeSource = f.spinRemaining > 0 && f.weaponId === 'sword' ? 'skill:sword' : undefined;
+  // 쇠사슬은 무기를 돌리지 않는다. 추가 물리로 따라오고, 그 방향이 곧 무기 각도다.
+  if (wp.type === 'chain') { updateChain(b, f, dt); return; }
   // 회전하거나(근접·회전 난사) 상대를 조준하거나(그 외 원거리·지뢰) 둘 중 하나다.
   if (f.timers.weaponLock <= 0) {
     let applied;
@@ -1612,7 +1636,7 @@ function updateWeapon(b, f, dt) {
   }
   // 두 바퀴를 다 돌 때까지 안 쏘면 그 자리에서 자동으로 나간다 (사용 횟수는 그대로 소비)
   if (f.charging && f.charging.spin >= TAU * BOW_CHARGE_TURNS) {
-    if (releaseCharge(b, f)) f.skillUses.cd = weaponSkillCd(f);
+    if (releaseCharge(b, f)) startWeaponCd(f);
   }
   if (f.timers.weaponLock > 0 || f.charging) {
     // 무기 정지/충전 중에는 발사 없음 (회전만)
@@ -1682,6 +1706,130 @@ function updateWeapon(b, f, dt) {
  * 칼날 판정에 새로 들어온 순간에만 1회 피해를 주고, 칼날에서 완전히
  * 벗어났다가 다시 닿아야 다음 타격이 나간다. 칼날마다 따로 추적하므로
  * 쌍단검은 각 칼날이 독립적으로 한 번씩 맞힌다. */
+/* ═══════════ 쇠사슬 ═══════════
+ *
+ * 추는 공과 별개의 물체다. 공이 방향을 꺾어도 추는 관성으로 계속 가고,
+ * 그게 채찍이 된다. 벽 튕김이 가장 강한 채찍 발생기다.
+ *
+ * 스프링으로 '공에서 사슬 길이만큼 떨어진 점'을 쫓게 하고, 마지막에
+ * 하드 클램프로 길이를 넘지 못하게 한다. 고정 dt(1/60)에서 안정적이다. */
+/* 몸통의 실제 속도. 전투원·분열체는 st.move, 소환수는 spd가 크기다. */
+function bodyVel(body) {
+  const s = body.st ? body.st.move : (body.spd || 0);
+  return { x: (body.vx || 0) * s, y: (body.vy || 0) * s };
+}
+
+function chainLen(f) {
+  const wp = WEAPONS.chain;
+  return (f.flags.chainLong ? 130 : wp.chainLen) * weaponScale(f);
+}
+
+function ensureChainHeads(f) {
+  const want = f.flags.chainTwin ? 2 : 1;
+  if (f.chainHeads.length === want) return;
+  const L = chainLen(f);
+  f.chainHeads = [];
+  for (let i = 0; i < want; i++) {
+    const a = f.weaponAngle + i * Math.PI;
+    f.chainHeads.push({ x: f.x + Math.cos(a) * L, y: f.y + Math.sin(a) * L, vx: 0, vy: 0 });
+  }
+}
+
+function updateChain(b, f, dt) {
+  const wp = WEAPONS.chain;
+  ensureChainHeads(f);
+  const L = chainLen(f);
+  const ws = weaponScale(f);
+  const headR = wp.headR * ws;
+  // 공격속도는 '추가 얼마나 빨리 따라오느냐'로 들어간다. 같은 움직임에서
+  // 더 빠른 채찍이 나오고, 그만큼 관문을 넘는 빈도가 오른다.
+  const resp = wp.response * Math.max(0.2, f.st.aspd);
+  const gate = wp.gate;
+  const base = wp.dmg * (f.flags.chainTwin ? 0.8 : 1);
+
+  for (const h of f.chainHeads) {
+    const px = h.x, py = h.y;          // 실제 속도는 변위로 잰다 (아래 설명)
+    let dx = h.x - f.x, dy = h.y - f.y;
+    let d = Math.hypot(dx, dy);
+    if (d < 1e-6) { dx = Math.cos(f.weaponAngle); dy = Math.sin(f.weaponAngle); d = 1; }
+    const nx = dx / d, ny = dy / d;
+    // 1) 구속 원 위의 목표점을 스프링으로 쫓는다
+    h.vx += ((f.x + nx * L) - h.x) * resp * dt;
+    h.vy += ((f.y + ny * L) - h.y) * resp * dt;
+    const damp = 1 - Math.min(1, wp.drag * dt);
+    h.vx *= damp; h.vy *= damp;
+    // 2) 움직이는 값이므로 경기 진행 속도를 곱한다
+    h.x += h.vx * GAME_SPEED * dt;
+    h.y += h.vy * GAME_SPEED * dt;
+    // 3) 길이를 절대 넘지 않게 당기고, 당긴 방향 속도는 버린다
+    let ex = h.x - f.x, ey = h.y - f.y;
+    const ed = Math.hypot(ex, ey);
+    if (ed > L) {
+      const ux = ex / ed, uy = ey / ed;
+      h.x = f.x + ux * L; h.y = f.y + uy * L;
+      const along = h.vx * ux + h.vy * uy;
+      h.vx -= ux * along; h.vy -= uy * along;
+    }
+    /* 피해 판정에 쓰는 '실제 속도'는 변위로 잰다.
+     * 스프링 속도(h.vx)는 하드 클램프가 지워 버려서 못 쓴다 — 공을 따라
+     * 끌려가는 동안에도 0에 가깝게 나온다. 실제로 화면에서 얼마나
+     * 움직였는지가 '휘둘렀는가'의 정답이다. 이미 GAME_SPEED가 반영된 값이다. */
+    h.sx = dt > 0 ? (h.x - px) / dt : 0;
+    h.sy = dt > 0 ? (h.y - py) / dt : 0;
+  }
+  // 무기 각도는 첫 추가 있는 쪽이다 (그리기와 던지기 방향에 쓴다)
+  const h0 = f.chainHeads[0];
+  f.weaponAngle = Math.atan2(h0.y - f.y, h0.x - f.x);
+
+  if (f.timers.weaponLock > 0) return;
+
+  /* 판정 — 관문(상대속도)을 넘어야 아프다 */
+  for (const e of b.enemiesOf(f)) {
+    for (const body of b.bodiesOf(e)) {
+      const until = f.chainHits.get(body.uid) || 0;
+      if (b.simT < until) continue;
+      const br = bodyRadius(body);
+      let hitDmg = 0;
+      for (const h of f.chainHeads) {
+        // 상대 속도도 화면에서 실제로 움직이는 값으로 맞춘다
+        const bv = bodyVel(body);
+        const rel = Math.hypot((h.sx || 0) - bv.x * GAME_SPEED, (h.sy || 0) - bv.y * GAME_SPEED);
+        if (dist(h.x, h.y, body.x, body.y) < headR + br) {
+          if (rel >= gate) { hitDmg = Math.max(hitDmg, base); }
+        } else if (f.flags.chainBarbed && rel >= gate
+          && segDist(body.x, body.y, f.x, f.y, h.x, h.y) < br + 4 * ws) {
+          // 가시 사슬 — 줄에 스치면 추 피해의 40%
+          hitDmg = Math.max(hitDmg, base * 0.4);
+        }
+      }
+      if (hitDmg > 0 && weaponDamage(b, f, body, hitDmg) > 0) {
+        f.chainHits.set(body.uid, b.simT + wp.hitLock);
+        battleSound(b, 'weapon.chain.hit', body, 0.05);
+      }
+    }
+  }
+  if (f.chainHits.size > 40) f.chainHits.clear();
+}
+
+/* 위치 교환 — 공과 추의 자리·속도를 맞바꾼다.
+ * 추가 피해를 주는 부분이라, 붙은 상대 옆에 추를 남기고 빠져나가는 수가 된다. */
+function chainSwap(b, f) {
+  ensureChainHeads(f);
+  const h = f.chainHeads[0];
+  const px = f.x, py = f.y;
+  const mv = (f.st && f.st.move) || 1;
+  const bvx = f.vx * mv, bvy = f.vy * mv;     // 공의 실제 속도 (단위벡터 x 이동속도)
+  f.x = h.x; f.y = h.y;
+  h.x = px; h.y = py;
+  // 공은 추가 휘두르던 속도의 방향을 받는다 (크기는 st.move가 정한다)
+  const hs = Math.hypot(h.vx, h.vy);
+  if (hs > 1e-6) { f.vx = h.vx / hs; f.vy = h.vy / hs; }
+  h.vx = bvx; h.vy = bvy;
+  b.arena.collideBody(f);
+  addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 46, color: '#9fd0ff', dur: 0.28 });
+  addFx(b, { type: 'ring', x: h.x, y: h.y, r0: 6, r1: 46, color: '#9fd0ff', dur: 0.28 });
+}
+
 function meleeHits(b, f, dt, override, commentarySource) {
   const wp = WEAPONS[f.weaponId];
   const def = override || { reach: wp.reach, tip: wp.tip, dmg: wp.dmg };
@@ -2151,8 +2299,7 @@ function useSkill(b, f, slot) {
   // 쿨타임은 '쏜 순간'부터 돈다 — 충전만 하고 안 쏴도 잠기면 억울하다.
   if (slot === 'weapon' && f.weaponId === 'bow' && f.charging) {
     if (!releaseCharge(b, f)) return false;
-    f.skillUses.cd = weaponSkillCd(f);
-    f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1;
+    startWeaponCd(f);
     f.sfxSkill++;
     return true;
   }
@@ -2225,19 +2372,23 @@ function useSkill(b, f, slot) {
       f.timers.rampage = 3;
       popup(b, f.x, f.y - f.radius - 24, '마력 폭주!', '#c9a0ff', true);
       break;
+    case 'chain':
+      chainSwap(b, f);
+      popup(b, f.x, f.y - f.radius - 24, '위치 교환!', '#9fd0ff');
+      break;
     case 'mine':
       f.timers.det = 1;
       popup(b, f.x, f.y - f.radius - 24, '폭파 예약…', '#ffb14d');
       break;
   }
   if (slot === 'char') f.skillUses.char--;
-  else { f.skillUses.cd = weaponSkillCd(f); f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1; }
+  else startWeaponCd(f);
   f.sfxSkill++;
   const cue = {
     cat: 'skill.cat.rewind', wak: 'skill.rampage.start', soft: 'skill.soft.guard',
     bomb: 'skill.bomb.arm', bball: 'skill.basketball.arm', balloon: 'skill.balloon.inflate',
     sword: 'skill.sword.spin', dagger: 'skill.dagger.prepare', pistol: 'skill.pistol.barrage',
-    staff: 'skill.staff.overload', mine: 'skill.mine.remote',
+    staff: 'skill.staff.overload', mine: 'skill.mine.remote', chain: 'skill.chain.swap',
   }[id];
   if (cue) battleSound(b, cue, f);
   if (cue) battleCommentary(b, 'skill', f, null, (slot === 'char' ? 'char:' : 'skill:') + id);
@@ -2317,7 +2468,13 @@ function aiChooseSteer(b, f, e) {
   const toward = Math.atan2(e.y - f.y, e.x - f.x);
   let angle = toward;
 
-  if (wp.type === 'melee') {
+  if (wp.type === 'chain') {
+    // 쇠사슬은 정면으로 붙으면 추가 뒤에 남아 안 맞는다. 옆으로 스쳐 지나가며
+    // 추를 상대 쪽으로 휘두르는 궤도가 맞다.
+    const side = f.aiSteerSide || 1;
+    angle = toward + side * rand(0.55, 0.95);
+    if (chance(0.12)) f.aiSteerSide = side * -1;
+  } else if (wp.type === 'melee') {
     // 근접은 약간의 예측과 오차를 섞어 쫓되, 완벽한 유도탄처럼 붙지는 않는다.
     const lead = clamp(d / 380, 0, 0.65);
     angle = Math.atan2(e.y + e.vy * 120 * lead - f.y, e.x + e.vx * 120 * lead - f.x);
@@ -2405,6 +2562,8 @@ function aiUpdate(b, f, dt) {
     let diff = f.weaponAngle - angToE;
     while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
     switch (f.weaponId) {
+      // 위치 교환은 상대가 붙었을 때가 값어치가 가장 크다 — 그 자리에 추가 남는다.
+      case 'chain': if (d < f.radius + 70) use('weapon'); break;
       case 'sword': if (d < f.radius + wp.reach * weaponScale(f) + 55) use('weapon'); break;
       // 돌진은 780 x 0.35초라 270px 남짓 간다. 430px에서 걸면 닿지 못하고
       // 빈 곳으로 뛰어들어 오히려 맞기만 한다.

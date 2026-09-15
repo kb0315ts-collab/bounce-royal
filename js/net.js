@@ -526,6 +526,14 @@ function netArena(snap) {
   };
 }
 
+/* 평평한 [x0,y0, x1,y1] 을 추 목록으로 되돌린다. */
+function chainHeadsOf(cn) {
+  if (!cn || !cn.length) return NET_EMPTY;
+  const out = [];
+  for (let i = 0; i + 1 < cn.length; i += 2) out.push({ x: cn[i], y: cn[i + 1], vx: 0, vy: 0 });
+  return out;
+}
+
 function netFighter(view, meta, seat) {
   const ti = view.ti || {};
   const fg = view.fg || 0;
@@ -565,6 +573,8 @@ function netFighter(view, meta, seat) {
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
     satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),
+    // 쇠사슬의 추. 그리기에만 쓰므로 위치만 있으면 된다.
+    chainHeads: chainHeadsOf(view.cn),
     // 무기 칸은 남은 쿨타임(초)이다. 버튼은 '지금 쓸 수 있나'만 보므로 0/1로도 준다.
     skillCd: (view.su||[0,0])[1] || 0,
     skillUses: { char: (view.su||[0,0,0])[0], weapon: ((view.su||[0,0])[1] || 0) > 0 ? 0 : 1, common: (view.su||[0,0,0])[2] },

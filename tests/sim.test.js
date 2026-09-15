@@ -61,9 +61,9 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   assert.equal(WEAPONS.mine.maxMines, undefined, '지뢰 설치 개수 제한은 없앴다');
 });
 
-test('정리된 기획 증강 93종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
-  assert.equal(AUGMENTS.length, 93);
-  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 93);
+test('기획 증강 96종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
+  assert.equal(AUGMENTS.length, 96, '쇠사슬 전용 3종이 더해져 96이다');
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 96);
   // 새로 들어온 것과 이름이 바뀐 것
   for (const id of ['p_shotgun', 's_double']) assert.ok(AUG_BY_ID[id], id);
   for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas',
