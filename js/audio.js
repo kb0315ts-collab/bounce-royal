@@ -39,6 +39,15 @@
   // Bright transients, a softer body, and short tails keep rapid combat legible.
   sound('weapon.sword.hit', '검 · 묵직한 베기', '무기', '넓게 훑는 바람에 낮은 금속 울림이 이어집니다.', 'sword', [noise(3300,650,.23,.28), tone(620,260,.16,.045,'triangle',.012), tone(1260,760,.09,.023,'sine',.008)], { priority:1, variation:.035 });
   sound('weapon.dagger.hit', '단검 · 날카로운 베기', '무기', '검보다 짧고 높은 칼날 소리로 빠른 접촉을 구분합니다.', 'dagger', [noise(5100,1700,.10,.23), tone(1850,960,.08,.035,'triangle'), tone(420,170,.06,.025)], { priority:1, variation:.05 });
+  // 방패 — 던질 때 쇳덩이가 회전하며 날고, 받을 때 손에 탁 걸린다.
+  sound('weapon.shield.throw', '방패 · 투척', '무기 스킬', '금속판이 공기를 가르며 회전해 나가는 소리입니다.', 'shield', [noise(1400,620,.22,.24,'bandpass',0,.008), tone(520,240,.16,.05,'triangle',.006)], { priority:2, variation:.04 });
+  sound('weapon.shield.hit', '방패 · 적중', '무기', '넓은 판이 부딪히는 둔탁하고 단단한 충격음입니다.', 'shield', [noise(1100,380,.10,.28), tone(240,150,.09,.06,'triangle',.004)], { priority:1, variation:.05 });
+  sound('weapon.shield.catch', '방패 · 회수', '무기', '손에 탁 걸리는 짧은 금속 접촉음으로 다시 무장했음을 알립니다.', 'shield', [noise(2600,900,.055,.16,'bandpass',0,.002), tone(680,900,.07,.04,'triangle',.004)], { priority:2, variation:.03 });
+  // 화염방사기 — 끊기지 않게 짧은 잡음을 겹쳐 쉭— 하고 이어지게 한다.
+  sound('weapon.flame.spray', '화염방사기 · 분사', '무기', '낮은 연소음 위에 바람이 새는 쉭 소리를 얹어 계속 뿜는 느낌을 냅니다.', 'flame', [noise(900,420,.26,.19,'lowpass',0,.03), noise(4200,2600,.24,.055,'highpass',.01,.04), tone(120,96,.22,.045,'triangle',.01)], { gap:.2, priority:1, variation:.06 });
+  // 쇠사슬 — 검의 넓은 칼바람과 달리 쇳덩이가 짧고 낮게 박힌다.
+  sound('weapon.chain.hit', '쇠사슬 · 쇳덩이 타격', '무기', '짧고 낮게 끝나는 금속 타격에 사슬이 팽팽해지는 쇳소리를 얹었습니다.', 'chain', [noise(1900,520,.13,.26), tone(190,120,.10,.055,'triangle',.004), tone(2400,1500,.05,.022,'sine',.006)], { priority:1, variation:.05 });
+  sound('skill.chain.swap', '쇠사슬 · 위치 교환', '무기 스킬', '짧게 빨아들였다 튕겨 나가는 두 겹 소리로 자리가 뒤바뀐 순간을 표시합니다.', 'chain', [noise(500,2100,.12,.20,'bandpass',0,.004), tone(760,300,.14,.055,'triangle',.03), tone(300,760,.10,.035,'sine',.01)], { priority:3, gap:.15 });
   sound('weapon.bow.fire', '활 · 화살 발사', '무기', '활시위의 탄성과 가느다란 바람을 함께 냅니다.', 'bow', [sample('bow',.30,.18,noise(2400,650,.14,.22)), tone(440,150,.10,.036,'triangle'), noise(4900,2100,.12,.055,'highpass',.018)], { priority:1, variation:.035 });
   sound('weapon.pistol.fire', '권총 · 발사', '무기', '짧은 발사음에 낮은 탄력을 더해 연사 중에도 선명합니다.', 'pistol', [sample('pistol',.26,.13,noise(3600,1100,.055,.22,'lowpass')), tone(160,60,.065,.085), noise(2700,800,.045,.045,'bandpass',.008)], { gap:.035, priority:1, variation:.025 });
   sound('weapon.pistol.barrage-shot', '회전 난사 · 한 발', '무기 스킬', '실제 연사 발사 시점에만 재생됩니다.', 'pistol', [noise(3800,750,.095,.20,'lowpass')], { gap:.025, priority:2, internal:true });

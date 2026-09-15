@@ -19,12 +19,20 @@ let totalBytes = 0;
 for (const id of ctx.ids) {
   const entry = metadata[id];
   const icon = read(entry.file);
-  const original = read('assets/icons/game-icons/source/' + entry.source + '.svg');
   assert.equal(hash(icon), entry.sha256, id + ': modified output needs a rebuild');
-  assert.equal(hash(original), entry.sourceSha256, id + ': original must remain unchanged');
-  assert.match(entry.sourceUrl, /^https:\/\/game-icons\.net\/1x1\/[a-z]+\/[a-z0-9-]+\.html$/);
   assert.ok(entry.author && entry.reason && entry.modifications);
-  assert.equal(entry.licenseUrl, 'https://creativecommons.org/licenses/by/3.0/');
+  /* 아이콘은 두 갈래다.
+   *  - 외부에서 가져온 것: 원본 파일이 함께 들어 있어야 하고 출처·라이선스를 밝힌다
+   *  - 직접 그린 것(origin:'native'): 원본이 없으니 그 검사는 건너뛴다
+   * 어느 쪽이든 아래의 안전·형식 검사는 똑같이 받는다. */
+  if (entry.origin === 'native') {
+    assert.ok(!entry.source && !entry.sourceUrl, id + ': 직접 그린 아이콘에 외부 출처를 달면 안 된다');
+  } else {
+    const original = read('assets/icons/game-icons/source/' + entry.source + '.svg');
+    assert.equal(hash(original), entry.sourceSha256, id + ': original must remain unchanged');
+    assert.match(entry.sourceUrl, /^https:\/\/game-icons\.net\/1x1\/[a-z]+\/[a-z0-9-]+\.html$/);
+    assert.equal(entry.licenseUrl, 'https://creativecommons.org/licenses/by/3.0/');
+  }
   assert.match(icon, /^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 512 512">/);
   assert.doesNotMatch(icon, /<(?:script|style|image|foreignObject|use)\b|\bhref\s*=|\bon\w+\s*=/i);
   for (const ref of icon.matchAll(/url\(([^)]+)\)/g)) assert.equal(ref[1], '#ink', 'Only the local color gradient can be referenced');

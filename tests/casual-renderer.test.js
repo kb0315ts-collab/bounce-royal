@@ -20,7 +20,7 @@ function runtime() {
   vm.createContext(sandbox);
   const source = ['js/data.js', 'js/sim.js', 'js/render.js']
     .map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
-  vm.runInContext(source + '\nglobalThis.api = {CHARACTERS, WEAPONS, graphicsForCanvas, drawBall, drawBallG, drawWeapon, drawWeaponG, drawFighterAura, drawArena, drawGroundFx, drawProjectiles, drawFx, drawLoadoutPortrait};', sandbox);
+  vm.runInContext(source + '\nglobalThis.api = {CHARACTERS, WEAPONS, graphicsForCanvas, drawBall, drawBallG, drawWeapon, drawWeaponG, drawFighterAura, drawArena, drawGroundFx, drawProjectiles, drawFx, drawLoadoutPortrait, drawUnits, drawUnitUI};', sandbox);
   return { ...sandbox.api, randomCalls: () => randomCalls };
 }
 
@@ -121,7 +121,11 @@ test('every retained arena, projectile and comic effect draws without writes or 
   }
   const owner = { color: '#ff6879' };
   r.drawGroundFx(g, g, deepFreeze({ stickies: [{ x: 0, y: 0, r: 14, life: 1 }],
-    flames: [{ x: 4, y: 8, r: 12, life: 1 }], mines: [{ x: 9, y: 5, r: 11, arm: 0, owner }] }));
+    flames: [{ x: 4, y: 8, r: 12, life: 1 }], mines: [{ x: 9, y: 5, r: 11, arm: 0, owner }],
+    // 던져 둔 방패는 날 때와 멈췄을 때가 다르게 그려진다 — 둘 다 태운다.
+    fighters: [{ color: '#ff6879', disc: { x: 30, y: 12, r: 15, resting: false } },
+      { color: '#59c6ff', disc: { x: -40, y: 20, r: 15, resting: true } },
+      { color: '#ffd24d', disc: null }] }));
   const kinds = ['arrow', 'charge', 'bullet', 'orb', 'missile', 'shuriken', 'beam'];
   r.drawProjectiles(g, g, deepFreeze({ projectiles: kinds.map((kind, i) => ({ kind, x: i * 20, y: 0, r: 8, ang: 0.4, owner })) }));
   const sc = { useText() { return { setAlpha() {} }; } };
@@ -144,4 +148,59 @@ test('loadout portrait reuses the same art and respects the shared mobile pixel 
   assert.equal(target.width, 180); assert.equal(target.height, 130);
   assert.equal(c.state.depth, 0);
   assert.equal(r.graphicsForCanvas(c.context), r.graphicsForCanvas(c.context), 'adapter is cached per canvas');
+});
+
+/* 분열체는 본체가 죽은 뒤 몸을 대신한다. 체력바도 무기도 없이 굴러다니면
+ * 남은 체력도 무슨 무기인지도 읽을 수가 없다. 둘 다 그려져야 한다. */
+test('split balls carry their own health bar and hold the weapon', () => {
+  const r = runtime();
+  const split = (x, hp, weaponAngle) => ({ dead: false, x, y: 0, r: 11, radius: 11,
+    hp, maxHp: 40, shield: 0, flash: 0, weaponAngle, charging: null,
+    gun: { reloadT: 0, focus: false }, chainHeads: null, flame: null, disc: null });
+  const base = {
+    uid: 1, pid: 1, name: '분열', color: '#ff6879', charId: 'cat',
+    x: 0, y: 0, radius: 16, weaponAngle: 0, hp: 0, maxHp: 400, shield: 0,
+    mainDead: true, dead: false, flash: 0, vx: 1, vy: 0,
+    flags: {}, timers: { stun: 0, immune: 0, untouchable: 0, freeze: 0, actingDead: 0,
+      balloon: 0, rampage: 0, gunBarrage: 0, berserk: 0, dashPrep: 0, dashT: 0 },
+    summons: [], satellites: [], charging: null, gun: null, chainHeads: null,
+    flame: null, disc: null, gunFlash: 0,
+    splitBalls: [split(-40, 40, 0.5), split(40, 10, 2.1)],
+  };
+  for (const weaponId of Object.keys(r.WEAPONS)) {
+    const c = recordingContext(), g = r.graphicsForCanvas(c.context);
+    const b = { fighters: [{ ...base, weaponId }] };
+    r.drawUnits(g, b);
+    assert.equal(c.state.depth, 0, weaponId + ' balances save/restore');
+    // 두 분열체가 서로 다른 각도로 무기를 든다 — 본체 각도를 빌려 쓰지 않는다.
+    const spins = c.calls.filter(k => k[0] === 'rotate').map(k => k[1]);
+    if (!['chain', 'flame'].includes(weaponId)) {
+      assert.ok(spins.includes(0.5) && spins.includes(2.1), weaponId + ' uses each split angle');
+    }
+    const ui = recordingContext(), gu = r.graphicsForCanvas(ui.context);
+    r.drawUnitUI(gu, b, { useText: () => ({ setAlpha() {} }) });
+    // 체력이 다르면 체력바 너비도 달라야 한다. 하나만 그렸으면 걸린다.
+    const bars = ui.calls.filter(k => k[0] === 'fillRect').map(k => k[3]);
+    assert.ok(bars.includes(28) && bars.includes(7), weaponId + ' draws a bar per split');
+  }
+});
+
+/* 쇠사슬의 전부는 줄이 휘는 것이다. 공과 추를 직선으로 이으면 접힌 줄이
+ * 막대기로 보인다 — 마디를 지나는 꺾은선으로 그려져야 한다. */
+test('the chain draws through its rope nodes, not straight to the head', () => {
+  const r = runtime(), c = recordingContext(), g = r.graphicsForCanvas(c.context);
+  // 한쪽으로 크게 접힌 줄. 직선 위에 있는 마디는 하나도 없다.
+  const nodes = [{ x: 10, y: 30 }, { x: 34, y: 48 }, { x: 60, y: 40 }, { x: 74, y: 16 }];
+  const head = { x: 80, y: -10, nodes };
+  r.drawWeaponG(g, deepFreeze({
+    weaponId: 'chain', mainDead: false, dead: false, x: 0, y: 0, radius: 16,
+    weaponAngle: 0, color: '#ff6879', flags: {}, timers: { stun: 0, balloon: 0 },
+    chainHeads: [head],
+  }));
+  assert.equal(c.state.depth, 0, 'balanced save/restore');
+  const pts = c.calls.filter(k => k[0] === 'lineTo').map(k => k[1] + ',' + k[2]);
+  for (const n of nodes) {
+    assert.ok(pts.includes(n.x + ',' + n.y), `rope passes through node ${n.x},${n.y}`);
+  }
+  assert.ok(pts.includes(head.x + ',' + head.y), 'rope ends at the head');
 });

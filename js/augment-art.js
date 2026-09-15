@@ -258,6 +258,15 @@
     ['m_big', 'mine', 'expand', 'area', '실제 여섯 접점·크림 원판·색 중앙의 지뢰 + 확대: 감지와 폭발 범위 증가.'],
     ['m_heal', 'mine', 'heal', 'self-trigger', '같은 지뢰 + 회복 십자: 자신이 밟으면 회복.'],
     ['m_freeze', 'mine', 'freeze', 'slow', '같은 지뢰 + 얼음 결정: 밟은 상대의 이동·공격속도 감소.'],
+    ['sh_magnet', 'shield', 'more', 'pickup', '방패 + 추가 표시: 회수 반경이 늘어 스쳐 지나가도 주워진다.'],
+    ['sh_ricochet', 'shield', 'wall', 'bounce-damage', '방패 + 벽: 벽에 튕길 때마다 피해가 올라간다.'],
+    ['sh_grip', 'shield', 'hurt', 'guard', '방패 + 피격 표시: 주운 직후 잠시 받는 피해가 줄어든다.'],
+    ['f_pressure', 'flame', 'contract', 'focus', '불꽃 + 좁힘: 사거리가 길어지는 대신 분사 각도가 좁아진다.'],
+    ['f_ember', 'flameTrail', 'hit', 'lingering', '바닥에 남는 불길 + 타격 표시: 불길이 닿은 자리에 화염이 남는다. 지속시간을 늘리는 끈질긴 화염과 갈린다.'],
+    ['f_thrust', 'flame', 'push', 'recoil', '불꽃 + 밀림: 분사하는 반대 방향으로 밀려나 기동이 열린다.'],
+    ['c_long', 'orbit', 'expand', 'reach', '공을 도는 궤도 + 확대: 사슬이 길어져 훑는 범위가 넓어진다.'],
+    ['c_barbed', 'orbit', 'hit', 'line-damage', '같은 궤도 + 타격 표시: 추뿐 아니라 사슬 줄에도 판정이 생긴다.'],
+    ['c_twin', 'doubleOrbit', 'more', 'twin-head', '궤도 둘 + 추가 표시: 반대편에도 추가 하나 달린다. 위성 증식과 헷갈리지 않게 배지로 가른다.'],
   ];
 
   const descriptors = Object.create(null);

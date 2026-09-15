@@ -19,11 +19,18 @@ const CHARACTERS = {
     skillName:'팽창', skillDesc:'5초간 본체·무기·투사체 크기가 커진다. 장착 무기에 따라 완전히 다른 스킬.' },
 };
 
+/* 무기 스킬은 라운드당 1회가 아니라 쿨타임으로 돈다 (초).
+ * 캐릭터 스킬은 그대로 라운드당 1회다 — 왁뿌볼 파괴 폭주처럼 대가가
+ * 영구히 남는 스킬은 두 번째 사용이 자해라서 횟수로 두는 편이 맞다. */
+const WEAPON_SKILL_CD = { sword: 9, dagger: 9, bow: 10, pistol: 12, staff: 12, mine: 8, chain: 4 };
+
 const WEAPONS = {
-  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:20, reach:60, tip:13, rot:3.0, moveMult:0.90,
+  // 회전은 검 3.0 -> 2.6, 단검 5.0 -> 5.8. 검이 무증강 대진에서 68%로 혼자 앞서고
+  // 단검이 43%로 처져 있었다. 둘을 맞바꿔 좁혔다 (실측 61% / 48%).
+  sword:  { name:'검', ico:'⚔️', type:'melee', dmg:20, reach:60, tip:13, rot:2.6, moveMult:0.90,
     desc:'긴 사거리와 높은 피해. 대신 공격속도·이동속도가 느리다.', stat:{atk:.85,spd:.45,rng:.7,mob:.4},
     skillName:'믹서기', skillDesc:'별도 피해 없이 1.2초 동안 두 바퀴 연속 회전한다.' },
-  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:18, reach:30, tip:9, rot:5.0, moveMult:1.15,
+  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:18, reach:30, tip:9, rot:5.8, moveMult:1.15,
     desc:'짧고 피해는 낮지만 공격속도·이동속도가 매우 빠르다.', stat:{atk:.45,spd:.95,rng:.3,mob:.95},
     skillName:'관통 돌진', skillDesc:'1초간 정지 후 원래 진행 방향으로 돌진해 관통하며 40의 무기 피해.' },
   bow:    { name:'활', ico:'🏹', type:'ranged', dmg:8, interval:1.5, projSpeed:300, rot:2.6, moveMult:1.0,
@@ -35,7 +42,32 @@ const WEAPONS = {
   staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:15, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
     desc:'상대를 자동으로 겨누는 느리고 강한 마법 투사체. 벽에 한 번 반사된다.', stat:{atk:1,spd:.15,rng:.8,mob:.7},
     skillName:'마력 폭주', skillDesc:'3초간 자신이 발사한 모든 마법 투사체의 크기가 2배가 된다.' },
-  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:10, interval:3.0, maxMines:5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
+  /* 평소엔 검처럼 돌며 닿으면 피해. 스킬로 바라보는 방향에 던진다.
+   * 던진 뒤에는 주울 때까지 무기가 없으니 신중해야 한다.
+   * 횟수 제한이 필요 없다 — 주워야만 다시 던질 수 있어 제한이 저절로 걸린다. */
+  shield: { name:'방패', ico:'🛡️', type:'melee', dmg:16, reach:42, tip:14, rot:2.2, moveMult:0.95,
+    throwSpd:520, throwDmg:22, decel:0.82, restSpd:40, pickupPad:18, discR:15,
+    desc:'몸에 붙여 휘두르다 던질 수 있다. 던진 뒤에는 주울 때까지 무기가 없다.', stat:{atk:.65,spd:.5,rng:.45,mob:.65},
+    skillName:'투척', skillDesc:'방패가 바라보는 방향으로 던진다. 주워야 다시 던질 수 있다.' },
+  /* 자동 공격이 없는 첫 무기. 스킬 버튼을 누르고 있는 동안만 조향 방향으로
+   * 분사하고 연료를 쓴다. 떼면 다시 찬다. 투사체가 없어 피할 수 없는 대신
+   * 사거리가 짧고 연료가 상한 역할을 한다.
+   *   dps 초당 피해 · range 사거리 · halfArc 반각(rad)
+   *   burnRate 초당 소모 · refillRate 초당 회복 (공격속도가 여기 곱해진다) */
+  flame:  { name:'화염방사기', ico:'🔥', type:'cone', dmg:0, dps:21, range:95, halfArc:0.35,
+    fuelMax:100, burnRate:40, refillRate:25, refillDelay:0.5, rot:0, moveMult:0.92,
+    desc:'버튼을 누르는 동안 조향 방향으로 불을 뿜는다. 피할 수 없지만 연료가 있다.', stat:{atk:.75,spd:.6,rng:.35,mob:.6},
+    skillName:'분사', skillDesc:'누르고 있는 동안 조향 방향으로 불을 뿜는다. 연료를 다 쓰면 잠시 못 쏜다.' },
+  /* 공에 매달린 추가 관성으로 따라온다. 휘두르지 않으면 아프지 않은 것이
+   * 이 무기의 전부다 — 벽 튕김과 조향이 곧 공격 준비 동작이 된다.
+   *   chainLen 사슬 길이 · headR 추 반지름 · gate 피해가 들어가는 최소 상대속도
+   *   response 추가 공을 따라오는 빠르기 (공격속도가 여기 곱해진다) · drag 감쇠 */
+  chain:  { name:'쇠사슬', ico:'⛓️', type:'chain', dmg:24, rot:0, moveMult:1.05,
+    chainLen:85, headR:10, gate:120, hitLock:0.35, response:3, drag:0.35,
+    desc:'공에 매달린 추를 휘둘러 맞힌다. 천천히 닿으면 피해가 없다.', stat:{atk:.7,spd:.5,rng:.55,mob:.8},
+    skillName:'위치 교환', skillDesc:'공과 추의 위치·속도를 즉시 맞바꾼다. 상대가 붙었을 때 쓰면 그 자리에 추가 남는다.' },
+  // maxMines를 없앴다. 이제 제한 없이 깔아 둘 수 있다.
+  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:9, interval:3.5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
     desc:'휘두르지 않고 이동 경로에 지뢰를 설치한다. 공간 장악형.', stat:{atk:.8,spd:.3,rng:.5,mob:.75},
     skillName:'원격 폭파', skillDesc:'1초 후 설치된 모든 지뢰를 하나당 피해 18, 반경 93으로 동시 폭파한다.' },
 };
@@ -115,7 +147,7 @@ const AUGMENTS = [
   { id:'frost',       cat:'cc', name:'냉기', desc:'무기 적중 시 상대 이동속도 -10% (3초, 최대 3중첩)' },
   { id:'gravityWell', cat:'cc', name:'중력장', desc:'10초마다 상대 진행 방향을 자신 쪽으로 변경' },
   // ---- 자동 공격 ----
-  { id:'missile',    cat:'auto', name:'유도 미사일', desc:'3초마다 피해 3의 유도탄 2발 발사' },
+  { id:'missile',    cat:'auto', name:'유도 미사일', desc:'3초마다 피해 2의 유도탄 2발 발사' },
   { id:'missilePlus',cat:'auto', name:'미사일 증식', desc:'유도 미사일 +1발', req:'missile' },
   { id:'missileUp',  cat:'auto', name:'고폭 탄두', desc:'미사일 피해 +30%', req:'missile' },
   { id:'flame',      cat:'auto', name:'화염 흔적', desc:'지나간 자리에 2초간 불꽃 생성, 밟는 동안 초당 피해 1' },
@@ -166,6 +198,15 @@ const AUGMENTS = [
   { id:'s_bounce',cat:'weapon', weapon:'staff', name:'이중 반사', desc:'마법 투사체 벽 반사 +1회' },
   { id:'m_big',   cat:'weapon', weapon:'mine', name:'대형 지뢰', desc:'지뢰를 밟는 판정 범위와 폭발 피해 판정 범위 증가' },
   { id:'m_heal',  cat:'weapon', weapon:'mine', name:'회복 지뢰', desc:'자신이 지뢰를 밟으면 체력 8% 회복' },
+  { id:'sh_magnet',  cat:'weapon', weapon:'shield', name:'자기 방패', desc:'회수 반경이 크게 늘어 스쳐 지나가도 주워진다' },
+  { id:'sh_ricochet',cat:'weapon', weapon:'shield', name:'튕기는 방패', desc:'벽에 튕길 때마다 피해 +25% (3회까지, 최대 2배)' },
+  { id:'sh_grip',    cat:'weapon', weapon:'shield', name:'단단한 손', desc:'방패를 주운 직후 5초간 받는 피해 -30%' },
+  { id:'f_pressure',cat:'weapon', weapon:'flame', name:'압축 연료', desc:'사거리가 길어지는 대신 분사 각도가 좁아진다' },
+  { id:'f_ember', cat:'weapon', weapon:'flame', name:'잔불', desc:'불길이 닿은 바닥에 2초간 화염이 남는다' },
+  { id:'f_thrust',cat:'weapon', weapon:'flame', name:'역분사', desc:'분사하는 동안 반대 방향으로 밀려난다. 조향으로는 못 하는 기동이 열린다' },
+  { id:'c_long',  cat:'weapon', weapon:'chain', name:'사슬 연장', desc:'사슬이 길어진다. 훑는 범위가 넓어지지만 추가 더 늦게 따라온다' },
+  { id:'c_barbed',cat:'weapon', weapon:'chain', name:'가시 사슬', desc:'사슬 줄에도 판정이 생긴다. 줄에 스치면 추 피해의 40%' },
+  { id:'c_twin',  cat:'weapon', weapon:'chain', name:'이중 사슬', desc:'반대편에도 추가 하나 달린다. 각 추의 피해는 80%' },
   { id:'m_freeze',cat:'weapon', weapon:'mine', name:'빙결 지뢰', desc:'상대가 밟으면 2초간 이동속도·공격속도 대폭 감소' },
   // ---- 캐릭터 스킬 카피 ----
 ];

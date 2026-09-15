@@ -1300,5 +1300,86 @@
     "modifications": "Casual color gradient; charcoal outline; scaled; original snow badge added",
     "sourceSha256": "b6e157ae69a0cb43721378465efe6240671cec9c05901288c16b61b2af95f65e",
     "sha256": "cce5fd1be6da69499a6788d33ee6a5a803ce39760d11ae0ceb1c5d3b069d46fa"
+  },
+  "c_long": {
+    "file": "assets/icons/augments/c_long.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "사슬 마디 넷과 방향 화살: 사슬이 길어진다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "steel",
+    "sha256": "7efdf5b760d82c619f42582b19c4be347759d311f82562a6c34f589de3f8a47a"
+  },
+  "c_barbed": {
+    "file": "assets/icons/augments/c_barbed.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "사슬 줄에 돋은 가시: 줄에 스쳐도 피해가 들어간다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "steel",
+    "sha256": "50d68ce0c10db073949397d8ec3a923640ee832c28f48d5c839fd496d0410208"
+  },
+  "c_twin": {
+    "file": "assets/icons/augments/c_twin.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "양쪽 끝의 추 둘: 반대편에도 추가 하나 달린다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "steel",
+    "sha256": "90f402e8c0b3b9dae5bb9af12f6edca388e50ef4e98ba7eb1ab9696638c66d97"
+  },
+  "f_pressure": {
+    "file": "assets/icons/augments/f_pressure.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "좁고 긴 불꽃과 모으는 화살표: 사거리가 길어지고 각도가 좁아진다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "flame",
+    "sha256": "c32ad33ea8a6784a9a9a8a951a451da94324c3b380694904214fd7ced2343d49"
+  },
+  "f_ember": {
+    "file": "assets/icons/augments/f_ember.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "바닥에 남은 불씨: 불길이 닿은 자리에 화염이 남는다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "flame",
+    "sha256": "e9948656903b081c3d19575be70e776bfb9d9e869ec73cc6a8fb1ddf61012efb"
+  },
+  "f_thrust": {
+    "file": "assets/icons/augments/f_thrust.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "뒤로 뿜고 앞으로 밀리는 표시: 분사 반대 방향으로 추진력을 얻는다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "flame",
+    "sha256": "440727912dcc8e063303a3ee2125c21747a610647eb125dd45df7dbd53b8beb0"
+  },
+  "sh_magnet": {
+    "file": "assets/icons/augments/sh_magnet.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "원형 방패와 아래로 뻗은 회수선: 방패를 줍는 반경이 늘어난다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "guard",
+    "sha256": "d1299af1404cb445b0b34b8e16777f0061c3224774cb78b28d6cdfa41754dea5"
+  },
+  "sh_ricochet": {
+    "file": "assets/icons/augments/sh_ricochet.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "벽에 튕기는 원형 방패: 반사할 때마다 피해가 올라간다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "guard",
+    "sha256": "62fbac94a17d6c4eb878142f5d89543a717da182c17f6b4998651c7539a5a18a"
+  },
+  "sh_grip": {
+    "file": "assets/icons/augments/sh_grip.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "원형 방패를 사방에서 붙잡은 표시: 주운 직후 받는 피해가 줄어든다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "guard",
+    "sha256": "31daf97b3d857cb04d13d18e8fe3f2f5b7255406b409ac8213dda6b3632efb70"
   }
 }

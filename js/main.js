@@ -1030,7 +1030,14 @@ const Game = {
     const fighter = this.mode === 'multi'
       ? BounceRoyalMulti?.view?.human?.()
       : this.focus?.human?.();
-    if (!fighter || fighter.weaponId !== 'bow' || !fighter.charging) return;
+    if (!fighter) return;
+    // 화염방사기는 누르는 동안만 나간다. 떼면 곧바로 꺼야 한다.
+    if (fighter.weaponId === 'flame') {
+      if (this.mode === 'multi') BounceRoyalMulti.sendSkillUp(slot);
+      else { const h = this.focus?.human?.(); if (h) setFlameInput(h, false); }
+      return;
+    }
+    if (fighter.weaponId !== 'bow' || !fighter.charging) return;
     this.pressSkill(slot);
   },
 };

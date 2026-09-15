@@ -478,6 +478,21 @@ function drawGroundFx(g, glow, b) {
     g.fillTriangle(fl.x, fl.y + R * 0.3, fl.x + R * 0.5, fl.y - R * 0.75, fl.x + R * 0.7, fl.y + R * 0.3);
     g.fillStyle(0xffef8c, a); g.fillEllipse(fl.x, fl.y, R * 0.7, R * 0.75);
   }
+  // 던져 둔 방패 — 날아가는 동안 돌고, 멈추면 바닥에 눕는다.
+  // 분열체도 제 방패를 던지므로 함께 훑는다.
+  for (const owner of b.fighters) {
+    for (const f of [owner, ...(owner.splitBalls || [])]) {
+      const d = f.disc;
+      if (!d) continue;
+      const t = performance.now() / 1000;
+      const spin = d.resting ? 0 : t * 9;
+      g.fillStyle(CASUAL_INK, 0.2);
+      g.fillEllipse(d.x + 2, d.y + 6, d.r * 2.3, d.r * (d.resting ? 1.5 : 1.1));
+      g.save(); g.translateCanvas(d.x, d.y); g.rotateCanvas(spin);
+      discFaceG(g, 0, 0, d.r, toInt(ownerPlayerColor(owner)));
+      g.restore();
+    }
+  }
   for (const m of b.mines) {
     const armed = m.arm <= 0;
     const mr = m.r || 11;
@@ -610,10 +625,31 @@ function drawBallG(g, f, x, y, r, opts = {}) {
   g.restore();
 }
 
+/* 방패 원반. 들고 있을 때와 던졌을 때가 같은 그림이어야 한다 —
+ * 한 군데서 그려서 둘이 갈라지지 않게 한다.
+ * 테두리 리벳 넷이 도는 것을 보이게 해 준다 (원은 그냥 돌면 안 보인다). */
+function discFaceG(g, x, y, r, own) {
+  g.fillStyle(0x6fd3bb, 1); g.fillCircle(x, y, r);
+  g.lineStyle(3.2, CASUAL_INK, 1); g.strokeCircle(x, y, r);
+  g.fillStyle(0xb6f0e2, 1); g.fillCircle(x, y, r * 0.62);
+  g.lineStyle(2.4, 0x2f8f7c, 1); g.strokeCircle(x, y, r * 0.62);
+  g.fillStyle(CASUAL_INK, 0.55);
+  for (let i = 0; i < 4; i++) {
+    const a = i * TAU / 4 + 0.79;
+    g.fillCircle(x + Math.cos(a) * r * 0.81, y + Math.sin(a) * r * 0.81, r * 0.1);
+  }
+  g.fillStyle(own, 1); g.fillCircle(x, y, r * 0.28);
+}
+
 function drawWeaponG(g, f) {
   if (f.mainDead || f.timers.stun > 0) return;
   const ws = weaponScale(f);
   const R = f.radius;
+  // 쇠사슬은 추가 세계 좌표에 따로 있어서 회전 좌표계로 그릴 수 없다.
+  if (f.weaponId === 'chain') { drawChainG(g, f, ws); return; }
+  if (f.weaponId === 'flame') { drawFlameG(g, f, ws); return; }
+  // 던져 둔 동안은 손에 무기가 없다 — 몸에는 아무것도 그리지 않는다.
+  if (f.weaponId === 'shield' && f.disc) return;
   g.save();
   g.translateCanvas(f.x, f.y);
   g.rotateCanvas(f.weaponAngle);
@@ -698,6 +734,13 @@ function drawWeaponG(g, f) {
       }
       break;
     }
+    case 'shield': {
+      /* 던지는 그 원반을 그대로 든다. 공에 살짝 겹쳐 놓아서
+       * 들고 있다는 것이 보이게 한다 — 떨어뜨려 놓으면 떠 있는 것 같다. */
+      const dr = WEAPONS.shield.discR * ws;
+      discFaceG(g, R * 0.45 + dr, 0, dr, toInt(ownerPlayerColor(f)));
+      break;
+    }
     case 'staff': {
       g.lineStyle(8, CASUAL_INK, 1);
       g.beginPath(); g.moveTo(R * 0.3, 0); g.lineTo(R + 42 * ws, 0); g.strokePath();
@@ -731,6 +774,94 @@ function bladeShape(g, x0, bladeLen, w) {
   g.lineStyle(2.4, CASUAL_INK, 1); g.strokePath();
   g.fillStyle(0x88c3d0, 1); g.beginPath(); g.moveTo(x0 + 1, 0); g.lineTo(x0 + bladeLen - 2, 0); g.lineTo(x0 + bladeLen * 0.81, w * 0.35); g.lineTo(x0 + 1, w * 0.35); g.closePath(); g.fillPath();
   g.lineStyle(1.1, 0xffffff, 1); g.beginPath(); g.moveTo(x0 + 4, -w * 0.26); g.lineTo(x0 + bladeLen * 0.74, -w * 0.26); g.strokePath();
+}
+
+/* 화염방사기 — 짧은 노즐과, 분사 중일 때만 나오는 불꽃 원뿔.
+ * 불꽃은 삼각 두 겹(바깥 주황 / 안쪽 노랑)에 끝의 작은 불똥으로 만든다. */
+function drawFlameG(g, f, ws) {
+  const wp = WEAPONS.flame;
+  const R = f.radius;
+  const a = f.weaponAngle;
+  const pressure = !!f.flags.flamePressure;
+  const range = (pressure ? 140 : wp.range) * ws;
+  const half = pressure ? 0.26 : wp.halfArc;
+  g.save();
+  g.translateCanvas(f.x, f.y);
+  g.rotateCanvas(a);
+  // 노즐 — 굵은 먹선 + 밝은 면, 다른 무기와 같은 문법
+  g.fillStyle(CASUAL_INK, 1); g.fillRoundedRect(R * 0.4, -7.5, 24, 15, 4);
+  g.fillStyle(0xd06a3a, 1); g.fillRoundedRect(R * 0.4 + 2, -5.5, 20, 11, 3);
+  g.fillStyle(0xffd256, 1); g.fillCircle(R * 0.4 + 21, 0, 4);
+  g.lineStyle(2.4, CASUAL_INK, 1); g.strokeCircle(R * 0.4 + 21, 0, 4);
+  if (f.flame && f.flame.on) {
+    const t = performance.now() / 1000;
+    const x0 = R * 0.4 + 24;
+    const wob = 1 + Math.sin(t * 22) * 0.06;
+    const tip = x0 + (range - x0) * wob;
+    const spread = Math.tan(half) * tip;
+    g.fillStyle(0xff8a3c, 0.85);
+    g.fillTriangle(x0, -6, tip, -spread, tip, spread);
+    g.fillStyle(0xffc83c, 0.9);
+    g.fillTriangle(x0, -4, tip * 0.78, -spread * 0.62, tip * 0.78, spread * 0.62);
+    g.fillStyle(0xfff2b0, 0.95);
+    g.fillTriangle(x0, -2.5, tip * 0.45, -spread * 0.3, tip * 0.45, spread * 0.3);
+    // 끝의 불똥 — 시간에 따라 흩어진다
+    for (let i = 0; i < 3; i++) {
+      const k = (t * 1.6 + i * 0.33) % 1;
+      const px = x0 + (tip - x0) * k;
+      const py = Math.sin(t * 13 + i * 2.1) * spread * k * 0.8;
+      g.fillStyle(0xffe08a, 0.7 * (1 - k));
+      g.fillCircle(px, py, 3.5 * (1 - k) + 1);
+    }
+  }
+  g.restore();
+}
+
+/* 쇠사슬 — 줄은 마디 원을 이어 그리고 끝에 추를 단다.
+ * 빠르게 돌 때 잔상을 하나 깔아 '휘둘렀다'가 눈에 보이게 한다. */
+function drawChainG(g, f, ws) {
+  const heads = f.chainHeads || [];
+  if (!heads.length) return;
+  const R = f.radius;
+  const headR = 10 * ws;
+  const own = toInt(ownerPlayerColor(f));
+  for (const h of heads) {
+    const nodes = h.nodes || [];
+    const first = nodes[0] || h;
+    const dx = first.x - f.x, dy = first.y - f.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const x0 = f.x + dx / d * R * 0.55, y0 = f.y + dy / d * R * 0.55;
+    /* 줄은 마디를 이은 꺾은선이다. 공과 추를 직선으로 이으면 접힌 줄이
+     * 막대기로 보인다 — 휘는 게 이 무기의 전부인데. */
+    const rope = [{ x: x0, y: y0 }].concat(nodes, [h]);
+    const trace = () => {
+      g.beginPath(); g.moveTo(rope[0].x, rope[0].y);
+      for (let i = 1; i < rope.length; i++) g.lineTo(rope[i].x, rope[i].y);
+      g.strokePath();
+    };
+    // 굵은 먹선 위에 밝은 선을 얹는 이 게임의 기본 문법
+    g.lineStyle(7, CASUAL_INK, 1); trace();
+    g.lineStyle(3.4, 0xc8cede, 1); trace();
+    // 마디 — 꺾이는 자리마다 고리를 하나씩 얹는다
+    for (let i = 1; i < rope.length - 1; i++) {
+      g.fillStyle(0xe6e9f2, 1); g.fillCircle(rope[i].x, rope[i].y, 3.4);
+      g.lineStyle(1.6, CASUAL_INK, 1); g.strokeCircle(rope[i].x, rope[i].y, 3.4);
+    }
+    // 추 — 바닥 그림자, 몸통, 먹선, 주인 색 한 점, 가시 넷
+    g.fillStyle(CASUAL_INK, 0.16); g.fillEllipse(h.x + 2, h.y + 5, headR * 2.2, headR * 1.3);
+    g.fillStyle(0x9aa3bb, 1); g.fillCircle(h.x, h.y, headR);
+    g.lineStyle(3, CASUAL_INK, 1); g.strokeCircle(h.x, h.y, headR);
+    g.lineStyle(3, CASUAL_INK, 1);
+    for (let i = 0; i < 4; i++) {
+      const a = i * TAU / 4 + 0.4;
+      g.beginPath();
+      g.moveTo(h.x + Math.cos(a) * headR * 0.8, h.y + Math.sin(a) * headR * 0.8);
+      g.lineTo(h.x + Math.cos(a) * (headR + 5), h.y + Math.sin(a) * (headR + 5));
+      g.strokePath();
+    }
+    g.fillStyle(0xd7dcea, 1); g.fillCircle(h.x - headR * 0.3, h.y - headR * 0.32, headR * 0.34);
+    g.fillStyle(own, 1); g.fillCircle(h.x, h.y, headR * 0.3);
+  }
 }
 
 /* 손잡이 + 코등이 + 검신 한 벌. off는 회전축에서 옆으로 비켜난 정도. */
@@ -806,6 +937,24 @@ function drawFighterAura(g, f, x, y, r) {
   }
 }
 
+/* 분열체는 본체와 같은 무기를 제 각도로 든다. 생김새(캐릭터·색·증강 비트)는
+ * 본체에서 빌리되, 세계 좌표를 쓰는 사슬·불길·방패는 제 것만 쓴다 —
+ * 본체 것을 그대로 두면 추와 불길이 분열체 수만큼 겹쳐 그려진다. */
+function splitProxy(f, sp, sr) {
+  return Object.assign({}, f, {
+    x: sp.x, y: sp.y, radius: sr, r: sr,
+    flash: sp.flash || 0,
+    mainDead: false, dead: false,
+    weaponAngle: sp.weaponAngle != null ? sp.weaponAngle : f.weaponAngle,
+    timers: sp.timers || f.timers,
+    charging: sp.charging !== undefined ? sp.charging : f.charging,
+    gun: sp.gun !== undefined ? sp.gun : f.gun,
+    chainHeads: sp.chainHeads || null,
+    flame: sp.flame || null,
+    disc: sp.disc || null,
+  });
+}
+
 function drawUnits(g, b) {
   for (const f of b.fighters) {
     for (const s of f.summons) {
@@ -816,8 +965,11 @@ function drawUnits(g, b) {
     }
     for (const sp of f.splitBalls) {
       if (sp.dead) continue;
-      drawFighterAura(g, sp, sp.x, sp.y, sp.r || sp.radius || 12);
-      drawBallG(g, Object.assign({}, f, { x: sp.x, y: sp.y, flash: sp.flash || 0 }), sp.x, sp.y, sp.r || sp.radius || 12);
+      const sr = sp.r || sp.radius || 12;
+      const proxy = splitProxy(f, sp, sr);
+      drawFighterAura(g, sp, sp.x, sp.y, sr);
+      drawBallG(g, proxy, sp.x, sp.y, sr, { spin: proxy.weaponAngle });
+      drawWeaponG(g, proxy);
     }
     if (!f.mainDead && !f.dead) {
       drawFighterAura(g, f, f.x, f.y, f.radius);
@@ -1028,6 +1180,22 @@ function drawUnitUI(g, b, sc) {
         g.fillStyle(toInt(f.color), 1); g.fillCircle(sx, sy, 7);
         g.lineStyle(2, CASUAL_INK, 1); g.strokeCircle(sx, sy, 7);
         g.fillStyle(0xffffff, 0.8); g.fillEllipse(sx - 2, sy - 2.5, 5, 2);
+      }
+    }
+    // 분열체 체력바. 소환수처럼 본체보다 작게 그려 구분한다.
+    for (const sp of f.splitBalls) {
+      if (sp.dead || !sp.maxHp) continue;
+      const sr = sp.r || sp.radius || 12;
+      const ratio = Math.max(0, Math.min(1, sp.hp / sp.maxHp));
+      const sw = 28, sx = sp.x - sw / 2, sy = sp.y - sr - 11;
+      g.fillStyle(CASUAL_INK, 1);
+      g.fillRoundedRect(sx - 1.5, sy - 1.5, sw + 3, 6, 2.5);
+      g.fillStyle(toInt(ratio > 0.5 ? '#a4ef58' : ratio > 0.25 ? '#ffdc55' : '#ff7965'), 1);
+      g.fillRect(sx, sy, sw * ratio, 3);
+      g.fillStyle(0xffffff, 0.45); g.fillRect(sx, sy, sw * ratio, 1);
+      if (sp.shield > 0) {
+        g.fillStyle(0x7fd8ff, 0.9);
+        g.fillRect(sx, sy - 2.5, sw * Math.min(1, sp.shield / sp.maxHp), 2);
       }
     }
     if (f.dead) continue;

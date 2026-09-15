@@ -73,7 +73,12 @@ function applyGameEvent(game, eventOrId) {
       for (const player of game.players) if (!player.eliminated) player.coins = Math.min(5, player.coins + 1);
       break;
     case 'refreshTen':
-      game.refreshes += 10;
+      // 새로고침은 사람마다 따로다. 방(멀티)은 pid별 Map, 혼자하기는 숫자 하나를 쓴다.
+      if (game.refreshes instanceof Map) {
+        for (const p of game.players) game.refreshes.set(p.id, (game.refreshes.get(p.id) || 0) + 10);
+      } else {
+        game.refreshes += 10;
+      }
       break;
     case 'reverseCoins':
       game.eventCoinReversalRound = game.round + 1;

@@ -16,7 +16,7 @@ const BOW_CHARGE_SECS = 4;           // 두 바퀴에 걸리는 시간. 조준 �
 const BOW_CHARGE_ROT = TAU * BOW_CHARGE_TURNS / BOW_CHARGE_SECS;  // 공격속도 영향 없음 — 조준 감각을 일정하게 유지
 const COUNT_TIME = 3;       // 라운드 시작 카운트다운 (3 · 2 · 1)
 const ENDING_TIME = 1.5;    // 승패가 갈린 뒤 슬로우로 보여주는 시간
-const MELEE_ASPD_GAIN = 2;  // 근접이 공격속도 증가분을 받는 배율
+const MELEE_ASPD_GAIN = 1.5;  // 근접이 공격속도 증가분을 받는 배율
 const STEER_MAX_RAD = 50 * Math.PI / 180; // 최대 조향속도: 초당 50도
 const STEER_RAMP_TIME = 0.25;              // 입력이 최대 조향력에 도달하는 시간
 const STEER_BOUNCE_LOCK = 0.15;            // 벽 반사 직후에는 반사 방향을 우선한다
@@ -113,6 +113,14 @@ function steerBodies(f) {
  * angle은 월드 좌표계 라디안, magnitude는 0..1이다. 분열 후 본체에
  * 들어온 입력은 살아 있는 두 분열체에 똑같이 전달된다.
  */
+/* 화염방사기의 분사 버튼. 누르고 있는 상태가 서버에 전달돼야 해서
+ * 조향과 같은 방식으로 상태를 받는다. */
+function setFlameInput(f, on) {
+  for (const body of steerBodies(f)) {
+    if (body.flame) body.flame.on = !!on;
+  }
+}
+
 function setSteerInput(f, angle, magnitude = 1) {
   if (!f || !Number.isFinite(angle) || !Number.isFinite(magnitude)) return false;
   const mag = clamp(magnitude, 0, 1);
@@ -400,6 +408,15 @@ function applyAugmentBattle(f, id, player) {
     case 'm_big': Fl.bigMine = 1; break;
     case 'm_heal': Fl.healMine = 1; break;
     case 'm_freeze': Fl.freezeMine = 1; break;
+    case 'sh_magnet': Fl.discMagnet = 1; break;
+    case 'sh_ricochet': Fl.discRicochet = 1; break;
+    case 'sh_grip': Fl.discGrip = 1; break;
+    case 'f_pressure': Fl.flamePressure = 1; break;
+    case 'f_ember': Fl.flameEmber = 1; break;
+    case 'f_thrust': Fl.flameThrust = 1; break;
+    case 'c_long': Fl.chainLong = 1; break;
+    case 'c_barbed': Fl.chainBarbed = 1; break;
+    case 'c_twin': Fl.chainTwin = 1; break;
   }
 }
 
@@ -433,7 +450,18 @@ function buildFighter(player, battle) {
     sfxSlash: 0,        // 근접 무기가 벤 횟수. 위와 같은 이유로 센다
 
     hist: [], histT: 0,
-    skillUses: { char: 1, weapon: 1 },
+    // 방패. disc가 있으면 던져져 있는 상태이고 그동안은 무기가 없다.
+    disc: null,
+    gripT: 0,          // 주운 직후 피해 감소가 남은 시간 (단단한 손)
+    // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
+    flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0 },
+    // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
+    // 이중 사슬이면 둘, 아니면 하나. 다른 무기는 빈 배열이다.
+    chainHeads: [],
+    chainHits: new Map(),   // 대상 uid -> 다음에 때릴 수 있는 시각 (재타격 잠금)
+    // 무기 스킬은 쿨타임(cd, 초)으로 돈다. 분열체가 이 객체를 참조로 공유하므로
+    // 쿨타임도 여기 넣어야 본체와 분열체가 같은 값을 본다.
+    skillUses: { char: 1, weapon: 1, cd: 0 },
     summons: [], splitBalls: [], satellites: [],
     splitUsed: false, lastStandUsed: false,
     mainDead: false, dead: false, deathAt: 0, downPending: false,
@@ -444,6 +472,7 @@ function buildFighter(player, battle) {
     rocketActive: false, rocketHits: new Set(),
     steer: { active: false, angle: 0, magnitude: 0, power: 0, lock: 0 },
     aiT: rand(0.4, 1.4), aiSteerT: rand(0.4, 0.7), aiSteerSide: chance(0.5) ? 1 : -1,
+    aiDodgeT: rand(0, AI_DODGE_TICK),   // 봇들이 같은 프레임에 몰려 살피지 않게 흩어 둔다
     spawnX: 0, spawnY: 0,
   };
   for (const id of player.augments) applyAugmentBattle(f, id, player);
@@ -780,6 +809,7 @@ class Battle {
     return true;
   }
   setSteerInput(f, ang, magnitude = 1) { return setSteerInput(f, ang, magnitude); }
+  setFlameInput(f, on) { return setFlameInput(f, on); }
   clearSteerInput(f) { return clearSteerInput(f); }
 
   spawnSummon(f, legion = false) {
@@ -919,16 +949,12 @@ class Battle {
         // 서서히 오르고, 그 이후 남은 시간은 그 배속을 유지한다.
         this.timeScale = 1 + (OVERTIME_SPEED - 1) * Math.min(1, (OVERTIME - this.otT) / OVERTIME_RAMP);
       }
-      // 움직임용. 시계는 실시간으로 가고 그 안의 움직임만 느리게 간다.
-      // 연출도 같이 늦춰야 폭발 고리가 공보다 빨리 퍼지지 않는다.
-      // (연장 가속은 움직임에만 걸리므로 연출에는 timeScale을 빼고 준다)
-      fxDt = rdt * GAME_SPEED;
-      this.step(clockDt * GAME_SPEED);
+      this.step(clockDt);
     } else if (this.phase === 'ending') {
       // 거의 멈춘 상태에서 시작해 서서히 풀린다. 파편과 팝업도 같은 속도로
       // 흘러야 화면 전체가 느려진 것처럼 보인다.
       const k = 1 - Math.max(0, this.endT) / ENDING_TIME;
-      fxDt = rdt * (0.10 + 0.45 * k * k) * GAME_SPEED;
+      fxDt = rdt * (0.10 + 0.45 * k * k);
       this.step(fxDt);
       this.endT -= rdt;
       if (this.endT <= 0) this.finished = true;
@@ -998,7 +1024,7 @@ class Battle {
     // 벽이나 다른 몸체와 부딪힐 때만 방향이 바뀐다.
     for (const m of summons) {
       m.cd = Math.max(0, m.cd - dt);
-      m.x += m.vx * m.spd * dt; m.y += m.vy * m.spd * dt;
+      m.x += m.vx * m.spd * GAME_SPEED * dt; m.y += m.vy * m.spd * GAME_SPEED * dt;
       m.spin += dt * 7;
       this.arena.collideBody(m);
       // 적 본체 접촉 공격
@@ -1085,7 +1111,7 @@ class Battle {
       const enlargedOrb = p.kind === 'orb' && !p.owner.dead && p.owner.timers.rampage > 0;
       if (p.baseR == null) p.baseR = p.r;
       p.r = p.baseR * (enlargedOrb ? 2 : 1);
-      const projSpd = p.spd;
+      const projSpd = p.spd * GAME_SPEED;
       p.x += p.vx * projSpd * dt; p.y += p.vy * projSpd * dt;
       // 벽
       if (this.arena.reflectProj(p)) {
@@ -1114,9 +1140,12 @@ class Battle {
     for (let i = this.mines.length - 1; i >= 0; i--) {
       const m = this.mines[i];
       m.arm -= dt; m.t += dt;
+      // 자기 회복 지뢰. 장전 중에도 벗어난 것은 세어 둔다.
+      const onOwner = !m.owner.mainDead
+        && dist(m.x, m.y, m.owner.x, m.owner.y) < m.trig + m.owner.radius;
+      if (!m.selfArmed && !onOwner) m.selfArmed = true;
       if (m.arm > 0) continue;
-      // 자기 회복 지뢰
-      if (m.owner.flags.healMine && !m.owner.mainDead && dist(m.x, m.y, m.owner.x, m.owner.y) < m.trig + m.owner.radius) {
+      if (m.owner.flags.healMine && m.selfArmed && onOwner) {
         healFighter(this, m.owner, m.owner.maxHp * 0.08);
         addFx(this, { type: 'ring', x: m.x, y: m.y, r0: 6, r1: 40, color: '#7dffa8', dur: 0.3 });
         this.mines.splice(i, 1); continue;
@@ -1281,8 +1310,13 @@ function computeStats(f) {
   let rot = 0;
   if (wp.type === 'melee') {
     // 근접은 조우가 짧아 회전이 조금 빨라져도 결국 한 번 스치고 끝난다.
-    // 그래서 공격속도가 오른 만큼은 두 배로 준다 (속사 하나 = 회전 +30%).
+    // 그래서 공격속도가 오른 만큼을 더 얹어 준다 (속사 하나 = 회전 +22.5%).
     // 반대로 느려지는 쪽(빙결·야만)은 그대로 둔다. 배로 깎으면 회전이 멈추거나 뒤집힌다.
+    //
+    // 배율은 2였는데 1.5로 낮췄다. 2에서는 속사를 겹칠수록 근접만 과하게 올라갔다 —
+    // 속사 셋일 때 검 +25.8%p / 단검 +19.4%p 대 원거리 +15.4%p로 벌어졌다.
+    // 1.5에서는 +18.3 / +16.8 대 +15.4로 거의 나란해진다. 아주 없애면(1) 반대로
+    // 근접이 속사를 못 쓰는 무기가 된다 (+10.5 / +12.5).
     rot = wp.rot * (aspd > 1 ? 1 + (aspd - 1) * MELEE_ASPD_GAIN : aspd);
   }
   else if (f.weaponId === 'pistol' && T.gunBarrage > 0) rot = PISTOL_BARRAGE_ROT * aspd;
@@ -1368,7 +1402,7 @@ function updateTimers(b, f, dt) {
   if (prev.dashPrep > 0 && T.dashPrep === 0 && f.dashPrepDir && !f.mainDead && !f.dead) {
     const nd = normDir(f.dashPrepDir.x, f.dashPrepDir.y);
     f.dash = { dx: nd.x, dy: nd.y, spd: 780, kind: 'dash' };
-    T.dashT = 0.35; f.dashHit = new Set();
+    T.dashT = 0.35 / GAME_SPEED; f.dashHit = new Set();
     battleSound(b, 'skill.dagger.dash', f);
     addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 8, r1: 60, color: '#8ef', dur: 0.3 });
   }
@@ -1387,12 +1421,15 @@ function moveFighter(b, f, dt) {
   const wasRocket = f.rocketActive;
   if (f.timers.dashPrep > 0) { /* 정지 */ }
   else if (f.timers.dashT > 0 && f.dash) {
-    f.x += f.dash.dx * f.dash.spd * dt;
-    f.y += f.dash.dy * f.dash.spd * dt;
+    f.x += f.dash.dx * f.dash.spd * GAME_SPEED * dt;
+    f.y += f.dash.dy * f.dash.spd * GAME_SPEED * dt;
   }
   else if (!(f.timers.bind > 0)) {
-    f.x += f.vx * f.st.move * dt;
-    f.y += f.vy * f.st.move * dt;
+    // 경기 진행 속도는 여기처럼 '실제로 나아가는 자리'에서만 곱한다.
+    // dt에 걸면 쿨타임·출혈 같은 초 단위 약속까지 늘어나 설명과 어긋나고,
+    // st에 걸면 스탯판에 표시되는 숫자가 깎인다.
+    f.x += (f.vx * f.st.move + (f.thrustX || 0)) * GAME_SPEED * dt;
+    f.y += (f.vy * f.st.move + (f.thrustY || 0)) * GAME_SPEED * dt;
   }
   const n = b.arena.collideBody(f);
   // High-speed rocket movement can cross a body completely in one tick, so
@@ -1492,7 +1529,7 @@ function onWallBounce(b, f, n) {
       if (e) {
         const nd = normDir(e.x - f.x, e.y - f.y);
         f.dash = { dx: nd.x, dy: nd.y, spd: 690, kind: 'rush' };
-        f.timers.dashT = 0.55; f.dashHit = new Set();
+        f.timers.dashT = 0.55 / GAME_SPEED; f.dashHit = new Set();
         battleSound(b, 'skill.basketball.rush', f);
         popup(b, f.x, f.y - f.radius - 24, '3바운드!', '#ffd24d', true);
         addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 10, r1: 70, color: '#ffd24d', dur: 0.35 });
@@ -1565,7 +1602,26 @@ function weaponSegment(f) {
   };
 }
 
+/* 무기 스킬 쿨타임. 값이 없는 무기(화염방사기·방패처럼 연료나 회수가
+ * 제한인 무기)는 0이라 곧바로 다시 쓸 수 있다. */
+function weaponSkillCd(f) {
+  return (typeof WEAPON_SKILL_CD !== 'undefined' && WEAPON_SKILL_CD[f.weaponId]) || 0;
+}
+
+/* 쿨타임을 걸 때는 버튼이 보는 값도 같은 자리에서 세운다.
+ * 따로 두었더니 활의 자동 발사 경로에서 한쪽만 갱신돼, 그 틱의 스냅샷이
+ * 서버와 클라이언트에서 다르게 보였다. */
+function startWeaponCd(f) {
+  f.skillUses.cd = weaponSkillCd(f);
+  f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1;
+}
+
 function updateCooldowns(b, f, dt) {
+  if (f.disc) updateDisc(b, f, dt);
+  f.gripT = Math.max(0, (f.gripT || 0) - dt);
+  f.skillUses.cd = Math.max(0, (f.skillUses.cd || 0) - dt);
+  // 버튼과 파리티가 같은 값을 보게 쿨타임을 그대로 비춰 둔다.
+  f.skillUses.weapon = f.skillUses.cd > 0 ? 0 : 1;
   f.staticCd = Math.max(0, f.staticCd - dt);
   f.collisionCd = Math.max(0, f.collisionCd - dt);
   f.flash = Math.max(0, f.flash - dt);
@@ -1574,10 +1630,17 @@ function updateCooldowns(b, f, dt) {
 
 function updateWeapon(b, f, dt) {
   if (f.mainDead || f.dead) { f.meleeContact.clear(); return; }
-  if (f.timers.stun > 0) { f.meleeContact.clear(); return; }
   const wp = WEAPONS[f.weaponId];
+  /* 쇠사슬은 무기를 돌리지 않는다. 추가 물리로 따라오고, 그 방향이 곧 무기 각도다.
+   * 기절 중에도 줄은 계속 굴려야 한다 — 굳혀 두면 공만 움직여 줄이 늘어나고,
+   * 풀리는 순간 구속이 추를 한 프레임에 되감아 말도 안 되는 속도가 나온다.
+   * 기절 중 피해는 아래 판정에서 따로 막는다. */
+  if (wp.type === 'chain') { updateChain(b, f, dt); return; }
+  if (f.timers.stun > 0) { f.meleeContact.clear(); return; }
   const fr = f.st.fr;
   const meleeSource = f.spinRemaining > 0 && f.weaponId === 'sword' ? 'skill:sword' : undefined;
+  // 화염방사기도 돌지 않는다. 조향 방향이 곧 무기 각도다.
+  if (wp.type === 'cone') { updateFlame(b, f, dt); return; }
   // 회전하거나(근접·회전 난사) 상대를 조준하거나(그 외 원거리·지뢰) 둘 중 하나다.
   if (f.timers.weaponLock <= 0) {
     let applied;
@@ -1586,10 +1649,10 @@ function updateWeapon(b, f, dt) {
       applied = BOW_CHARGE_ROT * dt;
       f.charging.spin += applied;
     } else if (f.spinRemaining > 0) {
-      applied = Math.min(f.spinRemaining, TAU / 0.5 * dt);
+      applied = Math.min(f.spinRemaining, TAU / 0.5 * GAME_SPEED * dt);
       f.spinRemaining = Math.max(0, f.spinRemaining - applied);
     } else {
-      applied = f.st.rot * dt;
+      applied = f.st.rot * GAME_SPEED * dt;
     }
     if (applied === 0) {
       // 표창처럼 상대의 현재 위치를 그대로 겨눈다
@@ -1599,7 +1662,9 @@ function updateWeapon(b, f, dt) {
     f.weaponAngle = (f.weaponAngle + applied) % TAU;
     if (f.flags.swordBeam) {
       f.spinAcc += Math.abs(applied);
-      if (f.spinAcc >= TAU) {
+      // 딱 한 바퀴에서 끊길 때 부동소수점 오차로 마지막 검기가 통째로 빠졌다.
+      // (믹서기는 정확히 두 바퀴인데 누적이 TAU에 1e-15만큼 못 미쳐 한 번만 나갔다.)
+      if (f.spinAcc >= TAU - 1e-9) {
         f.spinAcc -= TAU;
         const nd = normDir(f.vx, f.vy);
         spawnProj(b, f, { kind: 'beam', x: f.x + nd.x * f.radius, y: f.y + nd.y * f.radius, ang: Math.atan2(nd.y, nd.x), spd: 430, dmg: 15, r: 12, life: 1.6, pierce: true, weapon: true });
@@ -1608,8 +1673,8 @@ function updateWeapon(b, f, dt) {
     }
   }
   // 두 바퀴를 다 돌 때까지 안 쏘면 그 자리에서 자동으로 나간다 (사용 횟수는 그대로 소비)
-  if (f.charging && f.charging.spin >= TAU * BOW_CHARGE_TURNS && f.skillUses.weapon > 0) {
-    if (releaseCharge(b, f)) f.skillUses.weapon--;
+  if (f.charging && f.charging.spin >= TAU * BOW_CHARGE_TURNS) {
+    if (releaseCharge(b, f)) startWeaponCd(f);
   }
   if (f.timers.weaponLock > 0 || f.charging) {
     // 무기 정지/충전 중에는 발사 없음 (회전만)
@@ -1618,7 +1683,9 @@ function updateWeapon(b, f, dt) {
     return;
   }
   if (wp.type === 'melee') {
-    meleeHits(b, f, dt, undefined, meleeSource);
+    // 방패는 던져 둔 동안 근접 판정이 없다 — 무기가 손에 없다.
+    if (f.weaponId === 'shield' && f.disc) f.meleeContact.clear();
+    else meleeHits(b, f, dt, undefined, meleeSource);
   } else if (f.weaponId === 'bow') {
     f.cd.fire -= dt * fr;
     if (f.cd.fire <= 0) { f.cd.fire = wp.interval; fireBow(b, f); }
@@ -1658,7 +1725,7 @@ function updateWeapon(b, f, dt) {
     if (f.cd.fire <= 0) { f.cd.fire = wp.interval; fireStaff(b, f); }
   } else if (f.weaponId === 'mine') {
     f.cd.mine -= dt * fr;
-    if (f.cd.mine <= 0 && b.mines.filter(m => m.owner === f).length < wp.maxMines) {
+    if (f.cd.mine <= 0) {
       f.cd.mine = wp.interval;
       const big = f.flags.bigMine;
       const balloon = f.timers.balloon > 0 ? 1.6 : 1;
@@ -1669,6 +1736,10 @@ function updateWeapon(b, f, dt) {
         trig: (big ? 40 : wp.triggerR) * balloon,
         blast: (big ? 88 : wp.blastR) * balloon,
         dmg: wp.dmg,
+        // 회복 지뢰는 공 한가운데에 깔려서 깔자마자 자기가 밟는다.
+        // 팽창까지 겹치면 0.7초 장전 동안 반경을 못 벗어난다.
+        // 방패와 같은 방식 — 한 번 벗어나야 주인에게 반응한다.
+        selfArmed: false,
       });
       battleSound(b, 'weapon.mine.place', f);
     }
@@ -1679,6 +1750,424 @@ function updateWeapon(b, f, dt) {
  * 칼날 판정에 새로 들어온 순간에만 1회 피해를 주고, 칼날에서 완전히
  * 벗어났다가 다시 닿아야 다음 타격이 나간다. 칼날마다 따로 추적하므로
  * 쌍단검은 각 칼날이 독립적으로 한 번씩 맞힌다. */
+/* ═══════════ 방패 ═══════════
+ *
+ * 평소엔 검처럼 돌다가 던지면 날아가고, 주울 때까지 무기가 없다.
+ * 던지고 쫓아가서 줍는 순환이 이 무기의 전부다.
+ *
+ * 횟수 제한을 두지 않는다 — 주워야만 다시 던질 수 있으니 회수가 곧 제한이다. */
+function throwDisc(b, f) {
+  if (f.disc) return false;                       // 이미 던져 두었다
+  const wp = WEAPONS.shield;
+  const a = f.weaponAngle;
+  const ws = weaponScale(f);
+  f.disc = {
+    x: f.x + Math.cos(a) * (f.radius + 12), y: f.y + Math.sin(a) * (f.radius + 12),
+    vx: Math.cos(a), vy: Math.sin(a), spd: wp.throwSpd,
+    r: wp.discR * ws, owner: f, bounces: 0, contact: new Set(), resting: false,
+    // 던진 자리가 이미 회수 반경 안이라, 한 번 벗어나기 전에는 주울 수 없다.
+    // 이게 없으면 던지는 즉시 도로 주워져 무기가 아예 손을 떠나지 않는다.
+    armed: false,
+  };
+  battleSound(b, 'weapon.shield.throw', f);
+  addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 8, r1: 44, color: '#8fe3d0', dur: 0.25 });
+  return true;
+}
+
+function updateDisc(b, f, dt) {
+  const d = f.disc;
+  if (!d) return;
+  const wp = WEAPONS.shield;
+  if (!d.resting) {
+    d.spd *= Math.pow(wp.decel, dt);              // 초당 x0.82
+    d.x += d.vx * d.spd * GAME_SPEED * dt;
+    d.y += d.vy * d.spd * GAME_SPEED * dt;
+    if (b.arena.reflectProj(d)) {
+      d.bounces++;
+      // 벽에 튕기면 방향이 바뀐다 — 붙어 있던 상대도 새로 맞을 수 있다.
+      d.contact.clear();
+      battleSound(b, 'battle.bounce', d, 0.08);
+      sparks(b, d.x, d.y, 3, '#b7ffe9', 90);
+    }
+    if (d.spd < wp.restSpd) { d.resting = true; d.spd = 0; }
+    /* 적중 — 관통해 계속 간다. 재타격은 시간이 아니라 접촉 상태로 막는다.
+     * 판정에 새로 들어온 순간에만 1회 때리고, 완전히 벗어났다가 다시
+     * 닿아야 다음 타격이 나간다. 근접 무기가 쓰는 방식 그대로다.
+     * 시간 잠금으로 두면 스쳐 지나가는 동안 두 번 맞는다. */
+    const mult = f.flags.discRicochet ? 1 + 0.25 * Math.min(3, d.bounces) : 1;
+    const contact = new Set();
+    for (const e of b.enemiesOf(f)) {
+      for (const body of b.bodiesOf(e)) {
+        if (dist(d.x, d.y, body.x, body.y) > d.r + bodyRadius(body)) continue;
+        contact.add(body.uid);
+        if (d.contact.has(body.uid)) continue;        // 아직 안 벗어났다
+        if (weaponDamage(b, f, body, wp.throwDmg * mult) > 0) {
+          battleSound(b, 'weapon.shield.hit', body, 0.05);
+        }
+      }
+    }
+    d.contact = contact;
+  }
+  // 회수 — 주인이 닿으면 다시 든다
+  const pad = (f.flags.discMagnet ? 55 : wp.pickupPad);
+  const reach = f.radius + d.r + pad;
+  const away = dist(f.x, f.y, d.x, d.y);
+  if (!d.armed) { if (away > reach) d.armed = true; return; }
+  if (away < reach) {
+    f.disc = null;
+    if (f.flags.discGrip) f.gripT = 5;
+    battleSound(b, 'weapon.shield.catch', f);
+    addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 40, color: '#8fe3d0', dur: 0.3 });
+  }
+}
+
+/* ═══════════ 화염방사기 ═══════════
+ *
+ * 이 게임에서 자동으로 공격하지 않는 유일한 무기다. 버튼을 누르고 있는
+ * 동안만 조향 방향으로 원뿔을 뿜는다.
+ *
+ * 조준이 조향 조이스틱이라는 게 핵심이다 — 피할 것인가 맞힐 것인가를
+ * 매 순간 고르게 된다. 조향은 초당 50도로 느리게 돌지만 조준은 즉시라,
+ * '보는 곳'과 '가는 곳'이 갈린다. */
+function flameAim(f) {
+  // 조이스틱을 놓고 있으면 그냥 가는 방향으로 나간다.
+  return (f.steer && f.steer.active) ? f.steer.angle : Math.atan2(f.vy, f.vx);
+}
+
+function updateFlame(b, f, dt) {
+  const wp = WEAPONS.flame;
+  const st = f.flame;
+  const ws = weaponScale(f);
+  const range = (f.flags.flamePressure ? 140 : wp.range) * ws;
+  const halfArc = f.flags.flamePressure ? 0.26 : wp.halfArc;
+
+  f.weaponAngle = flameAim(f);   // 스냅샷의 a가 이 값을 그대로 나른다
+
+  const blocked = f.timers.weaponLock > 0 || f.timers.stun > 0 || f.mainDead || f.dead;
+  const firing = st.on && !blocked && st.fuel > 0;
+
+  if (firing) {
+    // 초 단위 약속이라 GAME_SPEED를 곱하지 않는다
+    st.fuel = Math.max(0, st.fuel - wp.burnRate * dt);
+    st.idle = 0;
+    const aim = f.weaponAngle;
+    // 역분사 — 조향 제한을 우회하는 유일한 기동이라 상한을 둔다
+    if (f.flags.flameThrust) {
+      const base = CHARACTERS[f.charId].move * wp.moveMult;
+      const cap = base * 0.45;
+      f.thrustX = (f.thrustX || 0) - Math.cos(aim) * 260 * dt;
+      f.thrustY = (f.thrustY || 0) - Math.sin(aim) * 260 * dt;
+      const ts = Math.hypot(f.thrustX, f.thrustY);
+      if (ts > cap) { f.thrustX = f.thrustX / ts * cap; f.thrustY = f.thrustY / ts * cap; }
+    }
+    for (const e of b.enemiesOf(f)) {
+      for (const body of b.bodiesOf(e)) {
+        const d = dist(f.x, f.y, body.x, body.y);
+        if (d > range + bodyRadius(body)) continue;
+        const to = Math.atan2(body.y - f.y, body.x - f.x);
+        if (Math.abs(angleDelta(aim, to)) > halfArc) continue;
+        dealDamage(b, f, body, wp.dps * f.st.atk * f.st.dmg * dt, { kind: 'weapon' });
+      }
+    }
+    // 잔불 — 불길이 닿은 바닥에 남는다. 기존 화염 구조를 그대로 쓴다.
+    if (f.flags.flameEmber) {
+      f.cd.ember = (f.cd.ember || 0) - dt;
+      if (f.cd.ember <= 0) {
+        f.cd.ember = 0.18;
+        const r = range * (0.45 + Math.random() * 0.5);
+        const a = f.weaponAngle + rand(-halfArc, halfArc);
+        b.flames.push({ owner: f, x: f.x + Math.cos(a) * r, y: f.y + Math.sin(a) * r,
+          r: 16, life: 2, maxLife: 2, dps: 4 });
+        if (b.flames.length > 60) b.flames.shift();
+      }
+    }
+    battleSound(b, 'weapon.flame.spray', f, 0.22);
+  } else {
+    st.idle += dt;
+    if (st.idle >= wp.refillDelay) {
+      // 공격속도는 '다시 쏘기까지의 공백'으로 들어간다
+      st.fuel = Math.min(wp.fuelMax, st.fuel + wp.refillRate * Math.max(0.2, f.st.aspd) * dt);
+    }
+  }
+  // 추진력은 매 틱 줄어든다 (분사를 멈추면 서서히 원래 속도로)
+  if (f.thrustX || f.thrustY) {
+    const k = Math.max(0, 1 - 2.2 * dt);
+    f.thrustX *= k; f.thrustY *= k;
+    if (Math.hypot(f.thrustX, f.thrustY) < 0.5) { f.thrustX = 0; f.thrustY = 0; }
+  }
+}
+
+/* ═══════════ 쇠사슬 ═══════════
+ *
+ * 추는 공과 별개의 물체다. 공이 방향을 꺾어도 추는 관성으로 계속 가고,
+ * 그게 채찍이 된다. 벽 튕김이 가장 강한 채찍 발생기다.
+ *
+ * 스프링으로 '공에서 사슬 길이만큼 떨어진 점'을 쫓게 하고, 마지막에
+ * 하드 클램프로 길이를 넘지 못하게 한다. 고정 dt(1/60)에서 안정적이다. */
+/* 몸통의 실제 속도. 전투원·분열체는 st.move, 소환수는 spd가 크기다. */
+function bodyVel(body) {
+  const s = body.st ? body.st.move : (body.spd || 0);
+  return { x: (body.vx || 0) * s, y: (body.vy || 0) * s };
+}
+
+function chainLen(f) {
+  const wp = WEAPONS.chain;
+  return (f.flags.chainLong ? 130 : wp.chainLen) * weaponScale(f);
+}
+
+/* 줄은 마디로 이어진 밧줄이다. 공에서 추까지 CHAIN_SEGS등분한 점을
+ * 각각 물리로 굴리고 마디 길이로 묶는다. 이래야 줄이 접히고 휜다 —
+ * 공과 추를 직선으로 이으면 무슨 짓을 해도 막대기다. */
+const CHAIN_SEGS = 5;
+// 추가 낼 수 있는 속도의 상한(px/s, GAME_SPEED 곱하기 전). 순간이동 보정용이라
+// 실제 휘두름(관측 상위 10%가 800 언저리)보다 넉넉히 위에 둔다.
+const CHAIN_MAX_SPD = 2000;
+// 추의 역질량. 1이면 마디와 같은 무게(끝이 채찍처럼 튄다), 작을수록 무겁다.
+const CHAIN_HEAD_W = 0.25;
+const CHAIN_ITERS = 4;
+// 줄이 당긴 힘 중 추가 운동량으로 쌓는 몫. 1이면 채찍, 작을수록 묵직하다.
+const CHAIN_INHERIT = 0.5;
+// 줄이 팽팽할 때 접선(도는) 속도를 깎는 세기. 클수록 덜 돈다.
+const CHAIN_SWING_DAMP = 1.5;
+
+function ensureChainHeads(f) {
+  const want = f.flags.chainTwin ? 2 : 1;
+  const L = chainLen(f);
+  if (f.chainHeads.length !== want) {
+    f.chainHeads = [];
+    for (let i = 0; i < want; i++) {
+      const a = f.weaponAngle + i * Math.PI;
+      f.chainHeads.push({ x: f.x + Math.cos(a) * L, y: f.y + Math.sin(a) * L, vx: 0, vy: 0 });
+    }
+  }
+  // 마디는 공과 추 사이에 고르게 깐다. 추가 곧 마지막 마디다.
+  for (const h of f.chainHeads) {
+    if (h.nodes && h.nodes.length === CHAIN_SEGS - 1) continue;
+    h.nodes = [];
+    for (let i = 1; i < CHAIN_SEGS; i++) {
+      const t = i / CHAIN_SEGS;
+      h.nodes.push({ x: f.x + (h.x - f.x) * t, y: f.y + (h.y - f.y) * t, vx: 0, vy: 0 });
+    }
+  }
+}
+
+/* 줄을 공-추 직선 위에 다시 깔고 속도를 공에 맞춘다.
+ * 공이 한 프레임에 순간이동했을 때(고양이 되돌아가기, 폭발 밀침, 위치 교환)
+ * 쓴다. 그냥 두면 구속이 줄 전체를 한 프레임에 되감고, 그 변위가 그대로
+ * 속도가 되어 추가 경기장을 가로질러 튕겨 나간다. */
+function relayChain(f, h) {
+  const L = chainLen(f);
+  let dx = h.x - f.x, dy = h.y - f.y;
+  let d = Math.hypot(dx, dy);
+  if (d < 1e-6) { dx = Math.cos(f.weaponAngle); dy = Math.sin(f.weaponAngle); d = 1; }
+  if (d > L) { h.x = f.x + dx / d * L; h.y = f.y + dy / d * L; }
+  const mv = (f.st && f.st.move) || 0;
+  const bvx = f.vx * mv, bvy = f.vy * mv;
+  h.vx = bvx; h.vy = bvy;
+  for (let i = 0; i < h.nodes.length; i++) {
+    const t = (i + 1) / CHAIN_SEGS, n = h.nodes[i];
+    n.x = f.x + (h.x - f.x) * t; n.y = f.y + (h.y - f.y) * t;
+    n.vx = bvx; n.vy = bvy;
+  }
+}
+
+/* 마디 사이 거리를 맞춘다. 줄은 늘어나지 않지만 줄어들 수는 있어서 접힌다.
+ *
+ * 무게가 여기서 나온다. 공은 고정점이고(무게 무한), 추는 마디보다 무겁다.
+ * 당김을 나눌 때 가벼운 마디가 많이 움직이고 추는 조금만 움직인다 —
+ * 줄이 먼저 접히고 추는 묵직하게 끌려온다.
+ * 추를 마디와 같은 무게로 두면 당김이 전부 끝으로 몰려 채찍처럼 튄다. */
+function solveChainRope(f, h, seg) {
+  const pts = h.nodes.concat([h]);
+  const last = pts.length - 1;
+  for (let it = 0; it < CHAIN_ITERS; it++) {
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      const a = i === 0 ? f : pts[i - 1];
+      const wa = i === 0 ? 0 : (i - 1 === last ? CHAIN_HEAD_W : 1);
+      const wb = i === last ? CHAIN_HEAD_W : 1;
+      const sum = wa + wb;
+      if (sum <= 0) continue;
+      const dx = q.x - a.x, dy = q.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d <= seg || d < 1e-6) continue;
+      const corr = (d - seg) / d;
+      if (wa > 0) { a.x += dx * corr * (wa / sum); a.y += dy * corr * (wa / sum); }
+      q.x -= dx * corr * (wb / sum); q.y -= dy * corr * (wb / sum);
+    }
+  }
+  /* 마지막으로 한 번 순서대로 훑어 남은 위반을 없앤다. 반복이 덜 수렴해도
+   * 줄이 늘어난 채로 화면에 나가지 않게 하는 보증이다. */
+  let ax = f.x, ay = f.y;
+  for (const q of pts) {
+    const dx = q.x - ax, dy = q.y - ay;
+    const d = Math.hypot(dx, dy);
+    if (d > seg && d > 1e-6) { q.x = ax + dx / d * seg; q.y = ay + dy / d * seg; }
+    ax = q.x; ay = q.y;
+  }
+}
+
+function updateChain(b, f, dt) {
+  const wp = WEAPONS.chain;
+  ensureChainHeads(f);
+  const L = chainLen(f);
+  const ws = weaponScale(f);
+  const headR = wp.headR * ws;
+  // 공격속도는 '추가 얼마나 빨리 따라오느냐'로 들어간다. 같은 움직임에서
+  // 더 빠른 채찍이 나오고, 그만큼 관문을 넘는 빈도가 오른다.
+  const resp = wp.response * Math.max(0.2, f.st.aspd);
+  const gate = wp.gate;
+  const base = wp.dmg * (f.flags.chainTwin ? 0.8 : 1);
+
+  /* 추는 진자다. 공을 향한 스프링을 주면 안 된다 — 지름 방향 힘은
+   * 접선 운동을 하나도 만들지 못해서, 추가 늘 공 뒤에 얌전히 붙어
+   * 끌려오기만 한다. 휘두름은 관성에서 나온다:
+   *   자유 비행 → 줄 길이로 구속 → 구속이 준 변위를 다시 속도로
+   * 공이 방향을 틀거나 벽에 튕기면 추는 제 관성으로 계속 날아가
+   * 공을 지나치고, 반대쪽에서 줄이 다시 팽팽해지며 돌아 나온다. */
+  const seg = L / CHAIN_SEGS;
+  const damp = 1 - Math.min(1, wp.drag * dt);
+  for (const h of f.chainHeads) {
+    /* 줄이 끊어질 만큼 벌어져 있으면 공이 순간이동한 것이다. 되감지 말고
+     * 다시 깐다. 이 프레임의 휘두름 속도는 0으로 둔다 — 순간이동은
+     * 휘두른 것이 아니다. */
+    const first = h.nodes[0] || h;
+    if (Math.hypot(first.x - f.x, first.y - f.y) > seg * 3) {
+      relayChain(f, h);
+      h.sx = 0; h.sy = 0;
+      continue;
+    }
+    const px = h.x, py = h.y;
+    const pts = h.nodes.concat([h]);
+    const prev = pts.map(q => ({ x: q.x, y: q.y }));
+    for (const q of pts) {
+      q.vx *= damp; q.vy *= damp;
+      q.x += q.vx * GAME_SPEED * dt;
+      q.y += q.vy * GAME_SPEED * dt;
+    }
+    // 구속 전 위치. 아래에서 '줄이 당긴 몫'만 따로 떼어 내는 데 쓴다.
+    const free = pts.map(q => ({ x: q.x, y: q.y }));
+    /* 줄이 느슨할 때만 추를 바깥으로 민다. 중력이 없는 게임이라 이게
+     * 없으면 한 번 접힌 줄이 펴지지 않고 추가 공 옆에 붙어 버린다.
+     * 공격속도가 걸리는 곳이 여기다 — 얼마나 빨리 다시 펴지는가. */
+    const dx = h.x - f.x, dy = h.y - f.y;
+    const d = Math.hypot(dx, dy);
+    if (d > headR && d < L) {
+      const k = (L - d) * resp * dt;
+      h.vx += (dx / d) * k; h.vy += (dy / d) * k;
+    }
+    solveChainRope(f, h, seg);
+    /* 구속까지 반영한 변위에서 속도를 되찾는다. 공이 줄을 통해 끌고 간
+     * 운동량이 이 변위 안에 들어 있고, 그게 다음 프레임의 휘두름이 된다.
+     * 줄 방향 성분은 구속이 알아서 지운다 — 따로 빼지 않는다. */
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      if (dt > 0) {
+        /* 줄이 당긴 몫만 따로 떼어 그 일부만 속도로 받는다.
+         * 1이면 교과서 PBD — 당김이 전부 운동량이 되어 끝이 팽이처럼 돈다.
+         * 작을수록 줄에 끌려가되 그 힘을 덜 쌓아서 묵직하게 따라온다.
+         * '공 움직임에 따라 살짝의 관성'이 이 값이다. */
+        const cx = (q.x - free[i].x) / (GAME_SPEED * dt);
+        const cy = (q.y - free[i].y) / (GAME_SPEED * dt);
+        q.vx += cx * CHAIN_INHERIT;
+        q.vy += cy * CHAIN_INHERIT;
+        /* 순간이동 안전장치. 고양이 되돌아가기처럼 공이 한 프레임에 멀리
+         * 날면 구속이 줄을 통째로 되감고, 그 변위가 그대로 속도가 되면
+         * 추가 경기장을 가로질러 튕겨 나간다. 휘두름의 정상 범위보다
+         * 훨씬 위에 상한을 둬서 진짜 순간이동만 잘라 낸다. */
+        const qs = Math.hypot(q.vx, q.vy);
+        if (qs > CHAIN_MAX_SPD) {
+          q.vx = q.vx / qs * CHAIN_MAX_SPD;
+          q.vy = q.vy / qs * CHAIN_MAX_SPD;
+        }
+      }
+      // 벽에 튕긴다. 속도를 뒤집으므로 반드시 속도를 되찾은 뒤에 한다.
+      q.r = q === h ? headR : 3;
+      b.arena.reflectProj(q);
+    }
+    /* 줄이 팽팽할 때 접선 방향 속도를 덜어 낸다. 무거운 추는 공 둘레를
+     * 하염없이 돌지 않는다 — 한두 번 흔들리고 잦아든다. 지름 방향은
+     * 건드리지 않아서 끌려오는 지연과 줄이 접히는 모양은 그대로 남는다.
+     * 전체 감쇠(drag)로 이걸 하려면 늘어지는 맛까지 같이 죽는다. */
+    const tx = h.x - f.x, ty = h.y - f.y;
+    const td = Math.hypot(tx, ty);
+    if (td > L * 0.85 && td > 1e-6) {
+      const ux = tx / td, uy = ty / td;
+      const tv = -uy * h.vx + ux * h.vy;
+      const cut = tv * Math.min(1, CHAIN_SWING_DAMP * dt);
+      h.vx += uy * cut; h.vy -= ux * cut;
+    }
+    /* 피해 판정에 쓰는 '실제 속도'는 최종 변위로 잰다. 구속과 벽 반사가
+     * 속도를 갈아치우므로 h.vx로는 얼마나 휘둘렀는지 알 수 없다.
+     * 화면에서 실제로 움직인 거리가 정답이다. GAME_SPEED는 이미 들어 있다. */
+    h.sx = dt > 0 ? (h.x - px) / dt : 0;
+    h.sy = dt > 0 ? (h.y - py) / dt : 0;
+  }
+  // 무기 각도는 첫 추가 있는 쪽이다 (그리기와 던지기 방향에 쓴다)
+  const h0 = f.chainHeads[0];
+  f.weaponAngle = Math.atan2(h0.y - f.y, h0.x - f.x);
+
+  if (f.timers.weaponLock > 0 || f.timers.stun > 0) return;
+
+  /* 판정 — 관문(상대속도)을 넘어야 아프다 */
+  for (const e of b.enemiesOf(f)) {
+    for (const body of b.bodiesOf(e)) {
+      const until = f.chainHits.get(body.uid) || 0;
+      if (b.simT < until) continue;
+      const br = bodyRadius(body);
+      let hitDmg = 0;
+      for (const h of f.chainHeads) {
+        // 상대 속도도 화면에서 실제로 움직이는 값으로 맞춘다
+        const bv = bodyVel(body);
+        const rel = Math.hypot((h.sx || 0) - bv.x * GAME_SPEED, (h.sy || 0) - bv.y * GAME_SPEED);
+        if (dist(h.x, h.y, body.x, body.y) < headR + br) {
+          if (rel >= gate) { hitDmg = Math.max(hitDmg, base); }
+        } else if (f.flags.chainBarbed && rel >= gate
+          && ropeDist(f, h, body.x, body.y) < br + 4 * ws) {
+          // 가시 사슬 — 줄에 스치면 추 피해의 40%
+          hitDmg = Math.max(hitDmg, base * 0.4);
+        }
+      }
+      if (hitDmg > 0 && weaponDamage(b, f, body, hitDmg) > 0) {
+        f.chainHits.set(body.uid, b.simT + wp.hitLock);
+        battleSound(b, 'weapon.chain.hit', body, 0.05);
+      }
+    }
+  }
+  if (f.chainHits.size > 40) f.chainHits.clear();
+}
+
+/* 위치 교환 — 공과 추의 자리·속도를 맞바꾼다.
+ * 추가 피해를 주는 부분이라, 붙은 상대 옆에 추를 남기고 빠져나가는 수가 된다. */
+/* 꺾인 줄까지의 거리. 마디를 이은 꺾은선 전체에서 가장 가까운 곳을 본다.
+ * 직선으로 재면 접힌 줄이 실제로는 없는 자리를 때린다. */
+function ropeDist(f, h, x, y) {
+  let ax = f.x, ay = f.y, best = Infinity;
+  for (const q of h.nodes.concat([h])) {
+    best = Math.min(best, segDist(x, y, ax, ay, q.x, q.y));
+    ax = q.x; ay = q.y;
+  }
+  return best;
+}
+
+function chainSwap(b, f) {
+  ensureChainHeads(f);
+  const h = f.chainHeads[0];
+  const px = f.x, py = f.y;
+  const mv = (f.st && f.st.move) || 1;
+  const bvx = f.vx * mv, bvy = f.vy * mv;     // 공의 실제 속도 (단위벡터 x 이동속도)
+  f.x = h.x; f.y = h.y;
+  h.x = px; h.y = py;
+  // 공은 추가 휘두르던 속도의 방향을 받는다 (크기는 st.move가 정한다)
+  const hs = Math.hypot(h.vx, h.vy);
+  if (hs > 1e-6) { f.vx = h.vx / hs; f.vy = h.vy / hs; }
+  h.vx = bvx; h.vy = bvy;
+  relayChain(f, h);   // 마디를 새 선분 위에 다시 깐다. 안 그러면 줄이 엉킨다.
+  b.arena.collideBody(f);
+  addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 46, color: '#9fd0ff', dur: 0.28 });
+  addFx(b, { type: 'ring', x: h.x, y: h.y, r0: 6, r1: 46, color: '#9fd0ff', dur: 0.28 });
+}
+
 function meleeHits(b, f, dt, override, commentarySource) {
   const wp = WEAPONS[f.weaponId];
   const def = override || { reach: wp.reach, tip: wp.tip, dmg: wp.dmg };
@@ -1774,6 +2263,9 @@ function spawnProj(b, owner, o) {
   o.baseR = o.r;
   o.uid = ++UID; o.owner = owner; o.vx = Math.cos(o.ang); o.vy = Math.sin(o.ang);
   o.bounces = o.bounces || 0; o.pierce = !!o.pierce; o.life = o.life || 4;
+  // 느리게 날아가는 만큼 오래 살아야 사거리가 그대로다. 유도 선회도 같이 늦춘다.
+  o.life /= GAME_SPEED;
+  if (o.homing) o.homing *= GAME_SPEED;
   // 회전 난사 탄환은 스킬이 끝난 후 적중해도 발사 당시 출처를 유지한다.
   if (o.kind === 'bullet' && owner.timers.gunBarrage > 0) o.commentarySource = 'skill:pistol';
   b.projectiles.push(o);
@@ -1910,7 +2402,7 @@ function autoSystems(b, f, dt) {
 function updateSatellites(b, f, dt) {
   if (f.mainDead || f.dead) return;
   for (const s of f.satellites) {
-    s.ang += 2.7 * dt;
+    s.ang += 2.7 * GAME_SPEED * dt;
     s.cd = Math.max(0, s.cd - dt);
     const sx = f.x + Math.cos(s.ang) * (f.radius + 42);
     const sy = f.y + Math.sin(s.ang) * (f.radius + 42);
@@ -2014,6 +2506,7 @@ function dealDamage(b, src, body, raw, opts = {}) {
   let dmg = raw;
   if (t.flags.ironDefense && b.simT < 5) dmg *= 0.6;
   dmg *= (t.perm.dmgTaken || 1);
+  if (t.gripT > 0) dmg *= 0.7;   // 단단한 손 — 주운 직후 5초간
   if (actorBody && t.shield > 0) {
     const ab = Math.min(t.shield, dmg);
     t.shield -= ab; dmg -= ab;
@@ -2143,13 +2636,21 @@ function useSkill(b, f, slot) {
   // 칸은 둘뿐이다. 없는 이름이 들어오면 무기 스킬이 대신 나가 버린다.
   if (slot !== 'char' && slot !== 'weapon') return false;
   // 활은 첫 입력으로 충전하고, 두 번째 입력으로 발사할 때 사용 횟수를 소비한다.
+  // 활은 첫 입력으로 충전을 시작하고 두 번째 입력으로 쏜다.
+  // 쿨타임은 '쏜 순간'부터 돈다 — 충전만 하고 안 쏴도 잠기면 억울하다.
   if (slot === 'weapon' && f.weaponId === 'bow' && f.charging) {
-    if (f.skillUses.weapon <= 0 || !releaseCharge(b, f)) return false;
-    f.skillUses.weapon--;
+    if (!releaseCharge(b, f)) return false;
+    startWeaponCd(f);
     f.sfxSkill++;
     return true;
   }
-  if (f.skillUses[slot] <= 0) return false;
+  // 화염방사기는 스킬 버튼이 곧 기본 공격이다. 쿨타임도 횟수도 없다.
+  if (slot === 'weapon' && f.weaponId === 'flame') {
+    setFlameInput(f, true);
+    return true;
+  }
+  if (slot === 'char' && f.skillUses.char <= 0) return false;
+  if (slot === 'weapon' && f.skillUses.cd > 0) return false;
   const id = slot === 'char' ? f.charId : f.weaponId;
   switch (id) {
     case 'direction':
@@ -2217,18 +2718,28 @@ function useSkill(b, f, slot) {
       f.timers.rampage = 3;
       popup(b, f.x, f.y - f.radius - 24, '마력 폭주!', '#c9a0ff', true);
       break;
+    case 'shield':
+      if (!throwDisc(b, f)) return false;   // 던져 둔 채로는 다시 못 던진다
+      popup(b, f.x, f.y - f.radius - 24, '투척!', '#8fe3d0');
+      break;
+    case 'chain':
+      chainSwap(b, f);
+      popup(b, f.x, f.y - f.radius - 24, '위치 교환!', '#9fd0ff');
+      break;
     case 'mine':
       f.timers.det = 1;
       popup(b, f.x, f.y - f.radius - 24, '폭파 예약…', '#ffb14d');
       break;
   }
-  f.skillUses[slot]--;
+  if (slot === 'char') f.skillUses.char--;
+  else startWeaponCd(f);
   f.sfxSkill++;
   const cue = {
     cat: 'skill.cat.rewind', wak: 'skill.rampage.start', soft: 'skill.soft.guard',
     bomb: 'skill.bomb.arm', bball: 'skill.basketball.arm', balloon: 'skill.balloon.inflate',
     sword: 'skill.sword.spin', dagger: 'skill.dagger.prepare', pistol: 'skill.pistol.barrage',
-    staff: 'skill.staff.overload', mine: 'skill.mine.remote',
+    staff: 'skill.staff.overload', mine: 'skill.mine.remote', chain: 'skill.chain.swap',
+    shield: null,   // 투척 소리는 throwDisc가 직접 낸다
   }[id];
   if (cue) battleSound(b, cue, f);
   if (cue) battleCommentary(b, 'skill', f, null, (slot === 'char' ? 'char:' : 'skill:') + id);
@@ -2252,13 +2763,75 @@ function aiChooseStartDir(b, f) {
   return ang + rand(-0.12, 0.12);
 }
 
+/* ---- 회피 ----
+ *
+ * 여기까지 AI는 상대와의 거리만 보고 방향을 정했다. 날아오는 것을 보는
+ * 코드가 아예 없어서, 이동속도를 올려 줘도 피할 줄을 몰랐다 — 밸런스를
+ * 재 보면 이동·기동 계열 증강이 전부 0으로 나왔다.
+ *
+ * 조향 판단(0.4~0.7초)과 따로 도는 이유: 화살이 300px/s로 오면 경기장을
+ * 가로지르는 데 2초 남짓이라 0.5초에 한 번 봐서는 이미 늦는다.
+ * 차지 샷 조준이 같은 이유로 따로 도는 것과 같은 자리다.
+ *
+ * 완벽하게 피하면 상대하기 싫어진다. 일정 확률로 못 본 척하게 두어
+ * 빈틈을 남긴다. */
+const AI_DODGE_TICK = 0.1;    // 위협을 다시 살피는 주기
+const AI_DODGE_LOOK = 0.8;    // 이 시간 안에 닿을 것만 본다
+const AI_DODGE_PAD = 12;      // 스칠 것도 피한다
+const AI_DODGE_MISS = 0.25;   // 이 확률로는 못 본 척한다
+
+/* 가장 급한 위협 하나를 찾는다. 나와 투사체의 상대속도로 최접근 시각을
+ * 구하고, 그때 거리가 몸통+투사체 반지름 안이면 맞을 것으로 본다. */
+function aiIncomingThreat(b, f) {
+  const team = teamOwner(f);
+  const myR = bodyRadius(f);
+  const mv = (f.st && f.st.move) || 0;
+  let best = null;
+  for (const p of b.projectiles) {
+    if (!p.owner || teamOwner(p.owner) === team) continue;   // 내 편이 쏜 것은 건너뛴다
+    const dx = f.x - p.x, dy = f.y - p.y;
+    // 상대속도로 본다. 내가 움직이는 것까지 넣어야 엉뚱한 데로 앞질러 비키지 않는다.
+    const rvx = p.vx * p.spd - f.vx * mv;
+    const rvy = p.vy * p.spd - f.vy * mv;
+    const vv = rvx * rvx + rvy * rvy;
+    if (vv < 1) continue;
+    const t = (dx * rvx + dy * rvy) / vv;
+    if (t <= 0 || t > AI_DODGE_LOOK) continue;               // 멀어지는 중이거나 아직 먼 것
+    const cx = dx - rvx * t, cy = dy - rvy * t;              // 최접근 순간의 벌어짐
+    if (Math.hypot(cx, cy) > myR + p.r + AI_DODGE_PAD) continue;
+    if (!best || t < best.t) best = { p, t, dx, dy };
+  }
+  if (!best) return null;
+  // 투사체 진행선의 어느 쪽에 있는지 보고 그쪽으로 더 비킨다 — 가로지르는 것보다 짧다.
+  // 선 위에 거의 걸쳐 있으면 지금 방향에서 덜 꺾는 쪽을 고른다.
+  const p = best.p;
+  const pAng = Math.atan2(p.vy, p.vx);
+  const cross = p.vx * best.dy - p.vy * best.dx;
+  let side;
+  if (Math.abs(cross) > 1) side = cross > 0 ? 1 : -1;
+  else side = angleDelta(Math.atan2(f.vy, f.vx), pAng + Math.PI / 2) > 0 ? 1 : -1;
+  return { angle: pAng + side * Math.PI / 2, t: best.t };
+}
+
 function aiChooseSteer(b, f, e) {
   const wp = WEAPONS[f.weaponId];
   const d = dist(f.x, f.y, e.x, e.y);
   const toward = Math.atan2(e.y - f.y, e.x - f.x);
   let angle = toward;
 
-  if (wp.type === 'melee') {
+  if (f.weaponId === 'shield' && f.disc) {
+    // 던져 놓았으면 줍는 것이 최우선이다. 무기가 없는 동안은 싸울 수 없다.
+    angle = Math.atan2(f.disc.y - f.y, f.disc.x - f.x) + rand(-0.12, 0.12);
+  } else if (wp.type === 'cone') {
+    // 화염방사기는 붙어야 쓴다. 조향이 곧 조준이라 상대 쪽을 향한다.
+    angle = toward + rand(-0.2, 0.2);
+  } else if (wp.type === 'chain') {
+    // 쇠사슬은 정면으로 붙으면 추가 뒤에 남아 안 맞는다. 옆으로 스쳐 지나가며
+    // 추를 상대 쪽으로 휘두르는 궤도가 맞다.
+    const side = f.aiSteerSide || 1;
+    angle = toward + side * rand(0.55, 0.95);
+    if (chance(0.12)) f.aiSteerSide = side * -1;
+  } else if (wp.type === 'melee') {
     // 근접은 약간의 예측과 오차를 섞어 쫓되, 완벽한 유도탄처럼 붙지는 않는다.
     const lead = clamp(d / 380, 0, 0.65);
     angle = Math.atan2(e.y + e.vy * 120 * lead - f.y, e.x + e.vx * 120 * lead - f.x);
@@ -2289,10 +2862,23 @@ function aiUpdate(b, f, dt) {
       setSteerInput(f, choice.angle, choice.magnitude);
     } else clearSteerInput(f);
   }
+
+  // 날아오는 것 피하기. 위 판단 주기와 따로 보고, 잡히면 그쪽을 덮어쓴다.
+  f.aiDodgeT = (f.aiDodgeT || 0) - dt;
+  if (f.aiDodgeT <= 0) {
+    f.aiDodgeT = AI_DODGE_TICK;
+    if (!steeringBlocked(f)) {
+      const dodge = aiIncomingThreat(b, f);
+      if (dodge && !chance(AI_DODGE_MISS)) {
+        setSteerInput(f, dodge.angle, 1);
+        f.aiSteerT = Math.max(f.aiSteerT, 0.2);   // 비키는 동안은 원래 판단을 미룬다
+      }
+    }
+  }
   // 차지 샷 조준만은 판단 주기와 따로, 매 프레임 본다.
   // 활은 두 바퀴 도는 동안 상대와 겹치는 순간이 0.1초 남짓이라
   // 0.2~0.4초마다 보는 일반 판단으로는 절반 넘게 그냥 지나쳐 버린다.
-  if (f.charging && f.charging.t >= 0.2 && f.skillUses.weapon > 0) {
+  if (f.charging && f.charging.t >= 0.2) {
     const tgt = b.nearestEnemyMain(f);
     if (tgt) {
       // 화살이 날아가는 동안 상대가 움직이는 만큼 앞을 겨눈다
@@ -2328,21 +2914,45 @@ function aiUpdate(b, f, dt) {
   };
   if (f.skillUses.char > 0 && charHeur(f.charId)) use('char');
   // 무기 스킬
-  if (f.skillUses.weapon > 0) {
+  if (f.skillUses.cd <= 0) {
     const angToE = Math.atan2(e.y - f.y, e.x - f.x);
     let diff = f.weaponAngle - angToE;
     while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
     switch (f.weaponId) {
+      // 위치 교환은 상대가 붙었을 때가 값어치가 가장 크다 — 그 자리에 추가 남는다.
+      // 방패는 맞을 만한 거리에서만 던진다. 빗나가면 주우러 가는 동안 무방비다.
+      case 'shield': if (!f.disc && d > 90 && d < 300) use('weapon'); break;
+      case 'chain': if (d < f.radius + 70) use('weapon'); break;
+      // 화염방사기는 사거리 안일 때만 뿜고, 벗어나면 끈다. 연료가 바닥이면 쉰다.
+      case 'flame': {
+        const inRange = d < f.radius + WEAPONS.flame.range * weaponScale(f) * 0.95;
+        setFlameInput(f, inRange && f.flame.fuel > 12);
+        break;
+      }
       case 'sword': if (d < f.radius + wp.reach * weaponScale(f) + 55) use('weapon'); break;
-      case 'dagger': if (d > 130 && d < 430) use('weapon'); break;
+      // 돌진은 780 x 0.35초라 270px 남짓 간다. 430px에서 걸면 닿지 못하고
+      // 빈 곳으로 뛰어들어 오히려 맞기만 한다.
+      case 'dagger': if (d > 120 && d < 300) use('weapon'); break;
       case 'bow':
         // 발사는 위쪽 매 프레임 조준 검사가 맡는다. 여기서는 충전 시작만 판단한다.
         if (!f.charging && d < 520) use('weapon');
         break;
-      case 'pistol': if (d < 430 && Math.abs(diff) < 0.5) use('weapon'); break;
-      case 'staff': if (b.simT > 7 || eHpP < 0.45) use('weapon'); break;
+      // 회전 난사는 켜는 순간 자동 조준을 버리고 사방으로 뿌린다.
+      // 430px에서 켜면 대부분 빗나가고, 그동안 조준 사격을 통째로 잃는다.
+      // 뿌리는 각도가 360도라 조준 여부는 상관없고 거리만 본다.
+      case 'pistol': if (d < 200) use('weapon'); break;
+      // 마력 폭주는 '날아가는 마법'을 3초간 키우는 스킬이다. 화면에 마법이
+      // 없으면 통째로 버리는 셈인데, 전에는 7초만 지나면 그냥 썼다.
+      case 'staff':
+        // 날아가는 마법이 상대 근처까지 갔을 때 키워야 실제로 맞는다.
+        // 그냥 '마법이 있으면'으로 잡으면 쏘자마자 써 버려 3초가 헛돈다.
+        if (b.projectiles.some(p => p.owner === f && p.kind === 'orb'
+          && dist(p.x, p.y, e.x, e.y) < 220)) use('weapon');
+        break;
       case 'mine': {
-        const near = b.mines.some(m => m.owner === f && dist(m.x, m.y, e.x, e.y) < 150);
+        // 터뜨려 봐야 폭발 반경(기본 62) 안에 있어야 맞는다. 150px로 잡아
+        // 두어 두 배 넘게 먼 지뢰를 그냥 날리고 있었다.
+        const near = b.mines.some(m => m.owner === f && dist(m.x, m.y, e.x, e.y) < m.blast * 0.9);
         if (near) use('weapon');
         break;
       }

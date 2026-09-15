@@ -50,7 +50,7 @@ function assertSafeSvg(markup, label) {
   }
 }
 
-assert.equal(augmentIds.length, 93, 'Update the icon contract when the augment roster changes');
+assert.equal(augmentIds.length, 102, 'Update the icon contract when the augment roster changes');
 assert.equal(new Set(augmentIds).size, augmentIds.length, 'Augment IDs themselves must be unique');
 
 const missing = augmentIds.filter(id => !BRIcons.has(`aug-${id}`));

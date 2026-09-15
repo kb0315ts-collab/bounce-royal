@@ -48,21 +48,22 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
   });
   assert.deepEqual(
     [WEAPONS.sword.dmg, WEAPONS.sword.reach, WEAPONS.sword.rot],
-    [20, 60, 3],
+    [20, 60, 2.6],
   );
   assert.deepEqual(
     [WEAPONS.dagger.dmg, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
-    [18, 30, 5],
+    [18, 30, 5.8],
   );
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval, WEAPONS.bow.projSpeed], [8, 1.5, 300]);
   assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [3, 7, 0.12, 3]);
   assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [15, 2.5]);
-  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval, WEAPONS.mine.maxMines], [10, 3, 5]);
+  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval], [9, 3.5]);
+  assert.equal(WEAPONS.mine.maxMines, undefined, '지뢰 설치 개수 제한은 없앴다');
 });
 
-test('정리된 기획 증강 93종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
-  assert.equal(AUGMENTS.length, 93);
-  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 93);
+test('기획 증강 96종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
+  assert.equal(AUGMENTS.length, 102, '신규 무기 3종의 전용 증강 9개가 더해져 102다');
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 102);
   // 새로 들어온 것과 이름이 바뀐 것
   for (const id of ['p_shotgun', 's_double']) assert.ok(AUG_BY_ID[id], id);
   for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas',
@@ -104,17 +105,17 @@ test('투사체가 메인 공의 radius를 사용해 실제 피해를 준다', (
 
 /* 누르면 모으고 떼면 나간다. 최소 0.2초는 모아야 발사된다 —
  * 그 전에 떼면 아무 일도 없고 횟수도 그대로다. */
-test('활 차지 샷은 0.2초를 모아야 나가고 그때 횟수를 쓴다', () => {
+test('활 차지 샷은 0.2초를 모아야 나가고 그때 쿨타임이 돈다', () => {
   const b = makeBattle({ weaponId: 'bow' });
   const f = b.fighters[0];
   assert.equal(useSkill(b, f, 'weapon'), true, '누르면 충전이 시작된다');
-  assert.equal(f.skillUses.weapon, 1, '충전만으로는 횟수를 쓰지 않는다');
+  assert.equal(f.skillUses.cd, 0, '충전만으로는 쿨타임이 돌지 않는다');
   updateTimers(b, f, 0.19);
   assert.equal(useSkill(b, f, 'weapon'), false, '0.2초를 못 모으고 떼면 안 나간다');
-  assert.equal(f.skillUses.weapon, 1);
+  assert.equal(f.skillUses.cd, 0);
   updateTimers(b, f, 0.02);
   assert.equal(useSkill(b, f, 'weapon'), true);
-  assert.equal(f.skillUses.weapon, 0);
+  assert.equal(f.skillUses.cd, WEAPON_SKILL_CD.bow, '쏜 순간부터 쿨타임이 돈다');
   const charge = b.projectiles.find(p => p.kind === 'charge');
   assert.ok(charge);
   assert.equal(charge.dmg, 30);
@@ -163,8 +164,12 @@ test('권총 회전 난사는 1.5초간 돌면서 재장전 없이 난사한다'
     turned += Math.abs(step);
   }
   assert.ok(guard >= 89 && guard <= 91, '약 1.5초간 유지되어야 한다 (실제 ' + guard + '틱)');
-  assert.ok(turned > Math.PI * 2 * 2.5,
-    '난사 중 여러 바퀴 돌아야 한다 (실제 ' + (turned / (Math.PI * 2)).toFixed(1) + '바퀴)');
+  // 회전은 GAME_SPEED만큼 느리고 지속시간(1.5초)은 실시간이라, 바퀴 수는
+  // '초당 2바퀴 x 1.5초 x 경기 진행 속도'가 기준이 된다.
+  const expectRev = 2 * 1.5 * GAME_SPEED;
+  assert.ok(turned > Math.PI * 2 * expectRev * 0.85,
+    '난사 중 여러 바퀴 돌아야 한다 (기대 ' + expectRev.toFixed(1) +
+    '바퀴 안팎, 실제 ' + (turned / (Math.PI * 2)).toFixed(1) + '바퀴)');
   const bullets = b.projectiles.filter(p => p.kind === 'bullet').length;
   assert.ok(bullets >= 10 && bullets <= 16, '재장전 없이 연속 발사해야 한다 (실제 ' + bullets + '발)');
 });
@@ -222,7 +227,11 @@ test('믹서기는 정확히 두 바퀴 돌며 검기 시너지를 두 번 발�
     computeStats(f);
     updateWeapon(b, f, 1 / 60);
   }
-  assert.ok(guard >= 59 && guard <= 62, '두 바퀴는 약 1초여야 한다 (실제 ' + guard + '틱)');
+  // 두 바퀴라는 '회전량'은 그대로고, 회전이 GAME_SPEED만큼 느리니 걸리는
+  // 시간만 그만큼 늘어난다.
+  const expectTicks = 60 / GAME_SPEED;
+  assert.ok(guard >= expectTicks - 2 && guard <= expectTicks + 3,
+    '두 바퀴는 약 ' + expectTicks.toFixed(0) + '틱이어야 한다 (실제 ' + guard + '틱)');
   assert.ok(Math.abs(Math.atan2(Math.sin(f.weaponAngle - start), Math.cos(f.weaponAngle - start))) < 1e-9,
     '두 바퀴를 돌면 제자리로 돌아와야 한다');
   const beams = b.projectiles.filter(p => p.kind === 'beam');
@@ -242,13 +251,17 @@ test('마력 폭주는 3초간 기존·신규 마법 투사체 크기만 2배로
   b.updateProjectiles(0.1);
   assert.equal(p.r, 18);
   assert.equal(fresh.r, 18);
-  assert.ok(Math.abs(p.x - WEAPONS.staff.projSpeed * 0.1) < 1e-9, '이동속도는 변하면 안 된다');
+  // 스킬이 속도를 건드리지 않는다는 확인이다. 실제 날아가는 속도에는
+  // 경기 진행 속도(GAME_SPEED)가 곱해진다.
+  assert.ok(Math.abs(p.x - WEAPONS.staff.projSpeed * GAME_SPEED * 0.1) < 1e-9,
+    '이동속도는 변하면 안 된다');
   updateTimers(b, f, 3.01);
   const x = p.x;
   b.updateProjectiles(0.01);
   assert.equal(p.r, 9);
   assert.equal(fresh.r, 9);
-  assert.ok(Math.abs(p.x - x - WEAPONS.staff.projSpeed * 0.01) < 1e-9);
+  assert.ok(Math.abs(p.x - x - WEAPONS.staff.projSpeed * GAME_SPEED * 0.01) < 1e-9,
+    '폭주가 끝나도 속도는 그대로다');
 });
 
 test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용된다', () => {
@@ -490,8 +503,9 @@ test('로켓 관통은 매우 빠르게 돌진하며 이동 경로의 적을 통
 
   const startX = f.x;
   const beforeHp = e.hp;
-  const dt = 0.3;
-  const ordinaryDistance = CHARACTERS.cat.move * WEAPONS.sword.moveMult * dt;
+  // 경기 진행 속도만큼 느리게 나아가므로, 같은 거리를 보려면 시간을 그만큼 준다.
+  const dt = 0.3 / GAME_SPEED;
+  const ordinaryDistance = CHARACTERS.cat.move * WEAPONS.sword.moveMult * GAME_SPEED * dt;
   moveFighter(b, f, dt);
 
   assert.ok(f.x - startX >= ordinaryDistance * 3.5, '로켓 돌진은 평상시 이동보다 훨씬 빨라야 한다');
@@ -813,7 +827,10 @@ function meleeTrial(weaponId, dist, seconds, opts = {}) {
   f.x = 0; f.y = 0; f.weaponAngle = opts.startAngle === undefined ? -1.6 : opts.startAngle;
   e.maxHp = 1e9; e.hp = 1e9;
   let prev = e.hp, hits = 0, onBlade = 0, left = false;
-  for (let i = 0; i < 60 * seconds; i++) {
+  // 이 시험들은 '몇 바퀴 도는 동안'을 보는 것이지 벽시계를 보는 게 아니다.
+  // 회전이 GAME_SPEED만큼 느려졌으니 창도 그만큼 늘려야 같은 바퀴 수가 돈다.
+  const ticks = Math.round(60 * seconds / GAME_SPEED);
+  for (let i = 0; i < ticks; i++) {
     e.x = dist; e.y = 0;
     computeStats(f);
     if (opts.forcedFr !== undefined) f.st.fr = opts.forcedFr;
@@ -845,24 +862,25 @@ test('칼날에서 벗어났다 다시 닿으면 재타격된다', () => {
 });
 
 test('공격속도 하나가 근접은 회전으로, 원거리·지뢰는 발사 빈도로 나타난다', () => {
-  // 근접: 공격속도가 오른 만큼을 두 배로 받아 회전속도가 된다.
+  // 근접: 공격속도가 오른 만큼을 1.5배로 받아 회전속도가 된다.
   // 조우가 짧아 회전이 조금 빨라져도 결국 한 번 스치고 끝나기 때문이다.
+  // 예전에는 2배였는데, 속사를 겹칠수록 근접만 과하게 올라가서 낮췄다.
   for (const weaponId of ['sword', 'dagger']) {
     const base = makeBattle({ weaponId }).fighters[0];
     computeStats(base);
     const fast = makeBattle({ weaponId, augments: ['rot15', 'rot15'] }).fighters[0];
     computeStats(fast);
     assert.ok(Math.abs(fast.st.aspd - base.st.aspd * 1.15 * 1.15) < 1e-9, weaponId + ' 공격속도 배율');
-    const expected = WEAPONS[weaponId].rot * (1 + (fast.st.aspd - 1) * 2);
+    const expected = WEAPONS[weaponId].rot * (1 + (fast.st.aspd - 1) * MELEE_ASPD_GAIN);
     assert.ok(Math.abs(fast.st.rot - expected) < 1e-9,
-      weaponId + '은 공격속도 증가분을 두 배로 받아야 한다 (기대 ' + expected.toFixed(3) + ' 실제 ' + fast.st.rot.toFixed(3) + ')');
+      weaponId + '은 공격속도 증가분을 배로 얹어 받아야 한다 (기대 ' + expected.toFixed(3) + ' 실제 ' + fast.st.rot.toFixed(3) + ')');
     assert.ok(fast.st.rot > base.st.rot, weaponId + '은 공격속도가 오르면 더 빨리 회전해야 한다');
 
-    // 한 단계만 올려도 눈에 띄어야 한다 (속사 하나 = 회전 +30%)
+    // 한 단계만 올려도 눈에 띄어야 한다 (속사 하나 = 회전 +22.5%)
     const one = makeBattle({ weaponId, augments: ['rot15'] }).fighters[0];
     computeStats(one);
-    assert.ok(Math.abs(one.st.rot - WEAPONS[weaponId].rot * 1.30) < 1e-9,
-      weaponId + ': 속사 하나면 회전 +30%여야 한다');
+    assert.ok(Math.abs(one.st.rot - WEAPONS[weaponId].rot * (1 + 0.15 * MELEE_ASPD_GAIN)) < 1e-9,
+      weaponId + ': 속사 하나면 회전 +22.5%여야 한다');
 
     // 느려지는 쪽은 그대로다. 배로 깎으면 회전이 멈추거나 뒤집힌다.
     const slow = makeBattle({ weaponId }).fighters[0];
@@ -1029,11 +1047,11 @@ test('공격속도 증강은 근접 무기의 회전속도를 올리고, 회전 
   };
   for (const weaponId of ['sword', 'dagger']) {
     const base = rotOf(weaponId, []);
-    // 근접은 공격속도 증가분을 두 배로 받는다: 1.15 -> 1.30, 1.3225 -> 1.645
-    assert.ok(Math.abs(rotOf(weaponId, ['rot15']) - base * 1.30) < 1e-9,
-      weaponId + ': 속사 하나면 회전속도 +30%여야 한다');
-    assert.ok(Math.abs(rotOf(weaponId, ['rot15', 'rot15']) - base * (1 + (1.15 * 1.15 - 1) * 2)) < 1e-9,
-      weaponId + ': 속사가 쌓이면 증가분도 함께 두 배로 커져야 한다');
+    // 근접은 공격속도 증가분을 MELEE_ASPD_GAIN(1.5)배로 받는다: 1.15 -> 1.225
+    assert.ok(Math.abs(rotOf(weaponId, ['rot15']) - base * (1 + 0.15 * MELEE_ASPD_GAIN)) < 1e-9,
+      weaponId + ': 속사 하나면 회전속도 +22.5%여야 한다');
+    assert.ok(Math.abs(rotOf(weaponId, ['rot15', 'rot15']) - base * (1 + (1.15 * 1.15 - 1) * MELEE_ASPD_GAIN)) < 1e-9,
+      weaponId + ': 속사가 쌓이면 증가분도 함께 배로 커져야 한다');
   }
 
   // 붙어 있을 때 회전 한 바퀴에 정확히 한 번 맞는다 (빠를수록 그만큼 더 때린다)
@@ -1204,15 +1222,16 @@ test('AI도 순간 방향전환 없이 0.4~0.7초마다 불완전한 조향 목�
 });
 
 /* 카피 계열과 사용 횟수 증강을 통째로 걷어냈다.
- * 스킬은 캐릭터·무기 두 칸에 한 번씩으로 고정이다. */
-test('스킬은 캐릭터·무기 두 칸에 한 번씩으로 고정이다', () => {
+ * 칸은 캐릭터·무기 둘뿐이다. 캐릭터는 라운드당 1회, 무기는 쿨타임으로 돈다. */
+test('스킬 칸은 캐릭터·무기 둘뿐이고 무기는 쿨타임으로 돈다', () => {
   const p = makePlayer({ augments: ['hp15', 'atk15'] });
   const b = new Battle('square', [p, makePlayer({ isAI: true })]);
   b.phase = 'fight';
   const f = b.fighters[0];
-  assert.deepEqual(Object.keys(f.skillUses).sort(), ['char', 'weapon']);
+  assert.deepEqual(Object.keys(f.skillUses).sort(), ['cd', 'char', 'weapon']);
   assert.equal(f.skillUses.char, 1);
-  assert.equal(f.skillUses.weapon, 1);
+  assert.equal(f.skillUses.cd, 0, '전투 시작 시 무기 스킬은 바로 쓸 수 있다');
+  assert.equal(f.skillUses.weapon, 1, 'weapon은 쿨타임을 0/1로 비춘 값이다');
   assert.equal(useSkill(b, f, 'common'), false, '없는 칸은 눌러도 아무 일이 없어야 한다');
   assert.equal(f.skillUses.weapon, 1, '없는 칸이 무기 스킬을 대신 써 버리면 안 된다');
   assert.equal(b.projectiles.length, 0);
@@ -1363,6 +1382,56 @@ test('연승과 연패를 따로 센다', () => {
 /* 유도 화살은 상대 가까이 갔을 때만 살짝 휜다. 멀리서도 따라붙으면
  * 조준이 필요 없어지고(승률 71% -> 93%), 트리플 샷의 부채꼴도 총구 앞에서
  * 접혀 세 발이 한 줄로 날아간다. */
+test('던진 방패는 한 번 지나갈 때 한 번만 맞힌다', () => {
+  const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  // 상대를 한 자리에 고정해 두고 방패를 그 위로 통과시킨다
+  e.x = 160; e.y = 0; e.vx = 0; e.vy = 0; e.maxHp = e.hp = 1e9;
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 0;
+  throwDisc(b, f);
+  const d = f.disc;
+  let hits = 0, hpWas = e.hp;
+  // 상대 위를 완전히 지나갈 때까지
+  for (let n = 0; n < 240 && d.x < 320; n++) {
+    e.x = 160; e.y = 0;                     // 밀려나도 제자리로
+    updateDisc(b, f, 1 / 60);
+    if (e.hp < hpWas - 1e-9) { hits++; hpWas = e.hp; }
+    if (!f.disc) break;                     // 주웠으면 끝
+  }
+  assert.equal(hits, 1, '한 번 지나가면 한 대다 (실제 ' + hits + '대)');
+  // 판정에서 완전히 벗어났다가 다시 들어오면 그때는 맞는다
+  if (f.disc) {
+    e.x = Math.round(d.x); e.y = Math.round(d.y);
+    updateDisc(b, f, 1 / 60);
+    assert.ok(e.hp < hpWas - 1e-9, '벗어났다 다시 닿으면 또 맞아야 한다');
+  }
+});
+
+test('벽에 튕긴 방패는 붙어 있던 상대를 다시 맞힌다', () => {
+  const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 0;
+  throwDisc(b, f);
+  const d = f.disc;
+  e.maxHp = e.hp = 1e9;
+  // 상대를 원반 위에 겹쳐 두고 한 대 맞힌다
+  e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0;
+  updateDisc(b, f, 1 / 60);
+  const afterFirst = e.hp;
+  assert.ok(afterFirst < 1e9, '겹쳐 있으면 한 대는 맞는다');
+  // 붙어 있는 채로는 더 안 맞는다
+  e.x = d.x; e.y = d.y;
+  updateDisc(b, f, 1 / 60);
+  assert.equal(e.hp, afterFirst, '벗어나기 전에는 다시 안 맞는다');
+  // 벽 반사를 흉내 내면 접촉 기록이 풀려 다시 맞는다
+  d.contact.clear();
+  e.x = d.x; e.y = d.y;
+  updateDisc(b, f, 1 / 60);
+  assert.ok(e.hp < afterFirst - 1e-9, '튕긴 뒤에는 다시 맞아야 한다');
+});
+
 test('유도 화살은 가까울 때만 휘고 멀리서는 거의 직진한다', () => {
   const turnPerFrame = gap => {
     const b = makeBattle({ weaponId: 'bow', augments: ['b_homing'] });

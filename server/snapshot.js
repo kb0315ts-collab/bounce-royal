@@ -8,6 +8,13 @@ const r1 = n => Math.round(n * 10) / 10;
 const r2 = n => Math.round(n * 100) / 100;
 const sfxCount = (f, key) => (f[key] || 0) + f.splitBalls.reduce((s, x) => s + (x[key] || 0), 0);
 
+/* 줄 하나를 공 쪽 마디부터 추까지 [x,y, x,y, ...]로 편다. */
+function chainPts(h) {
+  const out = [];
+  for (const q of (h.nodes || []).concat([h])) { out.push(r1(q.x), r1(q.y)); }
+  return out;
+}
+
 function fighterView(f) {
   const t = f.timers;
   return {
@@ -32,7 +39,10 @@ function fighterView(f) {
     rl: f.gun && f.gun.reloadT > 0 ? 1 : 0,
     vx: Math.round(f.vx * 100) / 100, vy: Math.round(f.vy * 100) / 100,
     // 스킬 잔여/최대 사용 횟수 (스킬바 표시용)
-    su: [f.skillUses.char, f.skillUses.weapon],
+    // 캐릭터 칸은 남은 횟수, 무기 칸은 남은 쿨타임(초)이다.
+    // 0.0166초 같은 끝자락이 반올림으로 0이 되면 클라이언트만 '준비됨'으로
+    // 보여 파리티가 깨진다. 조금이라도 남았으면 최소 0.1로 올려 보낸다.
+    su: [f.skillUses.char, f.skillUses.cd > 0 ? Math.max(0.1, r1(f.skillUses.cd)) : 0],
     // 화면 좌하단 스탯판에 쓰는 값 (공격력·모든피해·공격속도·회전력)
     st: [r2(f.st.atk), r2(f.st.dmg), r2(f.st.aspd), r2(f.st.rot)],
     // 벽 튕김·스킬 효과음 횟수. 서버에는 소리가 없으므로 클라이언트가 증가분만큼 재생한다.
@@ -42,8 +52,33 @@ function fighterView(f) {
     // 소환수도 체력바를 그리므로 hp/maxHp를 함께 보낸다
     sm: f.summons.map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r), h: Math.round(s.hp), m: s.maxHp })),
     // fl(피격 플래시)도 실어야 한다. 분열체는 본체와 따로 맞고 따로 번쩍인다.
-    sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0) })),
+    // 분열체는 본체와 똑같이 무기 파이프라인을 돌린다. 체력바와 무기를 그리려면
+    // 제 체력·무기 각도·무기 상태가 있어야 한다 — 본체 것을 빌려 쓰면 안 된다.
+    sp: f.splitBalls.filter(s => !s.dead).map(s => ({
+      u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0),
+      h: Math.round(s.hp), m: r1(s.maxHp), sh: Math.round(s.shield || 0),
+      a: r2(s.weaponAngle), ch: s.charging ? Math.max(0.05, Math.min(1, r1(s.charging.t))) : 0,
+      rl: s.gun && s.gun.reloadT > 0 ? 1 : 0,
+      ...(s.disc ? { dc: [r1(s.disc.x), r1(s.disc.y), r1(s.disc.r), s.disc.resting ? 1 : 0] } : {}),
+      ...(s.flame && f.weaponId === 'flame'
+        ? { fo: s.flame.on && s.flame.fuel > 0 ? 1 : 0 } : {}),
+      ...(s.chainHeads && s.chainHeads.length
+        ? { cn: s.chainHeads.flatMap(h => [r1(h.x), r1(h.y)]) } : {}),
+    })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
+    // 던져 둔 방패. 모두에게 보여야 한다. [x, y, 반지름, 멈췄나]
+    ...(f.disc ? { dc: [r1(f.disc.x), r1(f.disc.y), r1(f.disc.r), f.disc.resting ? 1 : 0] } : {}),
+    // 화염방사기. fo는 분사 중인지, fu는 남은 연료(0~100)다.
+    // 불길은 모두에게 보여야 하고 연료 게이지는 자기 버튼에 쓴다.
+    ...(f.flame && f.weaponId === 'flame'
+      ? { fo: f.flame.on && f.flame.fuel > 0 ? 1 : 0, fu: Math.round(f.flame.fuel) } : {}),
+    // 쇠사슬. 줄은 마디로 꺾이므로 추만 보내면 클라이언트는 막대기를 그린다.
+    // 마디 전부를 공에서 추 순서로 싣는다 — 줄 하나당 CHAIN_SEGS개 점이고,
+    // 마지막 점이 추다. 이중 사슬이면 그게 두 벌 이어진다.
+    // 평평한 숫자 배열로 싣는다 (x0,y0, x1,y1 ...). 중첩 배열은 스냅샷 검사에 걸린다.
+    // 쇠사슬이 아니면 키 자체를 넣지 않는다 — undefined도 검사에 걸린다.
+    ...(f.chainHeads && f.chainHeads.length
+      ? { cn: f.chainHeads.flatMap(h => chainPts(h)) } : {}),
   };
 }
 

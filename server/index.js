@@ -284,6 +284,7 @@ wss.on('connection', ws => {
       case 'aim':      if (player) room.onAim(player, msg.ang); break;
       case 'steer':    if (player) room.onSteer(player, msg.angle, msg.magnitude, msg.active); break;
       case 'skill':    if (player) room.onSkill(player, msg.slot); break;
+      case 'skillUp':  if (player) room.onSkillUp(player, msg.slot); break;
       case 'spectate': if (player) room.onSpectate(player, typeof msg.i === 'number' ? msg.i : null); break;
       case 'augment':  if (player) room.onAugment(player, msg.id); break;
       case 'refresh':  if (player) room.onRefresh(player); break;

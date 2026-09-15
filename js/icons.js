@@ -29,6 +29,20 @@
     bow: '<g stroke="#243747" stroke-width="4"><path d="M18 7c24 13 24 37 0 50l5-10c11-10 11-20 0-30L18 7Z" fill="#c98a50"/><path d="m18 7 31 25-31 25" stroke="#fff8df" stroke-width="2.5"/><path d="M9 32h47" stroke="#6b6549"/><path d="m47 25 12 7-12 7V25Z" fill="#d9f3e0"/><path d="m10 27 7 5-7 5" stroke="#79b657"/></g>',
     pistol: '<g stroke="#243747" stroke-width="4"><path d="m13 30 19 3-5 24H13l3-18-3-9Z" fill="#b28b68"/><path d="M8 17h44v18H8V17Z" fill="#87acb1"/><path d="M13 17v-5h35v5M24 35h18v9H30" fill="#cddad2"/><path d="M46 17v18M14 24h19" stroke="#d7eadf" stroke-width="3"/></g>',
     staff: '<g stroke="#243747" stroke-width="4"><path d="m12 54 26-34 7 5-26 34-7-5Z" fill="#a174bd"/><path d="m33 11 11-7 13 8-3 15-14 6-11-11 4-11Z" fill="#ba87e4"/><path d="m33 11 21 16-10-23-4 29" stroke="#ecd3ff" stroke-width="2.5"/><path d="m27 12-5-3M55 35l5 3" stroke="#c088d5"/></g>',
+    shield: '<g stroke="#243747" stroke-width="4"><circle cx="32" cy="32" r="25" fill="#6fd3bb"/>'
+      + '<circle cx="32" cy="32" r="15.5" fill="#b6f0e2" stroke="#2f8f7c" stroke-width="3"/>'
+      + '<circle cx="32" cy="32" r="6" fill="#2f8f7c" stroke="none"/>'
+      + '<g fill="#243747" stroke="none"><circle cx="46" cy="46" r="2.5"/><circle cx="18" cy="46" r="2.5"/>'
+      + '<circle cx="18" cy="18" r="2.5"/><circle cx="46" cy="18" r="2.5"/></g></g>',
+    flame: '<g stroke="#243747" stroke-width="4"><path d="M8 40h22v14H8z" fill="#5d6b7d"/>'
+      + '<path d="M28 42h10v10H28z" fill="#8894a6"/><circle cx="16" cy="30" r="7" fill="#c4ced9"/>'
+      + '<path d="M40 47q9-3 12-10 5 7 4 14-1 8-9 9-9 1-11-6-1-5 4-7z" fill="#ff8a3c"/>'
+      + '<path d="M45 48q5-2 6-7 3 5 2 9-1 5-5 5-5 0-5-4 0-2 2-3z" fill="#ffd256" stroke="none"/></g>',
+    chain: '<g stroke="#243747" stroke-width="4"><path d="M11 12 24 25M24 25l10 10" fill="none" stroke-linecap="round"/>'
+      + '<circle cx="11" cy="12" r="6" fill="#dfe6f2"/><circle cx="24" cy="25" r="6" fill="#dfe6f2"/>'
+      + '<circle cx="45" cy="45" r="14" fill="#9aa3bb"/>'
+      + '<path d="M45 27v-6M45 63v6M27 45h-6M63 45h6" stroke-linecap="round"/>'
+      + '<circle cx="40" cy="40" r="4" fill="#dfe6f2" stroke="none"/></g>',
     mine: '<g stroke="#243747" stroke-width="4"><path d="M13 29h38l6 17c-10 13-40 13-50 0l6-17Z" fill="#78967b"/><ellipse cx="32" cy="29" rx="21" ry="12" fill="#a9c095"/><ellipse cx="32" cy="28" rx="7" ry="5" fill="#ff8477"/><path d="M12 44h40M23 17v-6h18v6"/></g>',
     cat: '<g stroke="#243747" stroke-width="3.5" fill="#f59cbb"><ellipse cx="12" cy="24" rx="6" ry="8" transform="rotate(-24 12 24)"/><ellipse cx="25" cy="14" rx="6" ry="8"/><ellipse cx="40" cy="14" rx="6" ry="8"/><ellipse cx="53" cy="24" rx="6" ry="8" transform="rotate(24 53 24)"/><path d="M17 42c5-8 10-12 15-12s10 4 15 12c6 11-2 17-10 13l-5-2-5 2c-8 4-16-2-10-13Z"/><path d="M25 40c2-3 5-5 7-5" fill="none" stroke="#ffe4ea"/></g>',
     wak: '<g stroke="#243747" stroke-width="4"><path d="m32 5 6 16 18-7-8 17 12 8-19 3-3 17-9-14-16 9 6-18L4 28l19-4 9-19Z" fill="#ffb95f"/><path d="m35 15-14 20h11l-3 16 16-23H33l2-13Z" fill="#fff1b5" stroke-width="2.5"/></g>',
@@ -81,7 +95,12 @@
     wing:'<path d="M24 23 9 11l1 12-9 5 22 8-16 5 2 11 18-15Z"/>',
     drop:'<path d="M21 7C11 21 7 29 7 38c0 9 6 15 14 15s14-6 14-15c0-9-4-17-14-31Z"/>',
     wall:'<rect x="7" y="7" width="14" height="50" rx="4"/><path d="M7 19h14M7 32h14M7 45h14" fill="none" stroke="var(--aug-dark,#07131b)" stroke-width="3"/>',
-    shield:'<path d="M32 5 54 14v17c0 14-8 23-22 29C18 54 10 45 10 31V14L32 5Z"/>',
+    shield:'<circle cx="32" cy="32" r="25"/><circle cx="32" cy="32" r="15" fill="none"/>',
+    // 쇠사슬 — 마디 셋을 비스듬히 잇고 끝에 추를 단다
+    chain:'<circle cx="13" cy="13" r="6" fill="none" stroke="var(--aug-ink,#effaff)" stroke-width="4.5"/>'
+      + '<circle cx="24" cy="24" r="6" fill="none" stroke="var(--aug-ink,#effaff)" stroke-width="4.5"/>'
+      + '<circle cx="35" cy="35" r="6" fill="none" stroke="var(--aug-ink,#effaff)" stroke-width="4.5"/>'
+      + '<circle cx="47" cy="47" r="11"/>',
     clock:'<circle cx="30" cy="31" r="22" fill="none" stroke="var(--aug-ink,#effaff)" stroke-width="7"/><path d="M30 17v15l11 7" fill="none" stroke="currentColor" stroke-width="6"/>',
     trophy:'<path d="M17 7h30v11c0 11-5 18-12 21v8h10v9H19v-9h10v-8c-7-3-12-10-12-21V7Zm0 7H6v7c0 9 5 14 14 15v-8c-4-2-6-5-6-10h3v-4Zm30 0h11v7c0 9-5 14-14 15v-8c4-2 6-5 6-10h-3v-4Z"/>',
     coin:'<circle cx="29" cy="30" r="22"/><path d="M34 19c-3-2-7-2-10 0-6 5 12 8 6 16-3 4-9 3-13 0M27 14v32" fill="none" stroke="var(--aug-dark,#07131b)" stroke-width="4"/>',
@@ -251,7 +270,25 @@
     'aug-s_bounce':augmentIcon('<rect x="5" y="5" width="9" height="54" rx="3"/><rect x="50" y="5" width="9" height="54" rx="3"/>','<circle cx="22" cy="15" r="7"/>','<path d="m22 15 22 14-24 17 22 10"/>',AUG_BADGES.bounce),
     'aug-m_big':augmentIcon(AUG_SHAPES.mine,'<circle cx="32" cy="35" r="23" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="35" r="29" fill="none" stroke="currentColor" stroke-width="3"/>'),
     'aug-m_heal':augmentIcon(AUG_SHAPES.mine,'<path d="M32 46c-7-5-13-9-13-16 0-7 8-10 13-3 5-7 13-4 13 3 0 7-6 11-13 16Z"/>','<path d="M32 28v12M26 34h12"/>'),
-    'aug-m_freeze':augmentIcon(AUG_SHAPES.mine,AUG_SHAPES.snow,'<path d="M14 52h36"/>')
+    'aug-m_freeze':augmentIcon(AUG_SHAPES.mine,AUG_SHAPES.snow,'<path d="M14 52h36"/>'),
+    // 자기 방패 — 회수 반경이 커진다
+    'aug-sh_magnet':augmentIcon(AUG_SHAPES.shield,'','<path d="M32 50v8M20 46l-6 6M44 46l6 6"/>'),
+    // 튕기는 방패 — 벽에 맞고 세진다
+    'aug-sh_ricochet':augmentIcon(AUG_SHAPES.shield,'','<path d="M8 8v48M12 20l16 12-16 12"/>'),
+    // 단단한 손 — 주운 직후 단단해진다
+    'aug-sh_grip':augmentIcon(AUG_SHAPES.shield,'<circle cx="32" cy="32" r="9"/>','<path d="M32 16v6M32 42v6M16 32h6M42 32h6"/>'),
+    // 압축 연료 — 좁고 긴 불꽃
+    'aug-f_pressure':augmentIcon(AUG_SHAPES.flame,'','<path d="M12 44q20 12 40 0M20 34l10 10-11 9M52 34l-10 10 11 9"/>'),
+    // 잔불 — 바닥에 남은 불씨
+    'aug-f_ember':augmentIcon(AUG_SHAPES.flame,'<circle cx="16" cy="52" r="6"/><circle cx="32" cy="55" r="5"/><circle cx="48" cy="51" r="7"/>','<path d="M8 60h48"/>'),
+    // 역분사 — 뒤로 뿜고 앞으로 밀린다
+    'aug-f_thrust':augmentIcon(AUG_SHAPES.flame,'','<path d="M40 40H10M20 30 8 40l12 10"/>'),
+    // 사슬 연장 — 마디를 하나 더 늘린 화살표
+    'aug-c_long':augmentIcon(AUG_SHAPES.chain,'','<path d="M8 56 20 44M50 8 40 18"/>',AUG_BADGES.up),
+    // 가시 사슬 — 줄에 가시가 돋는다
+    'aug-c_barbed':augmentIcon(AUG_SHAPES.chain,'','<path d="M18 8 24 18M8 20 18 25M32 18l6 10M22 34l-10 5"/>'),
+    // 이중 사슬 — 추가 둘
+    'aug-c_twin':augmentIcon(AUG_SHAPES.chain,'<circle cx="14" cy="47" r="9"/>','<path d="M24 38 18 44"/>')
   });
 
   const aliases = Object.freeze({

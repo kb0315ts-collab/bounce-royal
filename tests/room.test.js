@@ -293,7 +293,11 @@ test('피해·코인 이벤트가 실제 수치에 반영된다', () => {
 
   const relief = roomAtEventVote('refreshTen');
   try {
-    assert.ok(relief.refreshes >= 10, '새로고침이 10개 늘어야 한다');
+    // 새로고침은 사람마다 따로 쌓인다. 방 하나에 몰아 두면 A가 쓸 때 B도 막힌다.
+    for (const p of relief.players) {
+      assert.ok((relief.refreshes.get(p.id) || 0) >= 10,
+        p.id + '번 사람의 새로고침이 10개 늘어야 한다');
+    }
   } finally { clearInterval(relief.tickTimer); }
 
   const rev = roomAtEventVote('reverseCoins');
