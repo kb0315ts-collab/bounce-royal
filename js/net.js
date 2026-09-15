@@ -536,10 +536,19 @@ function netArena(snap) {
 }
 
 /* 평평한 [x0,y0, x1,y1] 을 추 목록으로 되돌린다. */
+/* 줄 하나당 NET_CHAIN_SEGS개 점이 이어져 온다. 앞의 점들이 마디이고
+ * 마지막 점이 추다. 서버의 CHAIN_SEGS와 같은 값이어야 한다. */
+const NET_CHAIN_SEGS = 5;
 function chainHeadsOf(cn) {
   if (!cn || !cn.length) return NET_EMPTY;
+  const pts = [];
+  for (let i = 0; i + 1 < cn.length; i += 2) pts.push({ x: cn[i], y: cn[i + 1] });
   const out = [];
-  for (let i = 0; i + 1 < cn.length; i += 2) out.push({ x: cn[i], y: cn[i + 1], vx: 0, vy: 0 });
+  for (let i = 0; i + NET_CHAIN_SEGS <= pts.length; i += NET_CHAIN_SEGS) {
+    const rope = pts.slice(i, i + NET_CHAIN_SEGS);
+    const head = rope[rope.length - 1];
+    out.push({ x: head.x, y: head.y, vx: 0, vy: 0, nodes: rope.slice(0, -1) });
+  }
   return out;
 }
 

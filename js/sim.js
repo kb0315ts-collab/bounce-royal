@@ -1615,12 +1615,15 @@ function updateCooldowns(b, f, dt) {
 
 function updateWeapon(b, f, dt) {
   if (f.mainDead || f.dead) { f.meleeContact.clear(); return; }
-  if (f.timers.stun > 0) { f.meleeContact.clear(); return; }
   const wp = WEAPONS[f.weaponId];
+  /* 쇠사슬은 무기를 돌리지 않는다. 추가 물리로 따라오고, 그 방향이 곧 무기 각도다.
+   * 기절 중에도 줄은 계속 굴려야 한다 — 굳혀 두면 공만 움직여 줄이 늘어나고,
+   * 풀리는 순간 구속이 추를 한 프레임에 되감아 말도 안 되는 속도가 나온다.
+   * 기절 중 피해는 아래 판정에서 따로 막는다. */
+  if (wp.type === 'chain') { updateChain(b, f, dt); return; }
+  if (f.timers.stun > 0) { f.meleeContact.clear(); return; }
   const fr = f.st.fr;
   const meleeSource = f.spinRemaining > 0 && f.weaponId === 'sword' ? 'skill:sword' : undefined;
-  // 쇠사슬은 무기를 돌리지 않는다. 추가 물리로 따라오고, 그 방향이 곧 무기 각도다.
-  if (wp.type === 'chain') { updateChain(b, f, dt); return; }
   // 화염방사기도 돌지 않는다. 조향 방향이 곧 무기 각도다.
   if (wp.type === 'cone') { updateFlame(b, f, dt); return; }
   // 회전하거나(근접·회전 난사) 상대를 조준하거나(그 외 원거리·지뢰) 둘 중 하나다.
@@ -1890,14 +1893,69 @@ function chainLen(f) {
   return (f.flags.chainLong ? 130 : wp.chainLen) * weaponScale(f);
 }
 
+/* 줄은 마디로 이어진 밧줄이다. 공에서 추까지 CHAIN_SEGS등분한 점을
+ * 각각 물리로 굴리고 마디 길이로 묶는다. 이래야 줄이 접히고 휜다 —
+ * 공과 추를 직선으로 이으면 무슨 짓을 해도 막대기다. */
+const CHAIN_SEGS = 5;
+// 추가 낼 수 있는 속도의 상한(px/s, GAME_SPEED 곱하기 전). 순간이동 보정용이라
+// 실제 휘두름(관측 상위 10%가 800 언저리)보다 넉넉히 위에 둔다.
+const CHAIN_MAX_SPD = 2000;
+
 function ensureChainHeads(f) {
   const want = f.flags.chainTwin ? 2 : 1;
-  if (f.chainHeads.length === want) return;
   const L = chainLen(f);
-  f.chainHeads = [];
-  for (let i = 0; i < want; i++) {
-    const a = f.weaponAngle + i * Math.PI;
-    f.chainHeads.push({ x: f.x + Math.cos(a) * L, y: f.y + Math.sin(a) * L, vx: 0, vy: 0 });
+  if (f.chainHeads.length !== want) {
+    f.chainHeads = [];
+    for (let i = 0; i < want; i++) {
+      const a = f.weaponAngle + i * Math.PI;
+      f.chainHeads.push({ x: f.x + Math.cos(a) * L, y: f.y + Math.sin(a) * L, vx: 0, vy: 0 });
+    }
+  }
+  // 마디는 공과 추 사이에 고르게 깐다. 추가 곧 마지막 마디다.
+  for (const h of f.chainHeads) {
+    if (h.nodes && h.nodes.length === CHAIN_SEGS - 1) continue;
+    h.nodes = [];
+    for (let i = 1; i < CHAIN_SEGS; i++) {
+      const t = i / CHAIN_SEGS;
+      h.nodes.push({ x: f.x + (h.x - f.x) * t, y: f.y + (h.y - f.y) * t, vx: 0, vy: 0 });
+    }
+  }
+}
+
+/* 줄을 공-추 직선 위에 다시 깔고 속도를 공에 맞춘다.
+ * 공이 한 프레임에 순간이동했을 때(고양이 되돌아가기, 폭발 밀침, 위치 교환)
+ * 쓴다. 그냥 두면 구속이 줄 전체를 한 프레임에 되감고, 그 변위가 그대로
+ * 속도가 되어 추가 경기장을 가로질러 튕겨 나간다. */
+function relayChain(f, h) {
+  const L = chainLen(f);
+  let dx = h.x - f.x, dy = h.y - f.y;
+  let d = Math.hypot(dx, dy);
+  if (d < 1e-6) { dx = Math.cos(f.weaponAngle); dy = Math.sin(f.weaponAngle); d = 1; }
+  if (d > L) { h.x = f.x + dx / d * L; h.y = f.y + dy / d * L; }
+  const mv = (f.st && f.st.move) || 0;
+  const bvx = f.vx * mv, bvy = f.vy * mv;
+  h.vx = bvx; h.vy = bvy;
+  for (let i = 0; i < h.nodes.length; i++) {
+    const t = (i + 1) / CHAIN_SEGS, n = h.nodes[i];
+    n.x = f.x + (h.x - f.x) * t; n.y = f.y + (h.y - f.y) * t;
+    n.vx = bvx; n.vy = bvy;
+  }
+}
+
+/* 공을 고정점으로 두고 마디 사이 거리를 순서대로 맞춘다.
+ * 줄은 늘어나지 않지만 줄어들 수는 있다 — 그래서 접힌다. */
+function solveChainRope(b, f, h, seg) {
+  const pts = h.nodes.concat([h]);
+  let ax = f.x, ay = f.y;                       // 앞 점. 첫 구간은 공이 고정점이다.
+  for (let i = 0; i < pts.length; i++) {
+    const q = pts[i];
+    const dx = q.x - ax, dy = q.y - ay;
+    const d = Math.hypot(dx, dy);
+    if (d > seg && d > 1e-6) {
+      q.x = ax + dx / d * seg;
+      q.y = ay + dy / d * seg;
+    }
+    ax = q.x; ay = q.y;
   }
 }
 
@@ -1913,33 +1971,69 @@ function updateChain(b, f, dt) {
   const gate = wp.gate;
   const base = wp.dmg * (f.flags.chainTwin ? 0.8 : 1);
 
+  /* 추는 진자다. 공을 향한 스프링을 주면 안 된다 — 지름 방향 힘은
+   * 접선 운동을 하나도 만들지 못해서, 추가 늘 공 뒤에 얌전히 붙어
+   * 끌려오기만 한다. 휘두름은 관성에서 나온다:
+   *   자유 비행 → 줄 길이로 구속 → 구속이 준 변위를 다시 속도로
+   * 공이 방향을 틀거나 벽에 튕기면 추는 제 관성으로 계속 날아가
+   * 공을 지나치고, 반대쪽에서 줄이 다시 팽팽해지며 돌아 나온다. */
+  const seg = L / CHAIN_SEGS;
+  const damp = 1 - Math.min(1, wp.drag * dt);
   for (const h of f.chainHeads) {
-    const px = h.x, py = h.y;          // 실제 속도는 변위로 잰다 (아래 설명)
-    let dx = h.x - f.x, dy = h.y - f.y;
-    let d = Math.hypot(dx, dy);
-    if (d < 1e-6) { dx = Math.cos(f.weaponAngle); dy = Math.sin(f.weaponAngle); d = 1; }
-    const nx = dx / d, ny = dy / d;
-    // 1) 구속 원 위의 목표점을 스프링으로 쫓는다
-    h.vx += ((f.x + nx * L) - h.x) * resp * dt;
-    h.vy += ((f.y + ny * L) - h.y) * resp * dt;
-    const damp = 1 - Math.min(1, wp.drag * dt);
-    h.vx *= damp; h.vy *= damp;
-    // 2) 움직이는 값이므로 경기 진행 속도를 곱한다
-    h.x += h.vx * GAME_SPEED * dt;
-    h.y += h.vy * GAME_SPEED * dt;
-    // 3) 길이를 절대 넘지 않게 당기고, 당긴 방향 속도는 버린다
-    let ex = h.x - f.x, ey = h.y - f.y;
-    const ed = Math.hypot(ex, ey);
-    if (ed > L) {
-      const ux = ex / ed, uy = ey / ed;
-      h.x = f.x + ux * L; h.y = f.y + uy * L;
-      const along = h.vx * ux + h.vy * uy;
-      h.vx -= ux * along; h.vy -= uy * along;
+    /* 줄이 끊어질 만큼 벌어져 있으면 공이 순간이동한 것이다. 되감지 말고
+     * 다시 깐다. 이 프레임의 휘두름 속도는 0으로 둔다 — 순간이동은
+     * 휘두른 것이 아니다. */
+    const first = h.nodes[0] || h;
+    if (Math.hypot(first.x - f.x, first.y - f.y) > seg * 3) {
+      relayChain(f, h);
+      h.sx = 0; h.sy = 0;
+      continue;
     }
-    /* 피해 판정에 쓰는 '실제 속도'는 변위로 잰다.
-     * 스프링 속도(h.vx)는 하드 클램프가 지워 버려서 못 쓴다 — 공을 따라
-     * 끌려가는 동안에도 0에 가깝게 나온다. 실제로 화면에서 얼마나
-     * 움직였는지가 '휘둘렀는가'의 정답이다. 이미 GAME_SPEED가 반영된 값이다. */
+    const px = h.x, py = h.y;
+    const pts = h.nodes.concat([h]);
+    const prev = pts.map(q => ({ x: q.x, y: q.y }));
+    for (const q of pts) {
+      q.vx *= damp; q.vy *= damp;
+      q.x += q.vx * GAME_SPEED * dt;
+      q.y += q.vy * GAME_SPEED * dt;
+    }
+    /* 줄이 느슨할 때만 추를 바깥으로 민다. 중력이 없는 게임이라 이게
+     * 없으면 한 번 접힌 줄이 펴지지 않고 추가 공 옆에 붙어 버린다.
+     * 공격속도가 걸리는 곳이 여기다 — 얼마나 빨리 다시 펴지는가. */
+    const dx = h.x - f.x, dy = h.y - f.y;
+    const d = Math.hypot(dx, dy);
+    if (d > headR && d < L) {
+      const k = (L - d) * resp * dt;
+      h.vx += (dx / d) * k; h.vy += (dy / d) * k;
+    }
+    // 마디 길이를 맞춘다. 두 번 돌리면 공에서 추까지 힘이 제대로 전달된다.
+    solveChainRope(b, f, h, seg);
+    solveChainRope(b, f, h, seg);
+    /* 구속까지 반영한 변위에서 속도를 되찾는다. 공이 줄을 통해 끌고 간
+     * 운동량이 이 변위 안에 들어 있고, 그게 다음 프레임의 휘두름이 된다.
+     * 줄 방향 성분은 구속이 알아서 지운다 — 따로 빼지 않는다. */
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      if (dt > 0) {
+        q.vx = (q.x - prev[i].x) / (GAME_SPEED * dt);
+        q.vy = (q.y - prev[i].y) / (GAME_SPEED * dt);
+        /* 순간이동 안전장치. 고양이 되돌아가기처럼 공이 한 프레임에 멀리
+         * 날면 구속이 줄을 통째로 되감고, 그 변위가 그대로 속도가 되면
+         * 추가 경기장을 가로질러 튕겨 나간다. 휘두름의 정상 범위보다
+         * 훨씬 위에 상한을 둬서 진짜 순간이동만 잘라 낸다. */
+        const qs = Math.hypot(q.vx, q.vy);
+        if (qs > CHAIN_MAX_SPD) {
+          q.vx = q.vx / qs * CHAIN_MAX_SPD;
+          q.vy = q.vy / qs * CHAIN_MAX_SPD;
+        }
+      }
+      // 벽에 튕긴다. 속도를 뒤집으므로 반드시 속도를 되찾은 뒤에 한다.
+      q.r = q === h ? headR : 3;
+      b.arena.reflectProj(q);
+    }
+    /* 피해 판정에 쓰는 '실제 속도'는 최종 변위로 잰다. 구속과 벽 반사가
+     * 속도를 갈아치우므로 h.vx로는 얼마나 휘둘렀는지 알 수 없다.
+     * 화면에서 실제로 움직인 거리가 정답이다. GAME_SPEED는 이미 들어 있다. */
     h.sx = dt > 0 ? (h.x - px) / dt : 0;
     h.sy = dt > 0 ? (h.y - py) / dt : 0;
   }
@@ -1947,7 +2041,7 @@ function updateChain(b, f, dt) {
   const h0 = f.chainHeads[0];
   f.weaponAngle = Math.atan2(h0.y - f.y, h0.x - f.x);
 
-  if (f.timers.weaponLock > 0) return;
+  if (f.timers.weaponLock > 0 || f.timers.stun > 0) return;
 
   /* 판정 — 관문(상대속도)을 넘어야 아프다 */
   for (const e of b.enemiesOf(f)) {
@@ -1963,7 +2057,7 @@ function updateChain(b, f, dt) {
         if (dist(h.x, h.y, body.x, body.y) < headR + br) {
           if (rel >= gate) { hitDmg = Math.max(hitDmg, base); }
         } else if (f.flags.chainBarbed && rel >= gate
-          && segDist(body.x, body.y, f.x, f.y, h.x, h.y) < br + 4 * ws) {
+          && ropeDist(f, h, body.x, body.y) < br + 4 * ws) {
           // 가시 사슬 — 줄에 스치면 추 피해의 40%
           hitDmg = Math.max(hitDmg, base * 0.4);
         }
@@ -1979,6 +2073,17 @@ function updateChain(b, f, dt) {
 
 /* 위치 교환 — 공과 추의 자리·속도를 맞바꾼다.
  * 추가 피해를 주는 부분이라, 붙은 상대 옆에 추를 남기고 빠져나가는 수가 된다. */
+/* 꺾인 줄까지의 거리. 마디를 이은 꺾은선 전체에서 가장 가까운 곳을 본다.
+ * 직선으로 재면 접힌 줄이 실제로는 없는 자리를 때린다. */
+function ropeDist(f, h, x, y) {
+  let ax = f.x, ay = f.y, best = Infinity;
+  for (const q of h.nodes.concat([h])) {
+    best = Math.min(best, segDist(x, y, ax, ay, q.x, q.y));
+    ax = q.x; ay = q.y;
+  }
+  return best;
+}
+
 function chainSwap(b, f) {
   ensureChainHeads(f);
   const h = f.chainHeads[0];
@@ -1991,6 +2096,7 @@ function chainSwap(b, f) {
   const hs = Math.hypot(h.vx, h.vy);
   if (hs > 1e-6) { f.vx = h.vx / hs; f.vy = h.vy / hs; }
   h.vx = bvx; h.vy = bvy;
+  relayChain(f, h);   // 마디를 새 선분 위에 다시 깐다. 안 그러면 줄이 엉킨다.
   b.arena.collideBody(f);
   addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 46, color: '#9fd0ff', dur: 0.28 });
   addFx(b, { type: 'ring', x: h.x, y: h.y, r0: 6, r1: 46, color: '#9fd0ff', dur: 0.28 });

@@ -821,22 +821,26 @@ function drawChainG(g, f, ws) {
   const headR = 10 * ws;
   const own = toInt(ownerPlayerColor(f));
   for (const h of heads) {
-    const dx = h.x - f.x, dy = h.y - f.y;
+    const nodes = h.nodes || [];
+    const first = nodes[0] || h;
+    const dx = first.x - f.x, dy = first.y - f.y;
     const d = Math.hypot(dx, dy) || 1;
-    const ux = dx / d, uy = dy / d;
-    const x0 = f.x + ux * R * 0.55, y0 = f.y + uy * R * 0.55;
-    // 줄 — 굵은 먹선 위에 밝은 선을 얹는 이 게임의 기본 문법
-    g.lineStyle(7, CASUAL_INK, 1);
-    g.beginPath(); g.moveTo(x0, y0); g.lineTo(h.x, h.y); g.strokePath();
-    g.lineStyle(3.4, 0xc8cede, 1);
-    g.beginPath(); g.moveTo(x0, y0); g.lineTo(h.x, h.y); g.strokePath();
-    // 마디
-    const links = Math.max(2, Math.round(d / 15));
-    for (let i = 1; i < links; i++) {
-      const t = i / links;
-      const lx = x0 + (h.x - x0) * t, ly = y0 + (h.y - y0) * t;
-      g.fillStyle(0xe6e9f2, 1); g.fillCircle(lx, ly, 3.1);
-      g.lineStyle(1.6, CASUAL_INK, 1); g.strokeCircle(lx, ly, 3.1);
+    const x0 = f.x + dx / d * R * 0.55, y0 = f.y + dy / d * R * 0.55;
+    /* 줄은 마디를 이은 꺾은선이다. 공과 추를 직선으로 이으면 접힌 줄이
+     * 막대기로 보인다 — 휘는 게 이 무기의 전부인데. */
+    const rope = [{ x: x0, y: y0 }].concat(nodes, [h]);
+    const trace = () => {
+      g.beginPath(); g.moveTo(rope[0].x, rope[0].y);
+      for (let i = 1; i < rope.length; i++) g.lineTo(rope[i].x, rope[i].y);
+      g.strokePath();
+    };
+    // 굵은 먹선 위에 밝은 선을 얹는 이 게임의 기본 문법
+    g.lineStyle(7, CASUAL_INK, 1); trace();
+    g.lineStyle(3.4, 0xc8cede, 1); trace();
+    // 마디 — 꺾이는 자리마다 고리를 하나씩 얹는다
+    for (let i = 1; i < rope.length - 1; i++) {
+      g.fillStyle(0xe6e9f2, 1); g.fillCircle(rope[i].x, rope[i].y, 3.4);
+      g.lineStyle(1.6, CASUAL_INK, 1); g.strokeCircle(rope[i].x, rope[i].y, 3.4);
     }
     // 추 — 바닥 그림자, 몸통, 먹선, 주인 색 한 점, 가시 넷
     g.fillStyle(CASUAL_INK, 0.16); g.fillEllipse(h.x + 2, h.y + 5, headR * 2.2, headR * 1.3);

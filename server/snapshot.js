@@ -8,6 +8,13 @@ const r1 = n => Math.round(n * 10) / 10;
 const r2 = n => Math.round(n * 100) / 100;
 const sfxCount = (f, key) => (f[key] || 0) + f.splitBalls.reduce((s, x) => s + (x[key] || 0), 0);
 
+/* 줄 하나를 공 쪽 마디부터 추까지 [x,y, x,y, ...]로 편다. */
+function chainPts(h) {
+  const out = [];
+  for (const q of (h.nodes || []).concat([h])) { out.push(r1(q.x), r1(q.y)); }
+  return out;
+}
+
 function fighterView(f) {
   const t = f.timers;
   return {
@@ -65,11 +72,13 @@ function fighterView(f) {
     // 불길은 모두에게 보여야 하고 연료 게이지는 자기 버튼에 쓴다.
     ...(f.flame && f.weaponId === 'flame'
       ? { fo: f.flame.on && f.flame.fuel > 0 ? 1 : 0, fu: Math.round(f.flame.fuel) } : {}),
-    // 쇠사슬의 추. 화면에 보여야 하므로 실어야 한다. 이중 사슬이면 둘이다.
+    // 쇠사슬. 줄은 마디로 꺾이므로 추만 보내면 클라이언트는 막대기를 그린다.
+    // 마디 전부를 공에서 추 순서로 싣는다 — 줄 하나당 CHAIN_SEGS개 점이고,
+    // 마지막 점이 추다. 이중 사슬이면 그게 두 벌 이어진다.
     // 평평한 숫자 배열로 싣는다 (x0,y0, x1,y1 ...). 중첩 배열은 스냅샷 검사에 걸린다.
     // 쇠사슬이 아니면 키 자체를 넣지 않는다 — undefined도 검사에 걸린다.
     ...(f.chainHeads && f.chainHeads.length
-      ? { cn: f.chainHeads.flatMap(h => [r1(h.x), r1(h.y)]) } : {}),
+      ? { cn: f.chainHeads.flatMap(h => chainPts(h)) } : {}),
   };
 }
 

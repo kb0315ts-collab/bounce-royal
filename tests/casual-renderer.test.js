@@ -184,3 +184,23 @@ test('split balls carry their own health bar and hold the weapon', () => {
     assert.ok(bars.includes(28) && bars.includes(7), weaponId + ' draws a bar per split');
   }
 });
+
+/* 쇠사슬의 전부는 줄이 휘는 것이다. 공과 추를 직선으로 이으면 접힌 줄이
+ * 막대기로 보인다 — 마디를 지나는 꺾은선으로 그려져야 한다. */
+test('the chain draws through its rope nodes, not straight to the head', () => {
+  const r = runtime(), c = recordingContext(), g = r.graphicsForCanvas(c.context);
+  // 한쪽으로 크게 접힌 줄. 직선 위에 있는 마디는 하나도 없다.
+  const nodes = [{ x: 10, y: 30 }, { x: 34, y: 48 }, { x: 60, y: 40 }, { x: 74, y: 16 }];
+  const head = { x: 80, y: -10, nodes };
+  r.drawWeaponG(g, deepFreeze({
+    weaponId: 'chain', mainDead: false, dead: false, x: 0, y: 0, radius: 16,
+    weaponAngle: 0, color: '#ff6879', flags: {}, timers: { stun: 0, balloon: 0 },
+    chainHeads: [head],
+  }));
+  assert.equal(c.state.depth, 0, 'balanced save/restore');
+  const pts = c.calls.filter(k => k[0] === 'lineTo').map(k => k[1] + ',' + k[2]);
+  for (const n of nodes) {
+    assert.ok(pts.includes(n.x + ',' + n.y), `rope passes through node ${n.x},${n.y}`);
+  }
+  assert.ok(pts.includes(head.x + ',' + head.y), 'rope ends at the head');
+});
