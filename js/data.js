@@ -42,6 +42,15 @@ const WEAPONS = {
   staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:15, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
     desc:'상대를 자동으로 겨누는 느리고 강한 마법 투사체. 벽에 한 번 반사된다.', stat:{atk:1,spd:.15,rng:.8,mob:.7},
     skillName:'마력 폭주', skillDesc:'3초간 자신이 발사한 모든 마법 투사체의 크기가 2배가 된다.' },
+  /* 자동 공격이 없는 첫 무기. 스킬 버튼을 누르고 있는 동안만 조향 방향으로
+   * 분사하고 연료를 쓴다. 떼면 다시 찬다. 투사체가 없어 피할 수 없는 대신
+   * 사거리가 짧고 연료가 상한 역할을 한다.
+   *   dps 초당 피해 · range 사거리 · halfArc 반각(rad)
+   *   burnRate 초당 소모 · refillRate 초당 회복 (공격속도가 여기 곱해진다) */
+  flame:  { name:'화염방사기', ico:'🔥', type:'cone', dmg:0, dps:21, range:95, halfArc:0.35,
+    fuelMax:100, burnRate:40, refillRate:25, refillDelay:0.5, rot:0, moveMult:0.92,
+    desc:'버튼을 누르는 동안 조향 방향으로 불을 뿜는다. 피할 수 없지만 연료가 있다.', stat:{atk:.75,spd:.6,rng:.35,mob:.6},
+    skillName:'분사', skillDesc:'누르고 있는 동안 조향 방향으로 불을 뿜는다. 연료를 다 쓰면 잠시 못 쏜다.' },
   /* 공에 매달린 추가 관성으로 따라온다. 휘두르지 않으면 아프지 않은 것이
    * 이 무기의 전부다 — 벽 튕김과 조향이 곧 공격 준비 동작이 된다.
    *   chainLen 사슬 길이 · headR 추 반지름 · gate 피해가 들어가는 최소 상대속도
@@ -182,6 +191,9 @@ const AUGMENTS = [
   { id:'s_bounce',cat:'weapon', weapon:'staff', name:'이중 반사', desc:'마법 투사체 벽 반사 +1회' },
   { id:'m_big',   cat:'weapon', weapon:'mine', name:'대형 지뢰', desc:'지뢰를 밟는 판정 범위와 폭발 피해 판정 범위 증가' },
   { id:'m_heal',  cat:'weapon', weapon:'mine', name:'회복 지뢰', desc:'자신이 지뢰를 밟으면 체력 8% 회복' },
+  { id:'f_pressure',cat:'weapon', weapon:'flame', name:'압축 연료', desc:'사거리가 길어지는 대신 분사 각도가 좁아진다' },
+  { id:'f_ember', cat:'weapon', weapon:'flame', name:'잔불', desc:'불길이 닿은 바닥에 2초간 화염이 남는다' },
+  { id:'f_thrust',cat:'weapon', weapon:'flame', name:'역분사', desc:'분사하는 동안 반대 방향으로 밀려난다. 조향으로는 못 하는 기동이 열린다' },
   { id:'c_long',  cat:'weapon', weapon:'chain', name:'사슬 연장', desc:'사슬이 길어진다. 훑는 범위가 넓어지지만 추가 더 늦게 따라온다' },
   { id:'c_barbed',cat:'weapon', weapon:'chain', name:'가시 사슬', desc:'사슬 줄에도 판정이 생긴다. 줄에 스치면 추 피해의 40%' },
   { id:'c_twin',  cat:'weapon', weapon:'chain', name:'이중 사슬', desc:'반대편에도 추가 하나 달린다. 각 추의 피해는 80%' },

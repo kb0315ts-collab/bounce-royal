@@ -614,6 +614,7 @@ function drawWeaponG(g, f) {
   const R = f.radius;
   // 쇠사슬은 추가 세계 좌표에 따로 있어서 회전 좌표계로 그릴 수 없다.
   if (f.weaponId === 'chain') { drawChainG(g, f, ws); return; }
+  if (f.weaponId === 'flame') { drawFlameG(g, f, ws); return; }
   g.save();
   g.translateCanvas(f.x, f.y);
   g.rotateCanvas(f.weaponAngle);
@@ -731,6 +732,47 @@ function bladeShape(g, x0, bladeLen, w) {
   g.lineStyle(2.4, CASUAL_INK, 1); g.strokePath();
   g.fillStyle(0x88c3d0, 1); g.beginPath(); g.moveTo(x0 + 1, 0); g.lineTo(x0 + bladeLen - 2, 0); g.lineTo(x0 + bladeLen * 0.81, w * 0.35); g.lineTo(x0 + 1, w * 0.35); g.closePath(); g.fillPath();
   g.lineStyle(1.1, 0xffffff, 1); g.beginPath(); g.moveTo(x0 + 4, -w * 0.26); g.lineTo(x0 + bladeLen * 0.74, -w * 0.26); g.strokePath();
+}
+
+/* 화염방사기 — 짧은 노즐과, 분사 중일 때만 나오는 불꽃 원뿔.
+ * 불꽃은 삼각 두 겹(바깥 주황 / 안쪽 노랑)에 끝의 작은 불똥으로 만든다. */
+function drawFlameG(g, f, ws) {
+  const wp = WEAPONS.flame;
+  const R = f.radius;
+  const a = f.weaponAngle;
+  const pressure = !!f.flags.flamePressure;
+  const range = (pressure ? 140 : wp.range) * ws;
+  const half = pressure ? 0.26 : wp.halfArc;
+  g.save();
+  g.translateCanvas(f.x, f.y);
+  g.rotateCanvas(a);
+  // 노즐 — 굵은 먹선 + 밝은 면, 다른 무기와 같은 문법
+  g.fillStyle(CASUAL_INK, 1); g.fillRoundedRect(R * 0.4, -7.5, 24, 15, 4);
+  g.fillStyle(0xd06a3a, 1); g.fillRoundedRect(R * 0.4 + 2, -5.5, 20, 11, 3);
+  g.fillStyle(0xffd256, 1); g.fillCircle(R * 0.4 + 21, 0, 4);
+  g.lineStyle(2.4, CASUAL_INK, 1); g.strokeCircle(R * 0.4 + 21, 0, 4);
+  if (f.flame && f.flame.on) {
+    const t = performance.now() / 1000;
+    const x0 = R * 0.4 + 24;
+    const wob = 1 + Math.sin(t * 22) * 0.06;
+    const tip = x0 + (range - x0) * wob;
+    const spread = Math.tan(half) * tip;
+    g.fillStyle(0xff8a3c, 0.85);
+    g.fillTriangle(x0, -6, tip, -spread, tip, spread);
+    g.fillStyle(0xffc83c, 0.9);
+    g.fillTriangle(x0, -4, tip * 0.78, -spread * 0.62, tip * 0.78, spread * 0.62);
+    g.fillStyle(0xfff2b0, 0.95);
+    g.fillTriangle(x0, -2.5, tip * 0.45, -spread * 0.3, tip * 0.45, spread * 0.3);
+    // 끝의 불똥 — 시간에 따라 흩어진다
+    for (let i = 0; i < 3; i++) {
+      const k = (t * 1.6 + i * 0.33) % 1;
+      const px = x0 + (tip - x0) * k;
+      const py = Math.sin(t * 13 + i * 2.1) * spread * k * 0.8;
+      g.fillStyle(0xffe08a, 0.7 * (1 - k));
+      g.fillCircle(px, py, 3.5 * (1 - k) + 1);
+    }
+  }
+  g.restore();
 }
 
 /* 쇠사슬 — 줄은 마디 원을 이어 그리고 끝에 추를 단다.

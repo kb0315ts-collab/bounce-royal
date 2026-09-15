@@ -27,6 +27,8 @@
   // Protected signatures: one material layer, never buried under an extra ding.
   set('weapon.sword.hit','스겅! · 묵직한 칼날','익숙한 검의 거친 금속 마찰과 넓은 칼바람을 그대로 유지합니다.',[sword()],true);
   set('weapon.dagger.hit','샥! · 재빠른 칼끝','짧고 좁게 스치는 단검의 기존 칼날 질감을 유지합니다.',[dagger()],true);
+  set('weapon.flame.spray','쉭— · 타오르는 분사','낮은 연소음과 새는 바람을 겹쳐 끊기지 않고 이어지는 분사를 만듭니다.',
+    [N(900,420,.26,.19,.8,0,.03,'lowpass'), N(4200,2600,.24,.055,.9,.01,.04,'highpass'), T(120,96,.22,.045,'triangle',.01)]);
   set('weapon.chain.hit','퍽! · 쇳덩이 타격','짧고 낮게 끝나는 금속 타격에 사슬이 팽팽해지는 쇳소리를 얹었습니다.',
     [chainHit(), click(520,.05,.01), T(190,150,.07,.05,'triangle',.005)]);
   set('skill.chain.swap','휭—! · 자리바꿈','짧게 빨아들였다 튕겨 나가는 두 겹 소리로 위치가 뒤바뀐 순간을 표시합니다.',

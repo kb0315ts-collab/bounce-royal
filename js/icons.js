@@ -29,6 +29,10 @@
     bow: '<g stroke="#243747" stroke-width="4"><path d="M18 7c24 13 24 37 0 50l5-10c11-10 11-20 0-30L18 7Z" fill="#c98a50"/><path d="m18 7 31 25-31 25" stroke="#fff8df" stroke-width="2.5"/><path d="M9 32h47" stroke="#6b6549"/><path d="m47 25 12 7-12 7V25Z" fill="#d9f3e0"/><path d="m10 27 7 5-7 5" stroke="#79b657"/></g>',
     pistol: '<g stroke="#243747" stroke-width="4"><path d="m13 30 19 3-5 24H13l3-18-3-9Z" fill="#b28b68"/><path d="M8 17h44v18H8V17Z" fill="#87acb1"/><path d="M13 17v-5h35v5M24 35h18v9H30" fill="#cddad2"/><path d="M46 17v18M14 24h19" stroke="#d7eadf" stroke-width="3"/></g>',
     staff: '<g stroke="#243747" stroke-width="4"><path d="m12 54 26-34 7 5-26 34-7-5Z" fill="#a174bd"/><path d="m33 11 11-7 13 8-3 15-14 6-11-11 4-11Z" fill="#ba87e4"/><path d="m33 11 21 16-10-23-4 29" stroke="#ecd3ff" stroke-width="2.5"/><path d="m27 12-5-3M55 35l5 3" stroke="#c088d5"/></g>',
+    flame: '<g stroke="#243747" stroke-width="4"><path d="M8 40h22v14H8z" fill="#5d6b7d"/>'
+      + '<path d="M28 42h10v10H28z" fill="#8894a6"/><circle cx="16" cy="30" r="7" fill="#c4ced9"/>'
+      + '<path d="M40 47q9-3 12-10 5 7 4 14-1 8-9 9-9 1-11-6-1-5 4-7z" fill="#ff8a3c"/>'
+      + '<path d="M45 48q5-2 6-7 3 5 2 9-1 5-5 5-5 0-5-4 0-2 2-3z" fill="#ffd256" stroke="none"/></g>',
     chain: '<g stroke="#243747" stroke-width="4"><path d="M11 12 24 25M24 25l10 10" fill="none" stroke-linecap="round"/>'
       + '<circle cx="11" cy="12" r="6" fill="#dfe6f2"/><circle cx="24" cy="25" r="6" fill="#dfe6f2"/>'
       + '<circle cx="45" cy="45" r="14" fill="#9aa3bb"/>'
@@ -262,6 +266,12 @@
     'aug-m_big':augmentIcon(AUG_SHAPES.mine,'<circle cx="32" cy="35" r="23" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="35" r="29" fill="none" stroke="currentColor" stroke-width="3"/>'),
     'aug-m_heal':augmentIcon(AUG_SHAPES.mine,'<path d="M32 46c-7-5-13-9-13-16 0-7 8-10 13-3 5-7 13-4 13 3 0 7-6 11-13 16Z"/>','<path d="M32 28v12M26 34h12"/>'),
     'aug-m_freeze':augmentIcon(AUG_SHAPES.mine,AUG_SHAPES.snow,'<path d="M14 52h36"/>'),
+    // 압축 연료 — 좁고 긴 불꽃
+    'aug-f_pressure':augmentIcon(AUG_SHAPES.flame,'','<path d="M12 44q20 12 40 0M20 34l10 10-11 9M52 34l-10 10 11 9"/>'),
+    // 잔불 — 바닥에 남은 불씨
+    'aug-f_ember':augmentIcon(AUG_SHAPES.flame,'<circle cx="16" cy="52" r="6"/><circle cx="32" cy="55" r="5"/><circle cx="48" cy="51" r="7"/>','<path d="M8 60h48"/>'),
+    // 역분사 — 뒤로 뿜고 앞으로 밀린다
+    'aug-f_thrust':augmentIcon(AUG_SHAPES.flame,'','<path d="M40 40H10M20 30 8 40l12 10"/>'),
     // 사슬 연장 — 마디를 하나 더 늘린 화살표
     'aug-c_long':augmentIcon(AUG_SHAPES.chain,'','<path d="M8 56 20 44M50 8 40 18"/>',AUG_BADGES.up),
     // 가시 사슬 — 줄에 가시가 돋는다

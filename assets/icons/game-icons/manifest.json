@@ -1327,5 +1327,32 @@
     "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
     "tone": "steel",
     "sha256": "90f402e8c0b3b9dae5bb9af12f6edca388e50ef4e98ba7eb1ab9696638c66d97"
+  },
+  "f_pressure": {
+    "file": "assets/icons/augments/f_pressure.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "좁고 긴 불꽃과 모으는 화살표: 사거리가 길어지고 각도가 좁아진다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "flame",
+    "sha256": "c32ad33ea8a6784a9a9a8a951a451da94324c3b380694904214fd7ced2343d49"
+  },
+  "f_ember": {
+    "file": "assets/icons/augments/f_ember.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "바닥에 남은 불씨: 불길이 닿은 자리에 화염이 남는다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "flame",
+    "sha256": "e9948656903b081c3d19575be70e776bfb9d9e869ec73cc6a8fb1ddf61012efb"
+  },
+  "f_thrust": {
+    "file": "assets/icons/augments/f_thrust.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "뒤로 뿜고 앞으로 밀리는 표시: 분사 반대 방향으로 추진력을 얻는다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "flame",
+    "sha256": "440727912dcc8e063303a3ee2125c21747a610647eb125dd45df7dbd53b8beb0"
   }
 }

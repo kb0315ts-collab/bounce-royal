@@ -407,6 +407,8 @@ const Net = {
     return sent;
   },
   skill(slot) { this.send({ t: 'skill', slot }); },
+  // 화염방사기는 누르고 있는 동안 나간다. 뗀 것도 서버가 알아야 한다.
+  skillUp(slot) { this.send({ t: 'skillUp', slot }); },
   spectate(i) { this.send({ t: 'spectate', i }); },
   pickAugment(id) { this.send({ t: 'augment', id }); },
   refresh() { this.send({ t: 'refresh' }); },
@@ -573,6 +575,8 @@ function netFighter(view, meta, seat) {
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
     satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),
+    // 화염방사기 — 불길을 그리고 연료 게이지를 채운다.
+    flame: { on: !!view.fo, fuel: view.fu == null ? 100 : view.fu, idle: 0 },
     // 쇠사슬의 추. 그리기에만 쓰므로 위치만 있으면 된다.
     chainHeads: chainHeadsOf(view.cn),
     // 무기 칸은 남은 쿨타임(초)이다. 버튼은 '지금 쓸 수 있나'만 보므로 0/1로도 준다.

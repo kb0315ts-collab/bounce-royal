@@ -256,10 +256,17 @@ class Room {
     core.useSkill(b, f, slot);
   }
 
+  /* 버튼을 뗐다. 지금은 화염방사기만 쓴다 — 누르는 동안만 나가는 무기다. */
+  onSkillUp(player, slot) {
+    if (slot !== 'weapon') return;
+    const f = this.fighterOf(player);
+    if (f) core.setFlameInput(f, false);
+  }
+
   /* ---------------- 라운드 정산 ---------------- */
   resolveRound() {
     for (const b of this.battles || []) {
-      for (const f of b.fighters) core.setSteerInput(f, 0, 0);
+      for (const f of b.fighters) { core.setSteerInput(f, 0, 0); core.setFlameInput(f, false); }
     }
     const lines = [];
     for (const p of this.players) p.eventLostLastRound = false;
@@ -504,7 +511,7 @@ class Room {
     player.conn = null;
     player.droppedAt = Date.now();
     const f = this.fighterOf(player);
-    if (f) { core.setSteerInput(f, 0, 0); f.isAI = true; }
+    if (f) { core.setSteerInput(f, 0, 0); core.setFlameInput(f, false); f.isAI = true; }
     this.broadcast({ t: 'left', id: player.id, players: this.publicPlayers() });
   }
 

@@ -277,6 +277,7 @@ const Multi = {
   },
   clearSteer() { return BounceRoyalNet.clearSteer(); },
   sendSkill(slot) { BounceRoyalNet.skill(slot); },
+  sendSkillUp(slot) { BounceRoyalNet.skillUp(slot); },
 
   /* ---------------- 매 프레임 ---------------- */
   update(dt) {

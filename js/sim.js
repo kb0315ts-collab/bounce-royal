@@ -99,6 +99,14 @@ function steerBodies(f) {
  * angle은 월드 좌표계 라디안, magnitude는 0..1이다. 분열 후 본체에
  * 들어온 입력은 살아 있는 두 분열체에 똑같이 전달된다.
  */
+/* 화염방사기의 분사 버튼. 누르고 있는 상태가 서버에 전달돼야 해서
+ * 조향과 같은 방식으로 상태를 받는다. */
+function setFlameInput(f, on) {
+  for (const body of steerBodies(f)) {
+    if (body.flame) body.flame.on = !!on;
+  }
+}
+
 function setSteerInput(f, angle, magnitude = 1) {
   if (!f || !Number.isFinite(angle) || !Number.isFinite(magnitude)) return false;
   const mag = clamp(magnitude, 0, 1);
@@ -386,9 +394,9 @@ function applyAugmentBattle(f, id, player) {
     case 'm_big': Fl.bigMine = 1; break;
     case 'm_heal': Fl.healMine = 1; break;
     case 'm_freeze': Fl.freezeMine = 1; break;
-    case 'c_long': Fl.chainLong = 1; break;
-    case 'c_barbed': Fl.chainBarbed = 1; break;
-    case 'c_twin': Fl.chainTwin = 1; break;
+    case 'f_pressure': Fl.flamePressure = 1; break;
+    case 'f_ember': Fl.flameEmber = 1; break;
+    case 'f_thrust': Fl.flameThrust = 1; break;
     case 'c_long': Fl.chainLong = 1; break;
     case 'c_barbed': Fl.chainBarbed = 1; break;
     case 'c_twin': Fl.chainTwin = 1; break;
@@ -425,10 +433,10 @@ function buildFighter(player, battle) {
     sfxSlash: 0,        // 근접 무기가 벤 횟수. 위와 같은 이유로 센다
 
     hist: [], histT: 0,
-    // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
-    // 이중 사슬이면 둘, 아니면 하나. 다른 무기는 빈 배열이다.
-    chainHeads: [],
-    chainHits: new Map(),   // 대상 uid -> 다음에 때릴 수 있는 시각 (재타격 잠금)
+    // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
+    flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0 },
+    // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
+    flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0 },
     // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
     // 이중 사슬이면 둘, 아니면 하나. 다른 무기는 빈 배열이다.
     chainHeads: [],
@@ -782,6 +790,7 @@ class Battle {
     return true;
   }
   setSteerInput(f, ang, magnitude = 1) { return setSteerInput(f, ang, magnitude); }
+  setFlameInput(f, on) { return setFlameInput(f, on); }
   clearSteerInput(f) { return clearSteerInput(f); }
 
   spawnSummon(f, legion = false) {
@@ -1397,8 +1406,8 @@ function moveFighter(b, f, dt) {
     // 경기 진행 속도는 여기처럼 '실제로 나아가는 자리'에서만 곱한다.
     // dt에 걸면 쿨타임·출혈 같은 초 단위 약속까지 늘어나 설명과 어긋나고,
     // st에 걸면 스탯판에 표시되는 숫자가 깎인다.
-    f.x += f.vx * f.st.move * GAME_SPEED * dt;
-    f.y += f.vy * f.st.move * GAME_SPEED * dt;
+    f.x += (f.vx * f.st.move + (f.thrustX || 0)) * GAME_SPEED * dt;
+    f.y += (f.vy * f.st.move + (f.thrustY || 0)) * GAME_SPEED * dt;
   }
   const n = b.arena.collideBody(f);
   // High-speed rocket movement can cross a body completely in one tick, so
@@ -1603,6 +1612,8 @@ function updateWeapon(b, f, dt) {
   const meleeSource = f.spinRemaining > 0 && f.weaponId === 'sword' ? 'skill:sword' : undefined;
   // 쇠사슬은 무기를 돌리지 않는다. 추가 물리로 따라오고, 그 방향이 곧 무기 각도다.
   if (wp.type === 'chain') { updateChain(b, f, dt); return; }
+  // 화염방사기도 돌지 않는다. 조향 방향이 곧 무기 각도다.
+  if (wp.type === 'cone') { updateFlame(b, f, dt); return; }
   // 회전하거나(근접·회전 난사) 상대를 조준하거나(그 외 원거리·지뢰) 둘 중 하나다.
   if (f.timers.weaponLock <= 0) {
     let applied;
@@ -1706,6 +1717,82 @@ function updateWeapon(b, f, dt) {
  * 칼날 판정에 새로 들어온 순간에만 1회 피해를 주고, 칼날에서 완전히
  * 벗어났다가 다시 닿아야 다음 타격이 나간다. 칼날마다 따로 추적하므로
  * 쌍단검은 각 칼날이 독립적으로 한 번씩 맞힌다. */
+/* ═══════════ 화염방사기 ═══════════
+ *
+ * 이 게임에서 자동으로 공격하지 않는 유일한 무기다. 버튼을 누르고 있는
+ * 동안만 조향 방향으로 원뿔을 뿜는다.
+ *
+ * 조준이 조향 조이스틱이라는 게 핵심이다 — 피할 것인가 맞힐 것인가를
+ * 매 순간 고르게 된다. 조향은 초당 50도로 느리게 돌지만 조준은 즉시라,
+ * '보는 곳'과 '가는 곳'이 갈린다. */
+function flameAim(f) {
+  // 조이스틱을 놓고 있으면 그냥 가는 방향으로 나간다.
+  return (f.steer && f.steer.active) ? f.steer.angle : Math.atan2(f.vy, f.vx);
+}
+
+function updateFlame(b, f, dt) {
+  const wp = WEAPONS.flame;
+  const st = f.flame;
+  const ws = weaponScale(f);
+  const range = (f.flags.flamePressure ? 140 : wp.range) * ws;
+  const halfArc = f.flags.flamePressure ? 0.26 : wp.halfArc;
+
+  f.weaponAngle = flameAim(f);   // 스냅샷의 a가 이 값을 그대로 나른다
+
+  const blocked = f.timers.weaponLock > 0 || f.timers.stun > 0 || f.mainDead || f.dead;
+  const firing = st.on && !blocked && st.fuel > 0;
+
+  if (firing) {
+    // 초 단위 약속이라 GAME_SPEED를 곱하지 않는다
+    st.fuel = Math.max(0, st.fuel - wp.burnRate * dt);
+    st.idle = 0;
+    const aim = f.weaponAngle;
+    // 역분사 — 조향 제한을 우회하는 유일한 기동이라 상한을 둔다
+    if (f.flags.flameThrust) {
+      const base = CHARACTERS[f.charId].move * wp.moveMult;
+      const cap = base * 0.45;
+      f.thrustX = (f.thrustX || 0) - Math.cos(aim) * 260 * dt;
+      f.thrustY = (f.thrustY || 0) - Math.sin(aim) * 260 * dt;
+      const ts = Math.hypot(f.thrustX, f.thrustY);
+      if (ts > cap) { f.thrustX = f.thrustX / ts * cap; f.thrustY = f.thrustY / ts * cap; }
+    }
+    for (const e of b.enemiesOf(f)) {
+      for (const body of b.bodiesOf(e)) {
+        const d = dist(f.x, f.y, body.x, body.y);
+        if (d > range + bodyRadius(body)) continue;
+        const to = Math.atan2(body.y - f.y, body.x - f.x);
+        if (Math.abs(angleDelta(aim, to)) > halfArc) continue;
+        dealDamage(b, f, body, wp.dps * f.st.atk * f.st.dmg * dt, { kind: 'weapon' });
+      }
+    }
+    // 잔불 — 불길이 닿은 바닥에 남는다. 기존 화염 구조를 그대로 쓴다.
+    if (f.flags.flameEmber) {
+      f.cd.ember = (f.cd.ember || 0) - dt;
+      if (f.cd.ember <= 0) {
+        f.cd.ember = 0.18;
+        const r = range * (0.45 + Math.random() * 0.5);
+        const a = f.weaponAngle + rand(-halfArc, halfArc);
+        b.flames.push({ owner: f, x: f.x + Math.cos(a) * r, y: f.y + Math.sin(a) * r,
+          r: 16, life: 2, maxLife: 2, dps: 4 });
+        if (b.flames.length > 60) b.flames.shift();
+      }
+    }
+    battleSound(b, 'weapon.flame.spray', f, 0.22);
+  } else {
+    st.idle += dt;
+    if (st.idle >= wp.refillDelay) {
+      // 공격속도는 '다시 쏘기까지의 공백'으로 들어간다
+      st.fuel = Math.min(wp.fuelMax, st.fuel + wp.refillRate * Math.max(0.2, f.st.aspd) * dt);
+    }
+  }
+  // 추진력은 매 틱 줄어든다 (분사를 멈추면 서서히 원래 속도로)
+  if (f.thrustX || f.thrustY) {
+    const k = Math.max(0, 1 - 2.2 * dt);
+    f.thrustX *= k; f.thrustY *= k;
+    if (Math.hypot(f.thrustX, f.thrustY) < 0.5) { f.thrustX = 0; f.thrustY = 0; }
+  }
+}
+
 /* ═══════════ 쇠사슬 ═══════════
  *
  * 추는 공과 별개의 물체다. 공이 방향을 꺾어도 추는 관성으로 계속 가고,
@@ -2303,6 +2390,11 @@ function useSkill(b, f, slot) {
     f.sfxSkill++;
     return true;
   }
+  // 화염방사기는 스킬 버튼이 곧 기본 공격이다. 쿨타임도 횟수도 없다.
+  if (slot === 'weapon' && f.weaponId === 'flame') {
+    setFlameInput(f, true);
+    return true;
+  }
   if (slot === 'char' && f.skillUses.char <= 0) return false;
   if (slot === 'weapon' && f.skillUses.cd > 0) return false;
   const id = slot === 'char' ? f.charId : f.weaponId;
@@ -2468,7 +2560,10 @@ function aiChooseSteer(b, f, e) {
   const toward = Math.atan2(e.y - f.y, e.x - f.x);
   let angle = toward;
 
-  if (wp.type === 'chain') {
+  if (wp.type === 'cone') {
+    // 화염방사기는 붙어야 쓴다. 조향이 곧 조준이라 상대 쪽을 향한다.
+    angle = toward + rand(-0.2, 0.2);
+  } else if (wp.type === 'chain') {
     // 쇠사슬은 정면으로 붙으면 추가 뒤에 남아 안 맞는다. 옆으로 스쳐 지나가며
     // 추를 상대 쪽으로 휘두르는 궤도가 맞다.
     const side = f.aiSteerSide || 1;
@@ -2564,6 +2659,12 @@ function aiUpdate(b, f, dt) {
     switch (f.weaponId) {
       // 위치 교환은 상대가 붙었을 때가 값어치가 가장 크다 — 그 자리에 추가 남는다.
       case 'chain': if (d < f.radius + 70) use('weapon'); break;
+      // 화염방사기는 사거리 안일 때만 뿜고, 벗어나면 끈다. 연료가 바닥이면 쉰다.
+      case 'flame': {
+        const inRange = d < f.radius + WEAPONS.flame.range * weaponScale(f) * 0.95;
+        setFlameInput(f, inRange && f.flame.fuel > 12);
+        break;
+      }
       case 'sword': if (d < f.radius + wp.reach * weaponScale(f) + 55) use('weapon'); break;
       // 돌진은 780 x 0.35초라 270px 남짓 간다. 430px에서 걸면 닿지 못하고
       // 빈 곳으로 뛰어들어 오히려 맞기만 한다.
