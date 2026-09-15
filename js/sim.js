@@ -1900,6 +1900,13 @@ const CHAIN_SEGS = 5;
 // 추가 낼 수 있는 속도의 상한(px/s, GAME_SPEED 곱하기 전). 순간이동 보정용이라
 // 실제 휘두름(관측 상위 10%가 800 언저리)보다 넉넉히 위에 둔다.
 const CHAIN_MAX_SPD = 2000;
+// 추의 역질량. 1이면 마디와 같은 무게(끝이 채찍처럼 튄다), 작을수록 무겁다.
+const CHAIN_HEAD_W = 0.25;
+const CHAIN_ITERS = 4;
+// 줄이 당긴 힘 중 추가 운동량으로 쌓는 몫. 1이면 채찍, 작을수록 묵직하다.
+const CHAIN_INHERIT = 0.5;
+// 줄이 팽팽할 때 접선(도는) 속도를 깎는 세기. 클수록 덜 돈다.
+const CHAIN_SWING_DAMP = 1.5;
 
 function ensureChainHeads(f) {
   const want = f.flags.chainTwin ? 2 : 1;
@@ -1942,19 +1949,38 @@ function relayChain(f, h) {
   }
 }
 
-/* 공을 고정점으로 두고 마디 사이 거리를 순서대로 맞춘다.
- * 줄은 늘어나지 않지만 줄어들 수는 있다 — 그래서 접힌다. */
-function solveChainRope(b, f, h, seg) {
+/* 마디 사이 거리를 맞춘다. 줄은 늘어나지 않지만 줄어들 수는 있어서 접힌다.
+ *
+ * 무게가 여기서 나온다. 공은 고정점이고(무게 무한), 추는 마디보다 무겁다.
+ * 당김을 나눌 때 가벼운 마디가 많이 움직이고 추는 조금만 움직인다 —
+ * 줄이 먼저 접히고 추는 묵직하게 끌려온다.
+ * 추를 마디와 같은 무게로 두면 당김이 전부 끝으로 몰려 채찍처럼 튄다. */
+function solveChainRope(f, h, seg) {
   const pts = h.nodes.concat([h]);
-  let ax = f.x, ay = f.y;                       // 앞 점. 첫 구간은 공이 고정점이다.
-  for (let i = 0; i < pts.length; i++) {
-    const q = pts[i];
+  const last = pts.length - 1;
+  for (let it = 0; it < CHAIN_ITERS; it++) {
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      const a = i === 0 ? f : pts[i - 1];
+      const wa = i === 0 ? 0 : (i - 1 === last ? CHAIN_HEAD_W : 1);
+      const wb = i === last ? CHAIN_HEAD_W : 1;
+      const sum = wa + wb;
+      if (sum <= 0) continue;
+      const dx = q.x - a.x, dy = q.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d <= seg || d < 1e-6) continue;
+      const corr = (d - seg) / d;
+      if (wa > 0) { a.x += dx * corr * (wa / sum); a.y += dy * corr * (wa / sum); }
+      q.x -= dx * corr * (wb / sum); q.y -= dy * corr * (wb / sum);
+    }
+  }
+  /* 마지막으로 한 번 순서대로 훑어 남은 위반을 없앤다. 반복이 덜 수렴해도
+   * 줄이 늘어난 채로 화면에 나가지 않게 하는 보증이다. */
+  let ax = f.x, ay = f.y;
+  for (const q of pts) {
     const dx = q.x - ax, dy = q.y - ay;
     const d = Math.hypot(dx, dy);
-    if (d > seg && d > 1e-6) {
-      q.x = ax + dx / d * seg;
-      q.y = ay + dy / d * seg;
-    }
+    if (d > seg && d > 1e-6) { q.x = ax + dx / d * seg; q.y = ay + dy / d * seg; }
     ax = q.x; ay = q.y;
   }
 }
@@ -1997,6 +2023,8 @@ function updateChain(b, f, dt) {
       q.x += q.vx * GAME_SPEED * dt;
       q.y += q.vy * GAME_SPEED * dt;
     }
+    // 구속 전 위치. 아래에서 '줄이 당긴 몫'만 따로 떼어 내는 데 쓴다.
+    const free = pts.map(q => ({ x: q.x, y: q.y }));
     /* 줄이 느슨할 때만 추를 바깥으로 민다. 중력이 없는 게임이라 이게
      * 없으면 한 번 접힌 줄이 펴지지 않고 추가 공 옆에 붙어 버린다.
      * 공격속도가 걸리는 곳이 여기다 — 얼마나 빨리 다시 펴지는가. */
@@ -2006,17 +2034,21 @@ function updateChain(b, f, dt) {
       const k = (L - d) * resp * dt;
       h.vx += (dx / d) * k; h.vy += (dy / d) * k;
     }
-    // 마디 길이를 맞춘다. 두 번 돌리면 공에서 추까지 힘이 제대로 전달된다.
-    solveChainRope(b, f, h, seg);
-    solveChainRope(b, f, h, seg);
+    solveChainRope(f, h, seg);
     /* 구속까지 반영한 변위에서 속도를 되찾는다. 공이 줄을 통해 끌고 간
      * 운동량이 이 변위 안에 들어 있고, 그게 다음 프레임의 휘두름이 된다.
      * 줄 방향 성분은 구속이 알아서 지운다 — 따로 빼지 않는다. */
     for (let i = 0; i < pts.length; i++) {
       const q = pts[i];
       if (dt > 0) {
-        q.vx = (q.x - prev[i].x) / (GAME_SPEED * dt);
-        q.vy = (q.y - prev[i].y) / (GAME_SPEED * dt);
+        /* 줄이 당긴 몫만 따로 떼어 그 일부만 속도로 받는다.
+         * 1이면 교과서 PBD — 당김이 전부 운동량이 되어 끝이 팽이처럼 돈다.
+         * 작을수록 줄에 끌려가되 그 힘을 덜 쌓아서 묵직하게 따라온다.
+         * '공 움직임에 따라 살짝의 관성'이 이 값이다. */
+        const cx = (q.x - free[i].x) / (GAME_SPEED * dt);
+        const cy = (q.y - free[i].y) / (GAME_SPEED * dt);
+        q.vx += cx * CHAIN_INHERIT;
+        q.vy += cy * CHAIN_INHERIT;
         /* 순간이동 안전장치. 고양이 되돌아가기처럼 공이 한 프레임에 멀리
          * 날면 구속이 줄을 통째로 되감고, 그 변위가 그대로 속도가 되면
          * 추가 경기장을 가로질러 튕겨 나간다. 휘두름의 정상 범위보다
@@ -2030,6 +2062,18 @@ function updateChain(b, f, dt) {
       // 벽에 튕긴다. 속도를 뒤집으므로 반드시 속도를 되찾은 뒤에 한다.
       q.r = q === h ? headR : 3;
       b.arena.reflectProj(q);
+    }
+    /* 줄이 팽팽할 때 접선 방향 속도를 덜어 낸다. 무거운 추는 공 둘레를
+     * 하염없이 돌지 않는다 — 한두 번 흔들리고 잦아든다. 지름 방향은
+     * 건드리지 않아서 끌려오는 지연과 줄이 접히는 모양은 그대로 남는다.
+     * 전체 감쇠(drag)로 이걸 하려면 늘어지는 맛까지 같이 죽는다. */
+    const tx = h.x - f.x, ty = h.y - f.y;
+    const td = Math.hypot(tx, ty);
+    if (td > L * 0.85 && td > 1e-6) {
+      const ux = tx / td, uy = ty / td;
+      const tv = -uy * h.vx + ux * h.vy;
+      const cut = tv * Math.min(1, CHAIN_SWING_DAMP * dt);
+      h.vx += uy * cut; h.vy -= ux * cut;
     }
     /* 피해 판정에 쓰는 '실제 속도'는 최종 변위로 잰다. 구속과 벽 반사가
      * 속도를 갈아치우므로 h.vx로는 얼마나 휘둘렀는지 알 수 없다.
