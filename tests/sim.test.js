@@ -1382,6 +1382,56 @@ test('연승과 연패를 따로 센다', () => {
 /* 유도 화살은 상대 가까이 갔을 때만 살짝 휜다. 멀리서도 따라붙으면
  * 조준이 필요 없어지고(승률 71% -> 93%), 트리플 샷의 부채꼴도 총구 앞에서
  * 접혀 세 발이 한 줄로 날아간다. */
+test('던진 방패는 한 번 지나갈 때 한 번만 맞힌다', () => {
+  const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  // 상대를 한 자리에 고정해 두고 방패를 그 위로 통과시킨다
+  e.x = 160; e.y = 0; e.vx = 0; e.vy = 0; e.maxHp = e.hp = 1e9;
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 0;
+  throwDisc(b, f);
+  const d = f.disc;
+  let hits = 0, hpWas = e.hp;
+  // 상대 위를 완전히 지나갈 때까지
+  for (let n = 0; n < 240 && d.x < 320; n++) {
+    e.x = 160; e.y = 0;                     // 밀려나도 제자리로
+    updateDisc(b, f, 1 / 60);
+    if (e.hp < hpWas - 1e-9) { hits++; hpWas = e.hp; }
+    if (!f.disc) break;                     // 주웠으면 끝
+  }
+  assert.equal(hits, 1, '한 번 지나가면 한 대다 (실제 ' + hits + '대)');
+  // 판정에서 완전히 벗어났다가 다시 들어오면 그때는 맞는다
+  if (f.disc) {
+    e.x = Math.round(d.x); e.y = Math.round(d.y);
+    updateDisc(b, f, 1 / 60);
+    assert.ok(e.hp < hpWas - 1e-9, '벗어났다 다시 닿으면 또 맞아야 한다');
+  }
+});
+
+test('벽에 튕긴 방패는 붙어 있던 상대를 다시 맞힌다', () => {
+  const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 0;
+  throwDisc(b, f);
+  const d = f.disc;
+  e.maxHp = e.hp = 1e9;
+  // 상대를 원반 위에 겹쳐 두고 한 대 맞힌다
+  e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0;
+  updateDisc(b, f, 1 / 60);
+  const afterFirst = e.hp;
+  assert.ok(afterFirst < 1e9, '겹쳐 있으면 한 대는 맞는다');
+  // 붙어 있는 채로는 더 안 맞는다
+  e.x = d.x; e.y = d.y;
+  updateDisc(b, f, 1 / 60);
+  assert.equal(e.hp, afterFirst, '벗어나기 전에는 다시 안 맞는다');
+  // 벽 반사를 흉내 내면 접촉 기록이 풀려 다시 맞는다
+  d.contact.clear();
+  e.x = d.x; e.y = d.y;
+  updateDisc(b, f, 1 / 60);
+  assert.ok(e.hp < afterFirst - 1e-9, '튕긴 뒤에는 다시 맞아야 한다');
+});
+
 test('유도 화살은 가까울 때만 휘고 멀리서는 거의 직진한다', () => {
   const turnPerFrame = gap => {
     const b = makeBattle({ weaponId: 'bow', augments: ['b_homing'] });

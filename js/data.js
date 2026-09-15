@@ -46,7 +46,7 @@ const WEAPONS = {
    * 던진 뒤에는 주울 때까지 무기가 없으니 신중해야 한다.
    * 횟수 제한이 필요 없다 — 주워야만 다시 던질 수 있어 제한이 저절로 걸린다. */
   shield: { name:'방패', ico:'🛡️', type:'melee', dmg:16, reach:42, tip:14, rot:2.2, moveMult:0.95,
-    throwSpd:520, throwDmg:22, decel:0.82, restSpd:40, pickupPad:18, throwLock:0.4, discR:15,
+    throwSpd:520, throwDmg:22, decel:0.82, restSpd:40, pickupPad:18, discR:15,
     desc:'몸에 붙여 휘두르다 던질 수 있다. 던진 뒤에는 주울 때까지 무기가 없다.', stat:{atk:.65,spd:.5,rng:.45,mob:.65},
     skillName:'투척', skillDesc:'방패가 바라보는 방향으로 던진다. 주워야 다시 던질 수 있다.' },
   /* 자동 공격이 없는 첫 무기. 스킬 버튼을 누르고 있는 동안만 조향 방향으로

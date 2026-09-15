@@ -1749,7 +1749,7 @@ function throwDisc(b, f) {
   f.disc = {
     x: f.x + Math.cos(a) * (f.radius + 12), y: f.y + Math.sin(a) * (f.radius + 12),
     vx: Math.cos(a), vy: Math.sin(a), spd: wp.throwSpd,
-    r: wp.discR * ws, owner: f, bounces: 0, hits: new Map(), resting: false,
+    r: wp.discR * ws, owner: f, bounces: 0, contact: new Set(), resting: false,
     // 던진 자리가 이미 회수 반경 안이라, 한 번 벗어나기 전에는 주울 수 없다.
     // 이게 없으면 던지는 즉시 도로 주워져 무기가 아예 손을 떠나지 않는다.
     armed: false,
@@ -1769,22 +1769,29 @@ function updateDisc(b, f, dt) {
     d.y += d.vy * d.spd * GAME_SPEED * dt;
     if (b.arena.reflectProj(d)) {
       d.bounces++;
+      // 벽에 튕기면 방향이 바뀐다 — 붙어 있던 상대도 새로 맞을 수 있다.
+      d.contact.clear();
       battleSound(b, 'battle.bounce', d, 0.08);
       sparks(b, d.x, d.y, 3, '#b7ffe9', 90);
     }
     if (d.spd < wp.restSpd) { d.resting = true; d.spd = 0; }
-    // 적중 — 관통해 계속 간다. 대상마다 잠깐 재타격을 막는다.
+    /* 적중 — 관통해 계속 간다. 재타격은 시간이 아니라 접촉 상태로 막는다.
+     * 판정에 새로 들어온 순간에만 1회 때리고, 완전히 벗어났다가 다시
+     * 닿아야 다음 타격이 나간다. 근접 무기가 쓰는 방식 그대로다.
+     * 시간 잠금으로 두면 스쳐 지나가는 동안 두 번 맞는다. */
     const mult = f.flags.discRicochet ? 1 + 0.25 * Math.min(3, d.bounces) : 1;
+    const contact = new Set();
     for (const e of b.enemiesOf(f)) {
       for (const body of b.bodiesOf(e)) {
-        if ((d.hits.get(body.uid) || 0) > b.simT) continue;
         if (dist(d.x, d.y, body.x, body.y) > d.r + bodyRadius(body)) continue;
+        contact.add(body.uid);
+        if (d.contact.has(body.uid)) continue;        // 아직 안 벗어났다
         if (weaponDamage(b, f, body, wp.throwDmg * mult) > 0) {
-          d.hits.set(body.uid, b.simT + wp.throwLock);
           battleSound(b, 'weapon.shield.hit', body, 0.05);
         }
       }
     }
+    d.contact = contact;
   }
   // 회수 — 주인이 닿으면 다시 든다
   const pad = (f.flags.discMagnet ? 55 : wp.pickupPad);
