@@ -1749,7 +1749,7 @@ function throwDisc(b, f) {
   f.disc = {
     x: f.x + Math.cos(a) * (f.radius + 12), y: f.y + Math.sin(a) * (f.radius + 12),
     vx: Math.cos(a), vy: Math.sin(a), spd: wp.throwSpd,
-    r: 15 * ws, owner: f, bounces: 0, hits: new Map(), resting: false,
+    r: wp.discR * ws, owner: f, bounces: 0, hits: new Map(), resting: false,
     // 던진 자리가 이미 회수 반경 안이라, 한 번 벗어나기 전에는 주울 수 없다.
     // 이게 없으면 던지는 즉시 도로 주워져 무기가 아예 손을 떠나지 않는다.
     armed: false,

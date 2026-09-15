@@ -487,11 +487,7 @@ function drawGroundFx(g, glow, b) {
       g.fillStyle(CASUAL_INK, 0.2);
       g.fillEllipse(d.x + 2, d.y + 6, d.r * 2.3, d.r * (d.resting ? 1.5 : 1.1));
       g.save(); g.translateCanvas(d.x, d.y); g.rotateCanvas(spin);
-      g.fillStyle(0x6fd3bb, 1); g.fillCircle(0, 0, d.r);
-      g.lineStyle(3.2, CASUAL_INK, 1); g.strokeCircle(0, 0, d.r);
-      g.fillStyle(0xb6f0e2, 1); g.fillCircle(0, 0, d.r * 0.62);
-      g.lineStyle(2.4, 0x2f8f7c, 1); g.strokeCircle(0, 0, d.r * 0.62);
-      g.fillStyle(toInt(ownerPlayerColor(owner)), 1); g.fillCircle(0, 0, d.r * 0.28);
+      discFaceG(g, 0, 0, d.r, toInt(ownerPlayerColor(owner)));
       g.restore();
     }
   }
@@ -627,6 +623,22 @@ function drawBallG(g, f, x, y, r, opts = {}) {
   g.restore();
 }
 
+/* 방패 원반. 들고 있을 때와 던졌을 때가 같은 그림이어야 한다 —
+ * 한 군데서 그려서 둘이 갈라지지 않게 한다.
+ * 테두리 리벳 넷이 도는 것을 보이게 해 준다 (원은 그냥 돌면 안 보인다). */
+function discFaceG(g, x, y, r, own) {
+  g.fillStyle(0x6fd3bb, 1); g.fillCircle(x, y, r);
+  g.lineStyle(3.2, CASUAL_INK, 1); g.strokeCircle(x, y, r);
+  g.fillStyle(0xb6f0e2, 1); g.fillCircle(x, y, r * 0.62);
+  g.lineStyle(2.4, 0x2f8f7c, 1); g.strokeCircle(x, y, r * 0.62);
+  g.fillStyle(CASUAL_INK, 0.55);
+  for (let i = 0; i < 4; i++) {
+    const a = i * TAU / 4 + 0.79;
+    g.fillCircle(x + Math.cos(a) * r * 0.81, y + Math.sin(a) * r * 0.81, r * 0.1);
+  }
+  g.fillStyle(own, 1); g.fillCircle(x, y, r * 0.28);
+}
+
 function drawWeaponG(g, f) {
   if (f.mainDead || f.timers.stun > 0) return;
   const ws = weaponScale(f);
@@ -721,19 +733,10 @@ function drawWeaponG(g, f) {
       break;
     }
     case 'shield': {
-      const w = 34 * ws, h = 40 * ws, x0 = R * 0.45;
-      // 굵은 먹선 + 밝은 면 + 안쪽 판, 다른 무기와 같은 문법
-      g.fillStyle(0x6fd3bb, 1);
-      g.beginPath();
-      g.moveTo(x0, -h / 2); g.lineTo(x0 + w * 0.72, -h / 2);
-      g.lineTo(x0 + w, 0); g.lineTo(x0 + w * 0.72, h / 2); g.lineTo(x0, h / 2);
-      g.closePath(); g.fillPath();
-      g.lineStyle(3.2, CASUAL_INK, 1); g.strokePath();
-      g.fillStyle(0xb6f0e2, 1);
-      g.fillTriangle(x0 + 5, -h * 0.3, x0 + w * 0.7, 0, x0 + 5, h * 0.3);
-      g.lineStyle(2.4, 0x2f8f7c, 1);
-      g.beginPath(); g.moveTo(x0 + 8, 0); g.lineTo(x0 + w * 0.8, 0); g.strokePath();
-      g.fillStyle(toInt(ownerPlayerColor(f)), 1); g.fillCircle(x0 + w * 0.42, 0, 5 * ws);
+      /* 던지는 그 원반을 그대로 든다. 공에 살짝 겹쳐 놓아서
+       * 들고 있다는 것이 보이게 한다 — 떨어뜨려 놓으면 떠 있는 것 같다. */
+      const dr = WEAPONS.shield.discR * ws;
+      discFaceG(g, R * 0.45 + dr, 0, dr, toInt(ownerPlayerColor(f)));
       break;
     }
     case 'staff': {

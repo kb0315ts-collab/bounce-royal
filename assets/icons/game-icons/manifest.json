@@ -1359,27 +1359,27 @@
     "file": "assets/icons/augments/sh_magnet.svg",
     "origin": "native",
     "author": "Bounce Royale",
-    "reason": "아래로 뻗은 회수선: 방패를 줍는 반경이 늘어난다",
+    "reason": "원형 방패와 아래로 뻗은 회수선: 방패를 줍는 반경이 늘어난다",
     "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
     "tone": "guard",
-    "sha256": "8a0154f9ebe1dcbf815a65b2bb25d3131fc381a92902540da1ac2f7abf5244a1"
+    "sha256": "d1299af1404cb445b0b34b8e16777f0061c3224774cb78b28d6cdfa41754dea5"
   },
   "sh_ricochet": {
     "file": "assets/icons/augments/sh_ricochet.svg",
     "origin": "native",
     "author": "Bounce Royale",
-    "reason": "벽에 튕기는 방패: 반사할 때마다 피해가 올라간다",
+    "reason": "벽에 튕기는 원형 방패: 반사할 때마다 피해가 올라간다",
     "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
     "tone": "guard",
-    "sha256": "bb651ca3ac5cd0c2e375f92071fbd1442a93bbdd9e18764bc47ee1963fc0cd6e"
+    "sha256": "62fbac94a17d6c4eb878142f5d89543a717da182c17f6b4998651c7539a5a18a"
   },
   "sh_grip": {
     "file": "assets/icons/augments/sh_grip.svg",
     "origin": "native",
     "author": "Bounce Royale",
-    "reason": "방패 중앙의 단단한 심: 주운 직후 받는 피해가 줄어든다",
+    "reason": "원형 방패를 사방에서 붙잡은 표시: 주운 직후 받는 피해가 줄어든다",
     "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
     "tone": "guard",
-    "sha256": "f9c3bad6c6c07f92f184b72d255f988d2459eda2326e4cb82cd7bee2bcead0b2"
+    "sha256": "31daf97b3d857cb04d13d18e8fe3f2f5b7255406b409ac8213dda6b3632efb70"
   }
 }

@@ -29,9 +29,11 @@
     bow: '<g stroke="#243747" stroke-width="4"><path d="M18 7c24 13 24 37 0 50l5-10c11-10 11-20 0-30L18 7Z" fill="#c98a50"/><path d="m18 7 31 25-31 25" stroke="#fff8df" stroke-width="2.5"/><path d="M9 32h47" stroke="#6b6549"/><path d="m47 25 12 7-12 7V25Z" fill="#d9f3e0"/><path d="m10 27 7 5-7 5" stroke="#79b657"/></g>',
     pistol: '<g stroke="#243747" stroke-width="4"><path d="m13 30 19 3-5 24H13l3-18-3-9Z" fill="#b28b68"/><path d="M8 17h44v18H8V17Z" fill="#87acb1"/><path d="M13 17v-5h35v5M24 35h18v9H30" fill="#cddad2"/><path d="M46 17v18M14 24h19" stroke="#d7eadf" stroke-width="3"/></g>',
     staff: '<g stroke="#243747" stroke-width="4"><path d="m12 54 26-34 7 5-26 34-7-5Z" fill="#a174bd"/><path d="m33 11 11-7 13 8-3 15-14 6-11-11 4-11Z" fill="#ba87e4"/><path d="m33 11 21 16-10-23-4 29" stroke="#ecd3ff" stroke-width="2.5"/><path d="m27 12-5-3M55 35l5 3" stroke="#c088d5"/></g>',
-    shield: '<g stroke="#243747" stroke-width="4"><path d="M32 6 55 15v18c0 15-9 24-23 30C18 57 9 48 9 33V15L32 6Z" fill="#6fd3bb"/>'
-      + '<path d="M32 14 47 20v13c0 10-6 16-15 21-9-5-15-11-15-21V20l15-6Z" fill="#b6f0e2" stroke-width="3"/>'
-      + '<path d="M32 22v24M22 32h20" stroke="#2f8f7c" stroke-width="3.5"/></g>',
+    shield: '<g stroke="#243747" stroke-width="4"><circle cx="32" cy="32" r="25" fill="#6fd3bb"/>'
+      + '<circle cx="32" cy="32" r="15.5" fill="#b6f0e2" stroke="#2f8f7c" stroke-width="3"/>'
+      + '<circle cx="32" cy="32" r="6" fill="#2f8f7c" stroke="none"/>'
+      + '<g fill="#243747" stroke="none"><circle cx="46" cy="46" r="2.5"/><circle cx="18" cy="46" r="2.5"/>'
+      + '<circle cx="18" cy="18" r="2.5"/><circle cx="46" cy="18" r="2.5"/></g></g>',
     flame: '<g stroke="#243747" stroke-width="4"><path d="M8 40h22v14H8z" fill="#5d6b7d"/>'
       + '<path d="M28 42h10v10H28z" fill="#8894a6"/><circle cx="16" cy="30" r="7" fill="#c4ced9"/>'
       + '<path d="M40 47q9-3 12-10 5 7 4 14-1 8-9 9-9 1-11-6-1-5 4-7z" fill="#ff8a3c"/>'
@@ -93,7 +95,7 @@
     wing:'<path d="M24 23 9 11l1 12-9 5 22 8-16 5 2 11 18-15Z"/>',
     drop:'<path d="M21 7C11 21 7 29 7 38c0 9 6 15 14 15s14-6 14-15c0-9-4-17-14-31Z"/>',
     wall:'<rect x="7" y="7" width="14" height="50" rx="4"/><path d="M7 19h14M7 32h14M7 45h14" fill="none" stroke="var(--aug-dark,#07131b)" stroke-width="3"/>',
-    shield:'<path d="M32 5 54 14v17c0 14-8 23-22 29C18 54 10 45 10 31V14L32 5Z"/>',
+    shield:'<circle cx="32" cy="32" r="25"/><circle cx="32" cy="32" r="15" fill="none"/>',
     // 쇠사슬 — 마디 셋을 비스듬히 잇고 끝에 추를 단다
     chain:'<circle cx="13" cy="13" r="6" fill="none" stroke="var(--aug-ink,#effaff)" stroke-width="4.5"/>'
       + '<circle cx="24" cy="24" r="6" fill="none" stroke="var(--aug-ink,#effaff)" stroke-width="4.5"/>'
