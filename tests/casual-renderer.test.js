@@ -20,7 +20,7 @@ function runtime() {
   vm.createContext(sandbox);
   const source = ['js/data.js', 'js/sim.js', 'js/render.js']
     .map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n');
-  vm.runInContext(source + '\nglobalThis.api = {CHARACTERS, WEAPONS, graphicsForCanvas, drawBall, drawBallG, drawWeapon, drawWeaponG, drawFighterAura, drawArena, drawGroundFx, drawProjectiles, drawFx, drawLoadoutPortrait};', sandbox);
+  vm.runInContext(source + '\nglobalThis.api = {CHARACTERS, WEAPONS, graphicsForCanvas, drawBall, drawBallG, drawWeapon, drawWeaponG, drawFighterAura, drawArena, drawGroundFx, drawProjectiles, drawFx, drawLoadoutPortrait, drawUnits, drawUnitUI};', sandbox);
   return { ...sandbox.api, randomCalls: () => randomCalls };
 }
 
@@ -148,4 +148,39 @@ test('loadout portrait reuses the same art and respects the shared mobile pixel 
   assert.equal(target.width, 180); assert.equal(target.height, 130);
   assert.equal(c.state.depth, 0);
   assert.equal(r.graphicsForCanvas(c.context), r.graphicsForCanvas(c.context), 'adapter is cached per canvas');
+});
+
+/* 분열체는 본체가 죽은 뒤 몸을 대신한다. 체력바도 무기도 없이 굴러다니면
+ * 남은 체력도 무슨 무기인지도 읽을 수가 없다. 둘 다 그려져야 한다. */
+test('split balls carry their own health bar and hold the weapon', () => {
+  const r = runtime();
+  const split = (x, hp, weaponAngle) => ({ dead: false, x, y: 0, r: 11, radius: 11,
+    hp, maxHp: 40, shield: 0, flash: 0, weaponAngle, charging: null,
+    gun: { reloadT: 0, focus: false }, chainHeads: null, flame: null, disc: null });
+  const base = {
+    uid: 1, pid: 1, name: '분열', color: '#ff6879', charId: 'cat',
+    x: 0, y: 0, radius: 16, weaponAngle: 0, hp: 0, maxHp: 400, shield: 0,
+    mainDead: true, dead: false, flash: 0, vx: 1, vy: 0,
+    flags: {}, timers: { stun: 0, immune: 0, untouchable: 0, freeze: 0, actingDead: 0,
+      balloon: 0, rampage: 0, gunBarrage: 0, berserk: 0, dashPrep: 0, dashT: 0 },
+    summons: [], satellites: [], charging: null, gun: null, chainHeads: null,
+    flame: null, disc: null, gunFlash: 0,
+    splitBalls: [split(-40, 40, 0.5), split(40, 10, 2.1)],
+  };
+  for (const weaponId of Object.keys(r.WEAPONS)) {
+    const c = recordingContext(), g = r.graphicsForCanvas(c.context);
+    const b = { fighters: [{ ...base, weaponId }] };
+    r.drawUnits(g, b);
+    assert.equal(c.state.depth, 0, weaponId + ' balances save/restore');
+    // 두 분열체가 서로 다른 각도로 무기를 든다 — 본체 각도를 빌려 쓰지 않는다.
+    const spins = c.calls.filter(k => k[0] === 'rotate').map(k => k[1]);
+    if (!['chain', 'flame'].includes(weaponId)) {
+      assert.ok(spins.includes(0.5) && spins.includes(2.1), weaponId + ' uses each split angle');
+    }
+    const ui = recordingContext(), gu = r.graphicsForCanvas(ui.context);
+    r.drawUnitUI(gu, b, { useText: () => ({ setAlpha() {} }) });
+    // 체력이 다르면 체력바 너비도 달라야 한다. 하나만 그렸으면 걸린다.
+    const bars = ui.calls.filter(k => k[0] === 'fillRect').map(k => k[3]);
+    assert.ok(bars.includes(28) && bars.includes(7), weaponId + ' draws a bar per split');
+  }
 });

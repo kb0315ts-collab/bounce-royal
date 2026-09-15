@@ -45,7 +45,19 @@ function fighterView(f) {
     // 소환수도 체력바를 그리므로 hp/maxHp를 함께 보낸다
     sm: f.summons.map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r), h: Math.round(s.hp), m: s.maxHp })),
     // fl(피격 플래시)도 실어야 한다. 분열체는 본체와 따로 맞고 따로 번쩍인다.
-    sp: f.splitBalls.filter(s => !s.dead).map(s => ({ u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0) })),
+    // 분열체는 본체와 똑같이 무기 파이프라인을 돌린다. 체력바와 무기를 그리려면
+    // 제 체력·무기 각도·무기 상태가 있어야 한다 — 본체 것을 빌려 쓰면 안 된다.
+    sp: f.splitBalls.filter(s => !s.dead).map(s => ({
+      u: s.uid, x: r1(s.x), y: r1(s.y), r: r1(s.r || s.radius || 12), fl: r1(s.flash || 0),
+      h: Math.round(s.hp), m: r1(s.maxHp), sh: Math.round(s.shield || 0),
+      a: r2(s.weaponAngle), ch: s.charging ? Math.max(0.05, Math.min(1, r1(s.charging.t))) : 0,
+      rl: s.gun && s.gun.reloadT > 0 ? 1 : 0,
+      ...(s.disc ? { dc: [r1(s.disc.x), r1(s.disc.y), r1(s.disc.r), s.disc.resting ? 1 : 0] } : {}),
+      ...(s.flame && f.weaponId === 'flame'
+        ? { fo: s.flame.on && s.flame.fuel > 0 ? 1 : 0 } : {}),
+      ...(s.chainHeads && s.chainHeads.length
+        ? { cn: s.chainHeads.flatMap(h => [r1(h.x), r1(h.y)]) } : {}),
+    })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
     // 던져 둔 방패. 모두에게 보여야 한다. [x, y, 반지름, 멈췄나]
     ...(f.disc ? { dc: [r1(f.disc.x), r1(f.disc.y), r1(f.disc.r), f.disc.resting ? 1 : 0] } : {}),

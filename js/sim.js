@@ -1125,9 +1125,12 @@ class Battle {
     for (let i = this.mines.length - 1; i >= 0; i--) {
       const m = this.mines[i];
       m.arm -= dt; m.t += dt;
+      // 자기 회복 지뢰. 장전 중에도 벗어난 것은 세어 둔다.
+      const onOwner = !m.owner.mainDead
+        && dist(m.x, m.y, m.owner.x, m.owner.y) < m.trig + m.owner.radius;
+      if (!m.selfArmed && !onOwner) m.selfArmed = true;
       if (m.arm > 0) continue;
-      // 자기 회복 지뢰
-      if (m.owner.flags.healMine && !m.owner.mainDead && dist(m.x, m.y, m.owner.x, m.owner.y) < m.trig + m.owner.radius) {
+      if (m.owner.flags.healMine && m.selfArmed && onOwner) {
         healFighter(this, m.owner, m.owner.maxHp * 0.08);
         addFx(this, { type: 'ring', x: m.x, y: m.y, r0: 6, r1: 40, color: '#7dffa8', dur: 0.3 });
         this.mines.splice(i, 1); continue;
@@ -1715,6 +1718,10 @@ function updateWeapon(b, f, dt) {
         trig: (big ? 40 : wp.triggerR) * balloon,
         blast: (big ? 88 : wp.blastR) * balloon,
         dmg: wp.dmg,
+        // 회복 지뢰는 공 한가운데에 깔려서 깔자마자 자기가 밟는다.
+        // 팽창까지 겹치면 0.7초 장전 동안 반경을 못 벗어난다.
+        // 방패와 같은 방식 — 한 번 벗어나야 주인에게 반응한다.
+        selfArmed: false,
       });
       battleSound(b, 'weapon.mine.place', f);
     }

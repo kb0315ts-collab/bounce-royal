@@ -429,14 +429,21 @@ function lerpAngle(a, b, k) {
 function lerp(a, b, k) { return a + (b - a) * k; }
 
 /* uid로 짝지어 위치만 섞는다. 짝이 없으면(새로 생긴 것) 최신 값을 그대로 쓴다. */
-function lerpById(prevList, nextList, k, jump) {
+/* body가 참이면 무기 각도와 체력도 섞는다. 분열체는 본체처럼 제 무기를
+ * 돌리므로, 위치만 섞으면 무기가 20Hz 계단으로 튄다. */
+function lerpById(prevList, nextList, k, jump, body) {
   if (!prevList || !prevList.length) return nextList;
   const prev = new Map(prevList.map(s => [s.u, s]));
   return nextList.map(s => {
     const q = prev.get(s.u);
     if (!q) return s;
     if (jump && Math.hypot(s.x - q.x, s.y - q.y) > jump) return s;
-    return Object.assign({}, s, { x: lerp(q.x, s.x, k), y: lerp(q.y, s.y, k) });
+    const mixed = { x: lerp(q.x, s.x, k), y: lerp(q.y, s.y, k) };
+    if (body) {
+      if (q.a != null && s.a != null) mixed.a = lerpAngle(q.a, s.a, k);
+      if (q.h != null && s.h != null) mixed.h = lerp(q.h, s.h, k);
+    }
+    return Object.assign({}, s, mixed);
   });
 }
 
@@ -474,7 +481,7 @@ function lerpSnapshot(a, b, k, spanMs) {
       // 소환수·분열체는 uid로 짝짓는다 (죽으면 배열이 밀리기 때문).
       // 위성체는 전투 중 개수가 변하지 않아 인덱스가 곧 고유 식별자다.
       sm: lerpById(p.sm, f.sm, k, jump),
-      sp: lerpById(p.sp, f.sp, k, jump),
+      sp: lerpById(p.sp, f.sp, k, jump, true),
       sa: f.sa.map((s, i) => (p.sa[i] ? { a: lerpAngle(p.sa[i].a, s.a, k) } : s)),
     });
   });
@@ -571,7 +578,18 @@ function netFighter(view, meta, seat) {
     },
     // 스냅샷은 h/m으로 싣고 렌더러는 hp/maxHp를 읽는다 (소환수 체력바)
     summons: (view.sm || NET_EMPTY).map(s => ({ u: s.u, x: s.x, y: s.y, r: s.r, hp: s.h, maxHp: s.m })),
-    splitBalls: (view.sp || NET_EMPTY).map(s => ({ dead: false, x: s.x, y: s.y, r: s.r, flash: s.fl || 0 })),
+    // 분열체도 체력바와 무기를 그린다. 세계 좌표를 쓰는 무기(사슬·방패)는
+    // 본체 것을 빌려 쓰면 두 번 그려지므로 제 것만 넘긴다.
+    splitBalls: (view.sp || NET_EMPTY).map(s => ({
+      dead: false, x: s.x, y: s.y, r: s.r, radius: s.r, flash: s.fl || 0,
+      hp: s.h, maxHp: s.m, shield: s.sh || 0,
+      weaponAngle: s.a || 0,
+      charging: s.ch ? { t: s.ch } : null,
+      gun: { reloadT: s.rl ? 1 : 0, focus: false },
+      disc: s.dc ? { x: s.dc[0], y: s.dc[1], r: s.dc[2], resting: !!s.dc[3] } : null,
+      flame: { on: !!s.fo, fuel: 100, idle: 0 },
+      chainHeads: s.cn ? chainHeadsOf(s.cn) : null,
+    })),
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
     satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),

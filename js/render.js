@@ -477,20 +477,23 @@ function drawGroundFx(g, glow, b) {
     g.fillStyle(0xffef8c, a); g.fillEllipse(fl.x, fl.y, R * 0.7, R * 0.75);
   }
   // 던져 둔 방패 — 날아가는 동안 돌고, 멈추면 바닥에 눕는다.
-  for (const f of b.fighters) {
-    const d = f.disc;
-    if (!d) continue;
-    const t = performance.now() / 1000;
-    const spin = d.resting ? 0 : t * 9;
-    g.fillStyle(CASUAL_INK, 0.2);
-    g.fillEllipse(d.x + 2, d.y + 6, d.r * 2.3, d.r * (d.resting ? 1.5 : 1.1));
-    g.save(); g.translateCanvas(d.x, d.y); g.rotateCanvas(spin);
-    g.fillStyle(0x6fd3bb, 1); g.fillCircle(0, 0, d.r);
-    g.lineStyle(3.2, CASUAL_INK, 1); g.strokeCircle(0, 0, d.r);
-    g.fillStyle(0xb6f0e2, 1); g.fillCircle(0, 0, d.r * 0.62);
-    g.lineStyle(2.4, 0x2f8f7c, 1); g.strokeCircle(0, 0, d.r * 0.62);
-    g.fillStyle(toInt(ownerPlayerColor(f)), 1); g.fillCircle(0, 0, d.r * 0.28);
-    g.restore();
+  // 분열체도 제 방패를 던지므로 함께 훑는다.
+  for (const owner of b.fighters) {
+    for (const f of [owner, ...(owner.splitBalls || [])]) {
+      const d = f.disc;
+      if (!d) continue;
+      const t = performance.now() / 1000;
+      const spin = d.resting ? 0 : t * 9;
+      g.fillStyle(CASUAL_INK, 0.2);
+      g.fillEllipse(d.x + 2, d.y + 6, d.r * 2.3, d.r * (d.resting ? 1.5 : 1.1));
+      g.save(); g.translateCanvas(d.x, d.y); g.rotateCanvas(spin);
+      g.fillStyle(0x6fd3bb, 1); g.fillCircle(0, 0, d.r);
+      g.lineStyle(3.2, CASUAL_INK, 1); g.strokeCircle(0, 0, d.r);
+      g.fillStyle(0xb6f0e2, 1); g.fillCircle(0, 0, d.r * 0.62);
+      g.lineStyle(2.4, 0x2f8f7c, 1); g.strokeCircle(0, 0, d.r * 0.62);
+      g.fillStyle(toInt(ownerPlayerColor(owner)), 1); g.fillCircle(0, 0, d.r * 0.28);
+      g.restore();
+    }
   }
   for (const m of b.mines) {
     const armed = m.arm <= 0;
@@ -925,6 +928,24 @@ function drawFighterAura(g, f, x, y, r) {
   }
 }
 
+/* 분열체는 본체와 같은 무기를 제 각도로 든다. 생김새(캐릭터·색·증강 비트)는
+ * 본체에서 빌리되, 세계 좌표를 쓰는 사슬·불길·방패는 제 것만 쓴다 —
+ * 본체 것을 그대로 두면 추와 불길이 분열체 수만큼 겹쳐 그려진다. */
+function splitProxy(f, sp, sr) {
+  return Object.assign({}, f, {
+    x: sp.x, y: sp.y, radius: sr, r: sr,
+    flash: sp.flash || 0,
+    mainDead: false, dead: false,
+    weaponAngle: sp.weaponAngle != null ? sp.weaponAngle : f.weaponAngle,
+    timers: sp.timers || f.timers,
+    charging: sp.charging !== undefined ? sp.charging : f.charging,
+    gun: sp.gun !== undefined ? sp.gun : f.gun,
+    chainHeads: sp.chainHeads || null,
+    flame: sp.flame || null,
+    disc: sp.disc || null,
+  });
+}
+
 function drawUnits(g, b) {
   for (const f of b.fighters) {
     for (const s of f.summons) {
@@ -935,8 +956,11 @@ function drawUnits(g, b) {
     }
     for (const sp of f.splitBalls) {
       if (sp.dead) continue;
-      drawFighterAura(g, sp, sp.x, sp.y, sp.r || sp.radius || 12);
-      drawBallG(g, Object.assign({}, f, { x: sp.x, y: sp.y, flash: sp.flash || 0 }), sp.x, sp.y, sp.r || sp.radius || 12);
+      const sr = sp.r || sp.radius || 12;
+      const proxy = splitProxy(f, sp, sr);
+      drawFighterAura(g, sp, sp.x, sp.y, sr);
+      drawBallG(g, proxy, sp.x, sp.y, sr, { spin: proxy.weaponAngle });
+      drawWeaponG(g, proxy);
     }
     if (!f.mainDead && !f.dead) {
       drawFighterAura(g, f, f.x, f.y, f.radius);
@@ -1147,6 +1171,22 @@ function drawUnitUI(g, b, sc) {
         g.fillStyle(toInt(f.color), 1); g.fillCircle(sx, sy, 7);
         g.lineStyle(2, CASUAL_INK, 1); g.strokeCircle(sx, sy, 7);
         g.fillStyle(0xffffff, 0.8); g.fillEllipse(sx - 2, sy - 2.5, 5, 2);
+      }
+    }
+    // 분열체 체력바. 소환수처럼 본체보다 작게 그려 구분한다.
+    for (const sp of f.splitBalls) {
+      if (sp.dead || !sp.maxHp) continue;
+      const sr = sp.r || sp.radius || 12;
+      const ratio = Math.max(0, Math.min(1, sp.hp / sp.maxHp));
+      const sw = 28, sx = sp.x - sw / 2, sy = sp.y - sr - 11;
+      g.fillStyle(CASUAL_INK, 1);
+      g.fillRoundedRect(sx - 1.5, sy - 1.5, sw + 3, 6, 2.5);
+      g.fillStyle(toInt(ratio > 0.5 ? '#a4ef58' : ratio > 0.25 ? '#ffdc55' : '#ff7965'), 1);
+      g.fillRect(sx, sy, sw * ratio, 3);
+      g.fillStyle(0xffffff, 0.45); g.fillRect(sx, sy, sw * ratio, 1);
+      if (sp.shield > 0) {
+        g.fillStyle(0x7fd8ff, 0.9);
+        g.fillRect(sx, sy - 2.5, sw * Math.min(1, sp.shield / sp.maxHp), 2);
       }
     }
     if (f.dead) continue;
