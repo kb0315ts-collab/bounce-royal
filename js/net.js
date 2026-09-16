@@ -629,7 +629,7 @@ function netFighter(view, meta, seat) {
       gun: { reloadT: s.rl ? 1 : 0, focus: false },
       disc: s.dc ? { x: s.dc[0], y: s.dc[1], r: s.dc[2], resting: !!s.dc[3] } : null,
       gripT: s.gt || 0,
-      flame: { on: !!s.fo, fuel: 100, idle: 0 },
+      flame: { on: !!s.fo, fuel: s.fu == null ? 100 : s.fu, idle: 0 },
       chainHeads: s.cn ? chainHeadsOf(s.cn) : null,
     })),
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야

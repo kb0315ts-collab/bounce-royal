@@ -204,3 +204,42 @@ test('the chain draws through its rope nodes, not straight to the head', () => {
   }
   assert.ok(pts.includes(head.x + ',' + head.y), 'rope ends at the head');
 });
+
+/* 화염방사기는 남은 연료가 곧 남은 공격이다. 체력만큼 자주 봐야 하는 값이라
+ * 체력바 바로 위에 한 칸 더 올린다. 다른 무기에는 없어야 한다. */
+test('the flamethrower shows a fuel bar above its health bar', () => {
+  const r = runtime();
+  const base = (weaponId, fuel) => ({
+    uid: 1, pid: 1, name: '연료', color: '#ff6879', charId: 'cat', weaponId,
+    x: 0, y: 0, radius: 16, weaponAngle: 0, hp: 100, maxHp: 100, shield: 0,
+    mainDead: false, dead: false, flash: 0, vx: 1, vy: 0,
+    flags: {}, timers: { stun: 0, immune: 0, untouchable: 0, freeze: 0, actingDead: 0,
+      balloon: 0, rampage: 0, gunBarrage: 0, berserk: 0, dashPrep: 0, dashT: 0 },
+    summons: [], satellites: [], splitBalls: [], charging: null, gun: null,
+    chainHeads: null, disc: null, gunFlash: 0,
+    flame: fuel === null ? null : { on: false, fuel, idle: 0 },
+  });
+  const bars = (weaponId, fuel) => {
+    const c = recordingContext(), g = r.graphicsForCanvas(c.context);
+    r.drawUnitUI(g, { fighters: [base(weaponId, fuel)] }, { useText: () => ({ setAlpha() {} }) });
+    assert.equal(c.state.depth, 0, weaponId + ' balances save/restore');
+    // fillRect의 y를 모아 체력바(y=0)보다 위에 그려진 칸이 있는지 본다
+    return c.calls.filter(k => k[0] === 'fillRect').map(k => ({ y: k[2], w: k[3] }));
+  };
+  const full = bars('flame', 100);
+  const half = bars('flame', 50);
+  const none = bars('sword', null);
+  // 체력바는 y = f.y - radius - 16 에 있다. 그보다 위(작은 y)에 그려진 칸만 센다.
+  const HP_Y = 0 - 16 - 16;
+  const above = list => list.filter(b => b.y < HP_Y - 2);
+  assert.ok(above(full).length > 0, '화염방사기는 체력바 위에 연료 칸이 있다');
+  assert.equal(above(none).length, 0, '다른 무기에는 연료 칸이 없다');
+  // 연료가 절반이면 칸 너비도 절반이어야 한다
+  const wFull = Math.max(...above(full).map(b => b.w));
+  const wHalf = Math.max(...above(half).map(b => b.w));
+  assert.ok(Math.abs(wHalf - wFull / 2) < 0.6,
+    `연료 50%면 너비도 절반 (가득 ${wFull}, 절반 ${wHalf})`);
+  // 연료 0이어도 칸 자체는 남아 '비었다'가 보여야 한다
+  const empty = bars('flame', 0);
+  assert.ok(above(empty).length > 0, '연료 0에서도 빈 칸이 보인다');
+});

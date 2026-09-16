@@ -18,6 +18,9 @@ const COUNT_TIME = 3;       // 라운드 시작 카운트다운 (3 · 2 · 1)
 const ENDING_TIME = 1.5;    // 승패가 갈린 뒤 슬로우로 보여주는 시간
 const MELEE_ASPD_GAIN = 1.5;  // 근접이 공격속도 증가분을 받는 배율
 const STEER_MAX_RAD = 50 * Math.PI / 180; // 최대 조향속도: 초당 50도
+// 화염방사기 조준이 목표를 따라 도는 속도(rad/s). 한 바퀴에 1초.
+// 조향보다 7배 이상 빠르되, 순간이동은 아니라서 끊기지 않는다.
+const FLAME_AIM_RATE = TAU;
 const STEER_RAMP_TIME = 0.25;              // 입력이 최대 조향력에 도달하는 시간
 const STEER_BOUNCE_LOCK = 0.15;            // 벽 반사 직후에는 반사 방향을 우선한다
 let UID = 0;
@@ -454,7 +457,7 @@ function buildFighter(player, battle) {
     disc: null,
     gripT: 0,          // 주운 직후 피해 감소가 남은 시간 (단단한 손)
     // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
-    flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0 },
+    flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0, aim: null },
     // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
     // 이중 사슬이면 둘, 아니면 하나. 다른 무기는 빈 배열이다.
     chainHeads: [],
@@ -1833,9 +1836,29 @@ function updateDisc(b, f, dt) {
  * 조준이 조향 조이스틱이라는 게 핵심이다 — 피할 것인가 맞힐 것인가를
  * 매 순간 고르게 된다. 조향은 초당 50도로 느리게 돌지만 조준은 즉시라,
  * '보는 곳'과 '가는 곳'이 갈린다. */
-function flameAim(f) {
-  // 조이스틱을 놓고 있으면 그냥 가는 방향으로 나간다.
+/* 조준이 향하려는 곳. 조이스틱을 놓고 있으면 그냥 가는 방향이다. */
+function flameTarget(f) {
   return (f.steer && f.steer.active) ? f.steer.angle : Math.atan2(f.vy, f.vx);
+}
+
+/* 실제 조준은 목표를 향해 정해진 속도로 돌아간다.
+ * 예전에는 조이스틱 각도를 그대로 썼다. 손가락이 떠는 대로 노즐이 떨고,
+ * 조이스틱을 놓는 순간 진행 방향으로 뚝 끊겨 튀었다.
+ * 공의 조향(초당 50도)보다는 훨씬 빠르게 둔다 — '보는 곳'과 '가는 곳'이
+ * 갈리는 것이 이 무기의 정체성이라, 조준까지 느리면 무기가 죽는다. */
+function flameAim(f, dt) {
+  const st = f.flame;
+  const target = flameTarget(f);
+  if (st.aim == null || !Number.isFinite(st.aim)) { st.aim = target; return st.aim; }
+  if (!(dt > 0)) return st.aim;
+  let d = target - st.aim;
+  while (d > Math.PI) d -= TAU;
+  while (d < -Math.PI) d += TAU;
+  const max = FLAME_AIM_RATE * dt;
+  st.aim += Math.abs(d) <= max ? d : Math.sign(d) * max;
+  while (st.aim > Math.PI) st.aim -= TAU;
+  while (st.aim < -Math.PI) st.aim += TAU;
+  return st.aim;
 }
 
 function updateFlame(b, f, dt) {
@@ -1845,7 +1868,7 @@ function updateFlame(b, f, dt) {
   const range = (f.flags.flamePressure ? 140 : wp.range) * ws;
   const halfArc = f.flags.flamePressure ? 0.26 : wp.halfArc;
 
-  f.weaponAngle = flameAim(f);   // 스냅샷의 a가 이 값을 그대로 나른다
+  f.weaponAngle = flameAim(f, dt);   // 스냅샷의 a가 이 값을 그대로 나른다
 
   const blocked = f.timers.weaponLock > 0 || f.timers.stun > 0 || f.mainDead || f.dead;
   const firing = st.on && !blocked && st.fuel > 0;

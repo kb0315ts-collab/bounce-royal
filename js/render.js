@@ -110,6 +110,8 @@ const STAR_COUNT = 54;
 // Shared toy-box palette. These values are paint only: physics continues to use
 // the fighter/arena data, never the decorative outlines or squash transforms.
 const CASUAL_INK = 0x243747;
+// 연료바 기준값. data.js가 없는 환경(포트레이트 단독 렌더)에서도 안전하게.
+const FLAME_FUEL_MAX = (typeof WEAPONS !== 'undefined' && WEAPONS.flame) ? WEAPONS.flame.fuelMax : 100;
 const CASUAL_BALL_COLORS = Object.freeze({
   cat: '#ffa4c9', wak: '#ffc443', soft: '#fff3d9',
   bomb: '#637892', bball: '#ff984a', balloon: '#ff7898',
@@ -1296,7 +1298,21 @@ function drawUnitUI(g, b, sc) {
         g.fillStyle(0x7fd8ff, 0.9);
         g.fillRect(bx - w / 2, by - 3, w * Math.min(1, f.shield / f.maxHp), 2.5);
       }
-      sc.useText(bx, by - 11, f.name, {
+      /* 화염방사기 연료. 체력바 바로 위에 한 칸 더 얹는다 — 남은 연료가
+       * 곧 남은 공격이라, 체력만큼 자주 봐야 하는 값이다.
+       * 다 쓰면 색을 죽여서 '지금은 못 쏜다'가 한눈에 읽히게 한다. */
+      let nameY = by - 11;
+      if (f.weaponId === 'flame' && f.flame) {
+        const fu = Math.max(0, Math.min(1, (f.flame.fuel || 0) / FLAME_FUEL_MAX));
+        const fy = by - 9;
+        g.fillStyle(CASUAL_INK, 1);
+        g.fillRoundedRect(bx - w / 2 - 2, fy - 1.5, w + 4, 6, 2.5);
+        g.fillStyle(toInt(fu > 0 ? '#ffa544' : '#8d6a52'), 1);
+        g.fillRect(bx - w / 2, fy, w * Math.max(fu, 0.001), 3);
+        if (fu > 0) { g.fillStyle(0xffef8c, 0.5); g.fillRect(bx - w / 2, fy, w * fu, 1); }
+        nameY = by - 18;
+      }
+      sc.useText(bx, nameY, f.name, {
         fontFamily: 'Jua, sans-serif', fontSize: '12px', color: '#243747',
         stroke: '#fff7dd', strokeThickness: 3,
       }).setAlpha(1);

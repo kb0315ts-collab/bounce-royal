@@ -79,7 +79,7 @@ function fighterView(f) {
       ...(s.disc ? { dc: [r1(s.disc.x), r1(s.disc.y), r1(s.disc.r), s.disc.resting ? 1 : 0] } : {}),
       ...(s.gripT > 0 ? { gt: Math.max(0.1, r1(s.gripT)) } : {}),
       ...(s.flame && f.weaponId === 'flame'
-        ? { fo: flameFiring(s) ? 1 : 0 } : {}),
+        ? { fo: flameFiring(s) ? 1 : 0, fu: Math.round(s.flame.fuel) } : {}),
       ...(s.chainHeads && s.chainHeads.length
         ? { cn: s.chainHeads.flatMap(chainPts) } : {}),
     })),

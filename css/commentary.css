@@ -40,13 +40,24 @@
 .is-burst .cactus-gag-right{animation:caster-gag-right .55s ease-out forwards}
 #commentator.is-match-finale{z-index:65;top:18cqw;left:3cqw}
 #commentator.is-arena-finale{top:21.5cqw;left:2.1cqw}
-.caster-dock{position:relative;flex:0 0 23cqw;min-height:23cqw;width:100%;margin:1cqw 0 2cqw}
-#commentator.is-studio{position:relative;left:0;top:0;width:100%;height:23cqw;z-index:4}
-.is-studio #caster-bubble{left:20cqw;width:calc(100% - 21cqw);min-height:18cqw}
-.is-studio #caster-copy{font-size:3cqw;max-height:17cqw;line-height:1.3}
-.is-studio #caster-label{font-size:2.2cqw}
+/* Studio dock sits last in the column so the cards keep their old position.
+   Everything here is ~30% smaller than the arena booth: the caster is a
+   footnote on these screens, not the headline. */
+.caster-dock{position:relative;flex:0 0 15.5cqw;min-height:15.5cqw;width:100%;margin:1cqw 0 2cqw}
+#commentator.is-studio{position:relative;left:0;top:0;width:100%;height:15.5cqw;z-index:4}
+.is-studio #caster-toggle{width:13cqw;height:15.5cqw}
+.is-studio .caster-body{width:13cqw;height:13.6cqw}
+.is-studio #caster-badge{min-width:11cqw;padding:.45cqw .8cqw;font-size:1.5cqw;border-width:.3cqw;border-radius:1cqw}
+.is-studio #caster-badge i{width:.9cqw;height:.9cqw}
+.is-studio #caster-bubble{left:13.5cqw;top:.4cqw;width:calc(100% - 14.5cqw);min-height:12.4cqw;padding:1.1cqw 1.4cqw 1.2cqw;border-radius:2.2cqw 2.2cqw 2.2cqw .6cqw}
+.is-studio #caster-copy{font-size:2.35cqw;max-height:9.6cqw;line-height:1.32}
+.is-studio #caster-label{font-size:1.7cqw;margin-bottom:.6cqw}
 #scr-augment .selection-body{overflow-y:auto}
 #scr-augment #aug-cards{flex-shrink:0}
+#scr-augment #aug-meta{flex-shrink:0}
+/* Augment screen only: the caster takes the leftover room at the very bottom so
+   the cards sit exactly where they did before the caster existed. */
+#scr-augment .caster-dock{margin:auto 0 .5cqw}
 #scr-event .event-body{overflow-y:auto}
 #scr-replay{background:transparent;pointer-events:none;z-index:40}
 .replay-head{height:14cqw;display:flex;align-items:center;justify-content:space-between;padding:2cqw 3cqw;background:#101a30;color:#ffd25a;font:3.1cqw 'Jua',sans-serif;pointer-events:auto}
