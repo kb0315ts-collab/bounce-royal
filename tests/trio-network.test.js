@@ -140,3 +140,22 @@ test('grip duration round-trips without adding inactive fields and older snapsho
   assert.equal(view.splitBalls[0].flags.bayonet, true);
   assert.equal(view.splitBalls[0].chainHeads.length, 2, 'legacy head-only ropes remain visible');
 });
+
+test('the rope tie angle crosses the network so twin ropes draw from opposite sides', () => {
+  const players = [player(0, 'chain'), player(1, 'sword')];
+  const b = new core.Battle('diamond', players);
+  const f = b.fighters[0];
+  f.flags.chainTwin = 1;
+  b.phase = 'fight';
+  for (let i = 0; i < 90; i++) b.update(1 / 60);
+  const wire = snapshot(b), view = netBattleView(wire, players, 0).fighters[0];
+  assert.ok(Number.isFinite(wire.f[0].ca), '매인 자리 각도를 싣는다');
+  assert.equal(view.chainHeads.length, 2);
+  const wrap = d => Math.atan2(Math.sin(d), Math.cos(d));
+  for (let i = 0; i < 2; i++) near(wrap(view.chainHeads[i].attach - f.chainHeads[i].attach), 0);
+  near(Math.abs(wrap(view.chainHeads[1].attach - view.chainHeads[0].attach)), Math.PI);
+  // 스냅샷 사이에서도 각도가 섞인다
+  const later = snapshot(b); later.f[0].ca = wire.f[0].ca + 0.4;
+  const mid = lerpSnapshot(wire, later, 0.5, 50);
+  near(mid.f[0].ca, wire.f[0].ca + 0.2);
+});

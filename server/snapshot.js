@@ -81,7 +81,7 @@ function fighterView(f) {
       ...(s.flame && f.weaponId === 'flame'
         ? { fo: flameFiring(s) ? 1 : 0, fu: Math.round(s.flame.fuel) } : {}),
       ...(s.chainHeads && s.chainHeads.length
-        ? { cn: s.chainHeads.flatMap(chainPts) } : {}),
+        ? { cn: s.chainHeads.flatMap(chainPts), ca: r2(s.chainHeads[0].attach || 0) } : {}),
     })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
     // 던져 둔 방패. 모두에게 보여야 한다. [x, y, 반지름, 멈췄나]
@@ -96,8 +96,9 @@ function fighterView(f) {
     // 마지막 점이 추다. 이중 사슬이면 그게 두 벌 이어진다.
     // 평평한 숫자 배열로 싣는다 (x0,y0, x1,y1 ...). 중첩 배열은 스냅샷 검사에 걸린다.
     // 쇠사슬이 아니면 키 자체를 넣지 않는다 — undefined도 검사에 걸린다.
+    // ca는 줄이 공 표면에 매인 자리의 각도. 이중 사슬의 둘째는 그 반대편(+180도)이다.
     ...(f.chainHeads && f.chainHeads.length
-      ? { cn: f.chainHeads.flatMap(h => chainPts(h)) } : {}),
+      ? { cn: f.chainHeads.flatMap(h => chainPts(h)), ca: r2(f.chainHeads[0].attach || 0) } : {}),
   };
 }
 

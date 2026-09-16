@@ -882,13 +882,12 @@ function drawChainG(g, f, ws) {
     const first = nodes[0] || h;
     const dx = first.x - f.x, dy = first.y - f.y;
     const d = Math.hypot(dx, dy) || 1;
-    /* 줄은 공 표면에 매여 있다. 로컬 전투는 시뮬이 남긴 매인 자리를 그대로 쓰고,
-     * 멀티·다시보기처럼 그 값이 없으면 첫 마디 쪽 표면에서 시작한다. */
-    // 공이 순간이동한 그 한 프레임에는 매인 자리가 옛 위치에 남아 있다. 공에서
-    // 멀리 떨어진 매인 자리는 믿지 않는다 — 줄이 허공에서 시작하는 것처럼 보인다.
-    const at = h._anchor && Number.isFinite(h._anchor.x)
-      && Math.hypot(h._anchor.x - f.x, h._anchor.y - f.y) < R * 1.5 ? h._anchor : null;
-    const x0 = at ? at.x : f.x + dx / d * R, y0 = at ? at.y : f.y + dy / d * R;
+    /* 줄은 공 표면에 매여 있다. 매인 자리 각도(로컬·멀티·다시보기 모두 있다)와
+     * 지금 그리는 공 위치로 계산한다. 각도가 없는 구형 데이터만 첫 마디 쪽 표면에서
+     * 시작한다. 좌표를 따로 들고 다니면 순간이동한 틱에 옛 자리에서 그려진다. */
+    const hasAttach = Number.isFinite(h.attach);
+    const x0 = hasAttach ? f.x + Math.cos(h.attach) * R : f.x + dx / d * R;
+    const y0 = hasAttach ? f.y + Math.sin(h.attach) * R : f.y + dy / d * R;
     /* 줄은 마디를 이은 꺾은선이다. 공과 추를 직선으로 이으면 접힌 줄이
      * 막대기로 보인다 — 휘는 게 이 무기의 전부인데. */
     const rope = [{ x: x0, y: y0 }].concat(nodes, [h]);

@@ -12,7 +12,7 @@ function runtime() {
   context.window = context;
   vm.runInContext(['js/data.js', 'js/sim.js'].map(file =>
     fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n')
-    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN, ropeLen, chainAttach, CHAIN_MAX_STRETCH };', context);
+    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN, ropeLen, chainAttach, CHAIN_MAX_STRETCH, CHAIN_WALL_BOUNCE, CHAIN_MAX_SPD, springChainRope };', context);
   return context.testCore;
 }
 const T = runtime();
@@ -133,7 +133,8 @@ test('a collapsed rope on a still ball opens and spins on its own, never toward 
   const h = alone.f.chainHeads[0], L = T.chainLen(alone.f);
   assert.ok(Math.hypot(h.x, h.y) > L * 0.95, '접힌 줄이 제 길이를 되찾는다');
   assert.ok(Math.hypot(h.vx, h.vy) < 400, '폭주하지 않고 일정하게 돈다');
-  const withEnemy = trace({ x: -60, y: 0 });
+  // 추가 이제 몸에 튕기므로, 끌림만 보려면 적을 추가 닿지 않는 거리에 둔다
+  const withEnemy = trace({ x: -170, y: 0 });
   const drift = alone.out.reduce((mx, v, i) => Math.max(mx, Math.abs(v - withEnemy.out[i])), 0);
   assert.ok(drift < 1e-9, `적 위치가 회전을 끌어당기지 않는다 (최대 차이 ${drift})`);
 });
@@ -256,6 +257,128 @@ test('the rope stretches with spin and springs back after a turn, but keeps its 
   let peaks = 0;
   for (let i = 1; i < series.length - 1; i++) if (series[i] > series[i - 1] && series[i] > series[i + 1] && series[i] > 1.03) peaks++;
   assert.ok(peaks >= 3, `선회 뒤 여러 번 튕긴다 (늘어남 봉우리 ${peaks}개)`);
+});
+
+test('the flail head bounces off a body instead of passing through, and still hits once', () => {
+  const { b, f, e } = fixture({ enemies: true });
+  e.x = 0; e.y = 95; e.vx = e.vy = 0; e.st.move = 0; e.hp = e.maxHp = 1e9;
+  const h = f.chainHeads[0], dt = 1 / 60, headR = T.WEAPONS.chain.headR;
+  let deepest = 0, hits = 0, hp = e.hp, reversed = false, prevToward = 0;
+  for (let i = 0; i < 360; i++) {
+    e._motionX = e.x; e._motionY = e.y;
+    b.simT += dt; T.updateChain(b, f, dt);
+    deepest = Math.max(deepest, headR + e.radius - Math.hypot(h.x - e.x, h.y - e.y));
+    if (e.hp < hp - 1e-9) { hits++; hp = e.hp; }
+    const nx = e.x - h.x, ny = e.y - h.y, d = Math.hypot(nx, ny) || 1;
+    const toward = (h.vx * nx + h.vy * ny) / d;
+    if (prevToward > 60 && toward < -20 && d < headR + e.radius + 6) reversed = true;
+    prevToward = toward;
+  }
+  assert.ok(deepest < 3, `몸을 뚫고 들어가지 않는다 (최대 ${deepest.toFixed(1)}px)`);
+  assert.ok(reversed, '부딪히면 되돌아 튕겨 나온다');
+  assert.ok(hits >= 1, '튕기면서도 맞힌다');
+});
+
+test('the flail head rebounds off a wall instead of sliding along it', () => {
+  const { b, f } = fixture({ arena: true });
+  const L = b.arena.L;
+  f.x = L - 90; f.y = 0; f._chainAnchor = { x: f.x, y: 0 }; f.st.rot = 0;
+  f.chainHeads = []; f.weaponAngle = 0; T.ensureChainHeads(f);
+  const h = f.chainHeads[0];
+  for (const q of h.nodes.concat(h)) { q.vx = 900; q.vy = 0; }
+  let ratio = null;
+  for (let i = 0; i < 120 && ratio === null; i++) {
+    const vx = h.vx;
+    T.updateChain(b, f, 1 / 120);
+    const atWall = Math.abs(h.x) + Math.abs(h.y) + h.r * Math.SQRT2 >= L - 1.5;
+    if (atWall && vx > 200 && h.vx < 0) ratio = -h.vx / vx;
+  }
+  assert.ok(ratio !== null, '벽에 닿으면 반대 방향으로 튕겨 나온다');
+  assert.ok(Math.abs(ratio - T.CHAIN_WALL_BOUNCE) < 0.05, `튕기는 비율 ${ratio && ratio.toFixed(2)}`);
+});
+
+test('twin ropes tie to opposite sides of the ball and the heads bounce off each other', () => {
+  const { b, f } = fixture({ twin: true });
+  const [a, c] = f.chainHeads, dt = 1 / 60, headR = T.WEAPONS.chain.headR;
+  const wrapA = d => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+  let worst = 0, overlap = 0;
+  for (let i = 0; i < 720; i++) {
+    const ang = Math.sin(i * dt * 1.7) * 2.4;
+    f.vx = Math.cos(ang); f.vy = Math.sin(ang);
+    f.x += f.vx * f.st.move * T.GAME_SPEED * dt; f.y += f.vy * f.st.move * T.GAME_SPEED * dt;
+    if (i === 300) T.chainSwap(b, f);          // 위치 교환 뒤에도
+    if (i === 500) f.x += 180;                  // 순간이동 뒤에도
+    b.simT += dt; T.updateChain(b, f, dt);
+    worst = Math.max(worst, Math.abs(wrapA(c.attach - a.attach - Math.PI)));
+    overlap = Math.max(overlap, 2 * headR - Math.hypot(a.x - c.x, a.y - c.y));
+  }
+  assert.ok(worst < 1e-9, `두 줄은 늘 공 양쪽에 하나씩 매인다 (최대 어긋남 ${worst})`);
+  assert.ok(overlap < 3, `추끼리 겹치지 않고 튕긴다 (최대 겹침 ${overlap.toFixed(1)}px)`);
+  /* 정면으로 부딪히게 한다. 두 줄이 모두 닿을 수 있는 자리(공 아래쪽 가운데)에
+   * 추를 마주 보게 두고, 각자 제 매인 자리에서 줄을 곧게 깐다 — 있을 수 없는
+   * 줄로 시작하면 줄이 먼저 추를 되감아 부딪히기도 전에 떨어져 버린다. */
+  const t = fixture({ twin: true }), [p, q] = t.f.chainHeads;
+  t.f.st.rot = 0; t.f.vx = 0; t.f.vy = 0;
+  const lay = (h, x, y, vx) => {
+    Object.assign(h, { x, y, vx, vy: 0 });
+    const at = T.chainAttach(t.f, h);
+    h.nodes.forEach((n, i) => { const k = (i + 1) / 5; Object.assign(n, { x: at.x + (x - at.x) * k, y: at.y + (y - at.y) * k, vx: 0, vy: 0 }); });
+  };
+  lay(p, 16, 62, -500);          // p는 오른쪽(0도)에 매였고 왼쪽으로
+  lay(q, -16, 62, 500);          // q는 왼쪽(180도)에 매였고 오른쪽으로
+  let closest = Infinity, fastest = 0;
+  for (let i = 0; i < 12; i++) {
+    t.f._chainAnchor = { x: 0, y: 0 };
+    T.updateChain(t.b, t.f, 1 / 120);
+    closest = Math.min(closest, Math.hypot(p.x - q.x, p.y - q.y));
+    fastest = Math.max(fastest, Math.hypot(p.vx, p.vy), Math.hypot(q.vx, q.vy));
+  }
+  assert.ok(closest >= 2 * headR - 3, `마주 날아온 추가 서로 뚫고 지나가지 않는다 (최소 거리 ${closest.toFixed(1)})`);
+  assert.ok(fastest <= T.CHAIN_MAX_SPD + 1e-6, `속도가 폭주하지 않는다 (${Math.round(fastest)})`);
+});
+
+test('a rope that starts a step far past its stretch limit does not fling the head', () => {
+  /* 넉백으로 공이 순간이동 판정(60px)에 못 미치게 크게 밀리면 줄이 한계를 훨씬 넘은
+   * 채 한 틱이 시작된다. 스프링이 늘어난 만큼 제곱으로 뻣뻣해지면 여기서 속도가
+   * 백만 단위로 튀고, 추가 경기장 밖까지 날아갔다가 벽 튕김이 그 속도를 되돌려 준다.
+   * 벽이 있어야 드러나는 문제라 실제 경기장을 쓴다. */
+  const { b, f } = fixture({ arena: true });
+  const L = b.arena.L;
+  f.x = L - 120; f.y = 0; f._chainAnchor = { x: f.x, y: 0 };
+  f.chainHeads = []; f.weaponAngle = 0; T.ensureChainHeads(f);
+  for (let i = 0; i < 60; i++) T.updateChain(b, f, 1 / 60);
+  f.x -= 50;                                   // 순간이동 판정 아래로 크게 밀림
+  let fastest = 0;
+  for (let i = 0; i < 30; i++) {
+    T.updateChain(b, f, 1 / 60);
+    for (const h of f.chainHeads) for (const q of h.nodes.concat(h)) {
+      assert.ok(Number.isFinite(q.x) && Number.isFinite(q.vx), '좌표와 속도가 유한하다');
+      fastest = Math.max(fastest, Math.hypot(q.vx, q.vy));
+      assert.ok(Math.abs(q.x) + Math.abs(q.y) <= L + 1, '경기장 밖으로 날아가지 않는다');
+    }
+  }
+  // 줄이 크게 되감길 때 속도 상한 근처까지 가는 것은 원래 있는 일이다. 막는 것은 백만 단위 폭주다.
+  assert.ok(fastest < T.CHAIN_MAX_SPD * 1.5, `속도가 폭주하지 않는다 (${Math.round(fastest)})`);
+});
+
+test('the rope spring never pulls harder than it does at its own stretch limit', () => {
+  /* 늘어날수록 뻣뻣해지는 항이 한계를 넘어서도 계속 커지면, 한계를 크게 넘은 채
+   * 시작한 서브스텝에서 당기는 힘이 수천 배가 되어 속도가 백만 단위로 튄다.
+   * 한계를 넘은 몫은 딱딱한 구속이 맡아야 한다. */
+  const { f } = fixture();
+  const h = f.chainHeads[0], at = T.chainAttach(f, h), seg = T.ropeLen(f) / 5;
+  h.nodes.forEach((n, i) => Object.assign(n, { x: at.x + seg * (i + 1), y: at.y, vx: 0, vy: 0 }));
+  const last = h.nodes[h.nodes.length - 1];
+  const pull = extra => {
+    h.nodes.forEach(n => { n.vx = 0; n.vy = 0; });
+    Object.assign(h, { x: last.x + seg + extra, y: at.y, vx: 0, vy: 0 });
+    T.springChainRope(at, { x: 0, y: 0 }, h, seg, T.GAME_SPEED / 120);
+    return Math.hypot(h.vx, h.vy);
+  };
+  const atLimit = pull(seg * (T.CHAIN_MAX_STRETCH - 1));
+  const farPast = pull(60);
+  assert.ok(atLimit > 0, '한계까지 늘어나면 당긴다');
+  assert.ok(farPast <= atLimit * 1.0001, `한계를 넘어도 한계에서보다 세게 당기지 않는다 (${farPast.toFixed(0)} / ${atLimit.toFixed(0)})`);
 });
 
 test('position swap retains old carrier velocity on the head and reflects the new carrier safely', () => {

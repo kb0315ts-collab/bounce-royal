@@ -458,6 +458,7 @@ function lerpById(prevList, nextList, k, jump, body) {
     if (body) {
       if (q.a != null && s.a != null) mixed.a = lerpAngle(q.a, s.a, k);
       if (q.h != null && s.h != null) mixed.h = lerp(q.h, s.h, k);
+      if (q.ca != null && s.ca != null) mixed.ca = lerpAngle(q.ca, s.ca, k);
       Object.assign(mixed, lerpWeaponGeometry(q, s, k, jump));
     }
     return Object.assign({}, s, mixed);
@@ -500,6 +501,8 @@ function lerpSnapshot(a, b, k, spanMs) {
       // 반지름은 섞지 않는다. 전투 중 크기는 풍선 스킬(1.6배)처럼 계단식으로만
       // 바뀌므로, 섞으면 즉발이어야 할 스킬 발동이 50ms 램프로 뭉개진다.
       a: lerpAngle(p.a, f.a, k),
+      // 매인 자리는 표면을 따라 돈다 — 20Hz로 끊겨 보이지 않게 섞는다
+      ...(p.ca != null && f.ca != null ? { ca: lerpAngle(p.ca, f.ca, k) } : {}),
       h: lerp(p.h, f.h, k),
       // 소환수·분열체는 uid로 짝짓는다 (죽으면 배열이 밀리기 때문).
       // 위성체는 전투 중 개수가 변하지 않아 인덱스가 곧 고유 식별자다.
@@ -562,7 +565,7 @@ function netArena(snap) {
 /* 줄 하나당 NET_CHAIN_SEGS개 점이 이어져 온다. 앞의 점들이 마디이고
  * 마지막 점이 추다. 서버의 CHAIN_SEGS와 같은 값이어야 한다. */
 const NET_CHAIN_SEGS = 5;
-function chainHeadsOf(cn) {
+function chainHeadsOf(cn, ca) {
   if (!cn || !cn.length) return NET_EMPTY;
   const pts = [];
   for (let i = 0; i + 1 < cn.length; i += 2) pts.push({ x: cn[i], y: cn[i + 1] });
@@ -572,7 +575,9 @@ function chainHeadsOf(cn) {
   for (let i = 0; i + NET_CHAIN_SEGS <= pts.length; i += NET_CHAIN_SEGS) {
     const rope = pts.slice(i, i + NET_CHAIN_SEGS);
     const head = rope[rope.length - 1];
-    out.push({ x: head.x, y: head.y, vx: 0, vy: 0, nodes: rope.slice(0, -1) });
+    // 매인 자리 각도. 없으면(구형 서버) 렌더러가 첫 마디 쪽 표면으로 대신한다.
+    const attach = Number.isFinite(ca) ? ca + out.length * Math.PI : undefined;
+    out.push({ x: head.x, y: head.y, vx: 0, vy: 0, attach, nodes: rope.slice(0, -1) });
   }
   return out;
 }
@@ -630,7 +635,7 @@ function netFighter(view, meta, seat) {
       disc: s.dc ? { x: s.dc[0], y: s.dc[1], r: s.dc[2], resting: !!s.dc[3] } : null,
       gripT: s.gt || 0,
       flame: { on: !!s.fo, fuel: s.fu == null ? 100 : s.fu, idle: 0 },
-      chainHeads: s.cn ? chainHeadsOf(s.cn) : null,
+      chainHeads: s.cn ? chainHeadsOf(s.cn, s.ca) : null,
     })),
     // 스냅샷은 각도를 a로 싣지만 렌더러는 ang을 읽는다. 여기서 이름을 맞춰야
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
@@ -641,7 +646,7 @@ function netFighter(view, meta, seat) {
     // 화염방사기 — 불길을 그리고 연료 게이지를 채운다.
     flame: { on: !!view.fo, fuel: view.fu == null ? 100 : view.fu, idle: 0 },
     // 쇠사슬의 추. 그리기에만 쓰므로 위치만 있으면 된다.
-    chainHeads: chainHeadsOf(view.cn),
+    chainHeads: chainHeadsOf(view.cn, view.ca),
     // 무기 칸은 남은 쿨타임(초)이다. 버튼은 '지금 쓸 수 있나'만 보므로 0/1로도 준다.
     skillCd: (view.su||[0,0])[1] || 0,
     skillUses: { char: (view.su||[0,0,0])[0], weapon: ((view.su||[0,0])[1] || 0) > 0 ? 0 : 1, common: (view.su||[0,0,0])[2] },

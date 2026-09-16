@@ -114,7 +114,7 @@
   function paintBody(f) {
     const out = {};
     for (const key of bodyFields) if (f[key] !== undefined) out[key] = json(f[key]);
-    out.chainHeads = (f.chainHeads || []).map(h=>({...paintPoint(h),nodes:(h.nodes || []).map(paintPoint)}));
+    out.chainHeads = (f.chainHeads || []).map(h=>({...paintPoint(h),attach:h.attach,nodes:(h.nodes || []).map(paintPoint)}));
     // A thrown shield owns a cyclic fighter reference and a contact Set. Only
     // copy paint state, never collision bookkeeping or the simulation owner.
     out.disc = f.disc ? {...paintPoint(f.disc),resting:!!f.disc.resting,spd:f.disc.spd} : null;
@@ -152,7 +152,10 @@
       if(p.chainHeads?.length === q.chainHeads?.length) out.chainHeads = p.chainHeads?.map((h,i)=>{
         const next=q.chainHeads[i];
         if(h.nodes.length!==next.nodes.length)return h;
-        return {...point(h,next),nodes:h.nodes.map((n,j)=>point(n,next.nodes[j]))};
+        const mixed={...point(h,next),nodes:h.nodes.map((n,j)=>point(n,next.nodes[j]))};
+        if(Number.isFinite(h.attach) && Number.isFinite(next.attach))
+          mixed.attach=h.attach+Math.atan2(Math.sin(next.attach-h.attach),Math.cos(next.attach-h.attach))*t;
+        return mixed;
       });
       if(p.disc && q.disc) out.disc=point(p.disc,q.disc);
       if(p.splitBalls && q.splitBalls) out.splitBalls=lerpList(p.splitBalls,q.splitBalls,'weaponAngle');

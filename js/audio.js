@@ -47,9 +47,9 @@
   // 연속 분사는 낮은 우선순위, 점화는 시작 순간만: 중요한 적중음을 가리지 않는다.
   sound('weapon.flame.ignite', '화염방사기 · 점화', '무기 스킬', '작은 밸브 클릭 후 불꽃이 붙는 짧은 분출입니다.', 'flame', [noise(1500,700,.15,.16,'lowpass'), noise(3600,2400,.08,.025,'highpass',.03)], { gap:.28, priority:2 });
   sound('weapon.flame.spray', '화염방사기 · 분사', '무기', '낮은 연소음 위에 바람이 새는 쉭 소리를 얹어 계속 뿜는 느낌을 냅니다.', 'flame', [noise(900,420,.26,.19,'lowpass',0,.03), noise(4200,2600,.24,.055,'highpass',.01,.04), tone(120,96,.22,.045,'triangle',.01)], { gap:.2, priority:0, variation:.025 });
-  // 쇠사슬 — 검의 넓은 칼바람과 달리 쇳덩이가 짧고 낮게 박힌다.
-  sound('weapon.chain.hit', '쇠사슬 · 쇳덩이 타격', '무기', '짧고 낮게 끝나는 금속 타격에 사슬이 팽팽해지는 쇳소리를 얹었습니다.', 'chain', [noise(1900,520,.13,.26), tone(190,120,.10,.055,'triangle',.004), tone(2400,1500,.05,.022,'sine',.006)], { priority:1, variation:.05 });
-  sound('skill.chain.swap', '쇠사슬 · 위치 교환', '무기 스킬', '짧게 빨아들였다 튕겨 나가는 두 겹 소리로 자리가 뒤바뀐 순간을 표시합니다.', 'chain', [noise(500,2100,.12,.20,'bandpass',0,.004), tone(760,300,.14,.055,'triangle',.03), tone(300,760,.10,.035,'sine',.01)], { priority:3, gap:.15 });
+  // 철퇴 — 검의 넓은 칼바람과 달리 쇳덩이가 짧고 낮게 박힌다.
+  sound('weapon.chain.hit', '철퇴 · 쇳덩이 타격', '무기', '짧고 낮게 끝나는 금속 타격에 사슬이 팽팽해지는 쇳소리를 얹었습니다.', 'chain', [noise(1900,520,.13,.26), tone(190,120,.10,.055,'triangle',.004), tone(2400,1500,.05,.022,'sine',.006)], { priority:1, variation:.05 });
+  sound('skill.chain.swap', '철퇴 · 위치 교환', '무기 스킬', '짧게 빨아들였다 튕겨 나가는 두 겹 소리로 자리가 뒤바뀐 순간을 표시합니다.', 'chain', [noise(500,2100,.12,.20,'bandpass',0,.004), tone(760,300,.14,.055,'triangle',.03), tone(300,760,.10,.035,'sine',.01)], { priority:3, gap:.15 });
   sound('weapon.bow.fire', '활 · 화살 발사', '무기', '활시위의 탄성과 가느다란 바람을 함께 냅니다.', 'bow', [sample('bow',.30,.18,noise(2400,650,.14,.22)), tone(440,150,.10,.036,'triangle'), noise(4900,2100,.12,.055,'highpass',.018)], { priority:1, variation:.035 });
   sound('weapon.pistol.fire', '권총 · 발사', '무기', '짧은 발사음에 낮은 탄력을 더해 연사 중에도 선명합니다.', 'pistol', [sample('pistol',.26,.13,noise(3600,1100,.055,.22,'lowpass')), tone(160,60,.065,.085), noise(2700,800,.045,.045,'bandpass',.008)], { gap:.035, priority:1, variation:.025 });
   sound('weapon.pistol.barrage-shot', '회전 난사 · 한 발', '무기 스킬', '실제 연사 발사 시점에만 재생됩니다.', 'pistol', [noise(3800,750,.095,.20,'lowpass')], { gap:.025, priority:2, internal:true });
