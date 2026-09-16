@@ -102,7 +102,7 @@
   "aug-f_thrust": "assets/icons/augments/f_thrust.svg?v=440727912dcc",
   "aug-c_long": "assets/icons/augments/c_long.svg?v=7efdf5b760d8",
   "aug-c_barbed": "assets/icons/augments/c_barbed.svg?v=50d68ce0c10d",
-  "aug-c_twin": "assets/icons/augments/c_twin.svg?v=90f402e8c0b3",
+  "aug-c_quake": "assets/icons/augments/c_quake.svg?v=2b7b8f1bb116",
   "aug-m_freeze": "assets/icons/augments/m_freeze.svg?v=cce5fd1be6da"
 });
 })(typeof window !== 'undefined' ? window : globalThis);

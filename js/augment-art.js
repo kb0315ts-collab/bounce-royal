@@ -96,9 +96,9 @@
     disc, weightedChain, flameJet,
     barbedChain: chainLinks + path('M-27-8L-37-11L-29 2M-13-1L-9-13L-5 6M-7 12L-15 23L-1 20', C.cream, 'stroke-width="3.5"') +
       group(chainWeight, 16, 17, 1.18),
-    twinChain: path('M-22-19L0 0L23 20', 'none', 'stroke-width="9"') +
-      path('M-22-19L0 0L23 20', 'none', `stroke="${C.cream}" stroke-width="3.5"`) +
-      group(chainWeight, -22, -20, .88) + group(chainWeight, 22, 20, .88) + ball(C.blue, 11),
+    // 벽 강타 — 같은 마디 사슬과 추, 추 둘레로 퍼지는 충격 고리
+    quakeChain: chainLinks + ellipse(15, 15, 30, 22, 'none', `stroke="${C.gold}" stroke-width="5"`) +
+      ellipse(15, 15, 22, 15, 'none', `stroke="${C.coral}" stroke-width="3.5"`) + group(chainWeight, 15, 15, 1.1),
     emberJet: group(flameJet, 0, -10, .87) + ellipse(7, 25, 28, 7, C.coral, 'stroke-width="3"') +
       path('M-9 23L-4 8L2 19L13 4L14 19L22 15L19 29H-6Z', C.orange, 'stroke-width="3.5"') +
       path('M3 24L9 16L12 25Z', '#ffef8c', noStroke),
@@ -295,7 +295,7 @@
     ['f_thrust', 'flameJet', 'recoil', 'recoil', '오른쪽으로 분사하는 노즐 + 왼쪽 화살표: 불꽃의 반대편으로 밀려난다.'],
     ['c_long', 'weightedChain', 'expand', 'reach', '실제 마디 사슬과 철제 추 + 확장 화살표: 길어진 사슬.'],
     ['c_barbed', 'barbedChain', null, 'line-damage', '추에 이어진 사슬 줄에 큰 삼각 가시: 줄에도 공격 판정이 생긴다.'],
-    ['c_twin', 'twinChain', null, 'twin-head', '가운데 플레이어 공 양쪽에 사슬로 연결된 동일한 두 추: 이중 사슬.'],
+    ['c_quake', 'quakeChain', 'wall', 'on-bounce', '실제 마디 사슬과 철제 추 둘레의 충격 고리 + 반사 배지: 추가 벽에 부딪힌 자리에서 충격파.'],
   ];
 
   const descriptors = Object.create(null);

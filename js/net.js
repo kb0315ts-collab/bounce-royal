@@ -576,7 +576,7 @@ function chainHeadsOf(cn, ca) {
     const rope = pts.slice(i, i + NET_CHAIN_SEGS);
     const head = rope[rope.length - 1];
     // 매인 자리 각도. 없으면(구형 서버) 렌더러가 첫 마디 쪽 표면으로 대신한다.
-    const attach = Number.isFinite(ca) ? ca + out.length * Math.PI : undefined;
+    const attach = Number.isFinite(ca) ? ca : undefined;
     out.push({ x: head.x, y: head.y, vx: 0, vy: 0, attach, nodes: rope.slice(0, -1) });
   }
   return out;
@@ -585,9 +585,9 @@ function chainHeadsOf(cn, ca) {
 function netVisualFlags(fg) {
   return {
     giantBlade: !!(fg & 1), dualDagger: !!(fg & 2), shotgun: !!(fg & 4), bayonet: !!(fg & 8),
-    chainLong: !!(fg & 16), chainBarbed: !!(fg & 32), chainTwin: !!(fg & 64),
-    flamePressure: !!(fg & 128), flameEmber: !!(fg & 256), flameThrust: !!(fg & 512),
-    discGrip: !!(fg & 1024), discMagnet: !!(fg & 2048), discRicochet: !!(fg & 4096),
+    chainLong: !!(fg & 16), chainBarbed: !!(fg & 32),
+    flamePressure: !!(fg & 64), flameEmber: !!(fg & 128), flameThrust: !!(fg & 256),
+    discGrip: !!(fg & 512), discMagnet: !!(fg & 1024), discRicochet: !!(fg & 2048),
   };
 }
 

@@ -64,6 +64,8 @@ const WEAPONS = {
    *   response 추가 공을 따라오는 빠르기 (공격속도가 여기 곱해진다) · drag 감쇠 */
   chain:  { name:'철퇴', ico:'⛓️', type:'chain', dmg:24, rot:2.3, moveMult:1.05,
     chainLen:85, headR:10, gate:80, hitLock:0.35, response:3, drag:0.35,
+    // 벽 강타(c_quake): 추가 벽에 세게 부딪힌 자리의 충격파 피해·반경·같은 추 재발동 간격
+    quakeDmg:12, quakeR:75, quakeCd:0.5,
     desc:'공에 매달린 추를 휘둘러 맞힌다. 천천히 닿으면 피해가 없다.', stat:{atk:.7,spd:.5,rng:.55,mob:.8},
     skillName:'위치 교환', skillDesc:'공과 추의 위치·속도를 즉시 맞바꾼다. 상대가 붙었을 때 쓰면 그 자리에 추가 남는다.' },
   // maxMines를 없앴다. 이제 제한 없이 깔아 둘 수 있다.
@@ -206,7 +208,7 @@ const AUGMENTS = [
   { id:'f_thrust',cat:'weapon', weapon:'flame', name:'역분사', desc:'분사하는 동안 반대 방향으로 밀려난다. 조향으로는 못 하는 기동이 열린다' },
   { id:'c_long',  cat:'weapon', weapon:'chain', name:'사슬 연장', desc:'사슬이 길어진다. 훑는 범위가 넓어지지만 추가 더 늦게 따라온다' },
   { id:'c_barbed',cat:'weapon', weapon:'chain', name:'가시 사슬', desc:'사슬 줄에도 판정이 생긴다. 줄에 스치면 추 피해의 40%' },
-  { id:'c_twin',  cat:'weapon', weapon:'chain', name:'이중 사슬', desc:'반대편에도 추가 하나 달린다. 각 추의 피해는 80%' },
+  { id:'c_quake', cat:'weapon', weapon:'chain', name:'벽 강타', desc:'추가 벽에 세게 부딪히면 그 자리에 충격파가 퍼져 주변 적에게 피해 12' },
   { id:'m_freeze',cat:'weapon', weapon:'mine', name:'빙결 지뢰', desc:'상대가 밟으면 2초간 이동속도·공격속도 대폭 감소' },
   // ---- 캐릭터 스킬 카피 ----
 ];

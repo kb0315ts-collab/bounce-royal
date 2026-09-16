@@ -9,7 +9,7 @@
   const UTILITY_SKILLS = new Set(['skill:sword', 'skill:pistol', 'skill:staff',
     'char:cat', 'char:wak', 'char:soft', 'char:balloon']);
   const SPECIALS = { 'augment:lightning': '번개', 'augment:shockwave': '충격파',
-    'augment:chainBolt': '연쇄 번개' };
+    'augment:chainBolt': '연쇄 번개', 'augment:chainQuake': '벽 강타' };
   const finite = (n, fallback = 0) => Number.isFinite(n) ? n : fallback;
   const nameOf = value => {
     const letters = Array.from(String(value == null ? '선수' : value)

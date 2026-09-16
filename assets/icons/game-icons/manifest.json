@@ -1319,14 +1319,14 @@
     "tone": "steel",
     "sha256": "50d68ce0c10db073949397d8ec3a923640ee832c28f48d5c839fd496d0410208"
   },
-  "c_twin": {
-    "file": "assets/icons/augments/c_twin.svg",
+  "c_quake": {
+    "file": "assets/icons/augments/c_quake.svg",
     "origin": "native",
     "author": "Bounce Royale",
-    "reason": "양쪽 끝의 추 둘: 반대편에도 추가 하나 달린다",
+    "reason": "바닥을 내리친 추와 양옆으로 퍼지는 충격 고리: 추가 벽에 부딪힌 자리에서 충격파",
     "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
     "tone": "steel",
-    "sha256": "90f402e8c0b3b9dae5bb9af12f6edca388e50ef4e98ba7eb1ab9696638c66d97"
+    "sha256": "2b7b8f1bb116f5ab75b7d8f906d75dc12f2e258f310dbf03509d121874b67159"
   },
   "f_pressure": {
     "file": "assets/icons/augments/f_pressure.svg",

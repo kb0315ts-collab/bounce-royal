@@ -20,9 +20,9 @@ function visualFlags(f) {
   const flags = f.flags || {};
   return (flags.giantBlade ? 1 : 0) | (flags.dualDagger ? 2 : 0)
     | (flags.shotgun ? 4 : 0) | (flags.bayonet ? 8 : 0)
-    | (flags.chainLong ? 16 : 0) | (flags.chainBarbed ? 32 : 0) | (flags.chainTwin ? 64 : 0)
-    | (flags.flamePressure ? 128 : 0) | (flags.flameEmber ? 256 : 0) | (flags.flameThrust ? 512 : 0)
-    | (flags.discGrip ? 1024 : 0) | (flags.discMagnet ? 2048 : 0) | (flags.discRicochet ? 4096 : 0);
+    | (flags.chainLong ? 16 : 0) | (flags.chainBarbed ? 32 : 0)
+    | (flags.flamePressure ? 64 : 0) | (flags.flameEmber ? 128 : 0) | (flags.flameThrust ? 256 : 0)
+    | (flags.discGrip ? 512 : 0) | (flags.discMagnet ? 1024 : 0) | (flags.discRicochet ? 2048 : 0);
 }
 
 // Input may stay held while stunned or disarmed; only paint actual spray.
@@ -93,10 +93,10 @@ function fighterView(f) {
       ? { fo: flameFiring(f) ? 1 : 0, fu: Math.round(f.flame.fuel) } : {}),
     // 쇠사슬. 줄은 마디로 꺾이므로 추만 보내면 클라이언트는 막대기를 그린다.
     // 마디 전부를 공에서 추 순서로 싣는다 — 줄 하나당 CHAIN_SEGS개 점이고,
-    // 마지막 점이 추다. 이중 사슬이면 그게 두 벌 이어진다.
+    // 마지막 점이 추다.
     // 평평한 숫자 배열로 싣는다 (x0,y0, x1,y1 ...). 중첩 배열은 스냅샷 검사에 걸린다.
     // 쇠사슬이 아니면 키 자체를 넣지 않는다 — undefined도 검사에 걸린다.
-    // ca는 줄이 공 표면에 매인 자리의 각도. 이중 사슬의 둘째는 그 반대편(+180도)이다.
+    // ca는 줄이 공 표면에 매인 자리의 각도.
     ...(f.chainHeads && f.chainHeads.length
       ? { cn: f.chainHeads.flatMap(h => chainPts(h)), ca: r2(f.chainHeads[0].attach || 0) } : {}),
   };

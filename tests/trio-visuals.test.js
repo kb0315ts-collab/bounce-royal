@@ -54,7 +54,7 @@ test('new dedicated art uses real weapon silhouettes, not generic defence or sat
   assert.equal(d('f_pressure').base, 'flameJet'); assert.equal(d('f_thrust').condition, 'recoil');
   assert.equal(d('f_ember').base, 'emberJet');
   assert.equal(d('c_long').base, 'weightedChain'); assert.equal(d('c_barbed').base, 'barbedChain');
-  assert.equal(d('c_twin').base, 'twinChain');
+  assert.equal(d('c_quake').base, 'quakeChain'); assert.equal(d('c_quake').condition, 'wall');
   const sandbox = {}; vm.runInNewContext(read('js/icons.js'), sandbox);
   for (const weapon of ['flame', 'chain', 'shield']) {
     assert.ok(sandbox.BRIcons.has('skill-' + weapon));

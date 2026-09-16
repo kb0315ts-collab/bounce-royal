@@ -419,7 +419,7 @@ function applyAugmentBattle(f, id, player) {
     case 'f_thrust': Fl.flameThrust = 1; break;
     case 'c_long': Fl.chainLong = 1; break;
     case 'c_barbed': Fl.chainBarbed = 1; break;
-    case 'c_twin': Fl.chainTwin = 1; break;
+    case 'c_quake': Fl.chainQuake = 1; break;
   }
 }
 
@@ -459,7 +459,7 @@ function buildFighter(player, battle) {
     // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
     flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0, aim: null },
     // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
-    // 이중 사슬이면 둘, 아니면 하나. 다른 무기는 빈 배열이다.
+    // 철퇴면 하나, 다른 무기는 빈 배열이다.
     chainHeads: [],
     chainHits: new Map(),   // 대상 uid -> 다음에 때릴 수 있는 시각 (재타격 잠금)
     // 무기 스킬은 쿨타임(cd, 초)으로 돈다. 분열체가 이 객체를 참조로 공유하므로
@@ -1999,7 +1999,6 @@ const CHAIN_MAX_STRETCH = 1.18;
 // 튕길 때 법선 방향 속도를 얼마나 돌려주나 (1이면 그대로, 0이면 딱 멈춤)
 const CHAIN_WALL_BOUNCE = 0.6;
 const CHAIN_BODY_BOUNCE = 0.5;
-const CHAIN_HEAD_BOUNCE = 0.6;
 // 겹친 추를 한 서브스텝에 떼어 놓는 최대 거리(px)
 const CHAIN_SHOVE_MAX = 3;
 const CHAIN_ITERS = 8;
@@ -2013,16 +2012,9 @@ const CHAIN_STEP = 1 / 120;
 /* 사슬은 공 가운데가 아니라 공 표면에 매여 있다. 매인 자리(attach)는 사슬
  * 회전속도로 표면을 따라 돈다 — 도는 공이 줄을 직접 끌고 가야 회전력이
  * 줄에 실린다. 가운데에 매면 공이 돌아도 줄에는 아무 힘이 안 간다. */
-/* 이중 사슬은 한 자리에 두 줄을 매지 않고 공 양쪽에 하나씩 맨다.
- * 둘째 추의 매인 자리는 언제나 첫째의 정반대(+180도)다. */
+/* 매인 자리 각도는 -π..π로 감싼다 — 끝없이 커지면 소수점 정밀도와 전송 크기가 나빠진다. */
 function wrapChainAngle(a) {
   return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI;
-}
-
-function syncTwinAttach(f) {
-  const heads = f.chainHeads || [];
-  if (heads.length < 2 || !Number.isFinite(heads[0].attach)) return;
-  for (let i = 1; i < heads.length; i++) heads[i].attach = wrapChainAngle(heads[0].attach + i * Math.PI);
 }
 
 function chainAttach(f, h, cx = f.x, cy = f.y) {
@@ -2031,22 +2023,17 @@ function chainAttach(f, h, cx = f.x, cy = f.y) {
 }
 
 function ensureChainHeads(f) {
-  const want = f.flags.chainTwin ? 2 : 1;
   const L = ropeLen(f);
-  if (f.chainHeads.length !== want) {
-    f.chainHeads = [];
-    for (let i = 0; i < want; i++) {
-      const a = f.weaponAngle + i * Math.PI;
-      const h = { attach: a, vx: 0, vy: 0 };
-      const at = chainAttach(f, h);
-      h.x = at.x + Math.cos(a) * L; h.y = at.y + Math.sin(a) * L;
-      f.chainHeads.push(h);
-    }
+  if (f.chainHeads.length !== 1) {
+    const a = f.weaponAngle;
+    const h = { attach: a, vx: 0, vy: 0 };
+    const at = chainAttach(f, h);
+    h.x = at.x + Math.cos(a) * L; h.y = at.y + Math.sin(a) * L;
+    f.chainHeads = [h];
   }
   for (const h of f.chainHeads) {
     // 매인 자리가 없던 추(예전 상태)는 추가 있는 쪽 표면에 맨다
     if (!Number.isFinite(h.attach)) h.attach = Math.atan2(h.y - f.y, h.x - f.x);
-    syncTwinAttach(f);
     if (h.nodes && h.nodes.length === CHAIN_SEGS - 1) continue;
     // 마디는 매인 자리와 추 사이에 고르게 깐다. 추가 곧 마지막 마디다.
     const at = chainAttach(f, h);
@@ -2067,9 +2054,7 @@ function relayChain(f, h, velocity = bodyVel(f)) {
   /* 다시 깔 때는 추를 향한 쪽 표면에 다시 맨다. 위치 교환 뒤에는 공과 추의
    * 자리가 뒤바뀌어 줄 방향이 반대가 된다 — 옛 각도를 두면 매인 자리가 공
    * 반대편에 가서 줄이 공을 관통하고, 교환한 추가 제자리에서 끌려 나간다. */
-  const idx = (f.chainHeads || []).indexOf(h);
-  if (idx > 0 && Number.isFinite(f.chainHeads[0].attach)) h.attach = f.chainHeads[0].attach + idx * Math.PI;
-  else if (Math.hypot(h.x - f.x, h.y - f.y) > 1e-6) h.attach = Math.atan2(h.y - f.y, h.x - f.x);
+  if (Math.hypot(h.x - f.x, h.y - f.y) > 1e-6) h.attach = Math.atan2(h.y - f.y, h.x - f.x);
   else if (!Number.isFinite(h.attach)) h.attach = f.weaponAngle || 0;
   const at = chainAttach(f, h);
   let dx = h.x - at.x, dy = h.y - at.y;
@@ -2148,25 +2133,7 @@ function springChainRope(anchor, anchorV, h, seg, travelDt) {
   }
 }
 
-/* 추끼리 부딪힘 (이중 사슬). 같은 무게라 서로 절반씩 밀어내고, 가까워지던
- * 속도는 법선 방향으로 뒤집되 일부를 잃는다. */
-function collideChainHeads(ra, rc, r) {
-  const a = ra.h, c = rc.h;
-  const dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy), min = r * 2;
-  if (d >= min) return false;
-  const nx = d > 1e-6 ? dx / d : 1, ny = d > 1e-6 ? dy / d : 0;
-  const closing = (c.vx - a.vx) * nx + (c.vy - a.vy) * ny;   // 음수면 가까워지는 중
-  if (closing < 0) {
-    const j = -(1 + CHAIN_HEAD_BOUNCE) * closing / 2;
-    a.vx -= nx * j; a.vy -= ny * j; c.vx += nx * j; c.vy += ny * j;
-  }
-  const push = Math.min((min - d) / 2 + 0.2, CHAIN_SHOVE_MAX);
-  shoveChainHead(ra, -nx * push, -ny * push);
-  shoveChainHead(rc, nx * push, ny * push);
-  return true;
-}
-
-/* 추를 밀어낸다(몸·다른 추에 겹쳤을 때). 밀린 거리는 휘두른 것이 아니므로
+/* 추를 밀어낸다(상대 몸에 겹쳤을 때). 밀린 거리는 휘두른 것이 아니므로
  * 따로 모아 두었다가 추 속도를 잴 때 뺀다. 안 그러면 제자리에 놓인 추가 몸에서
  * 한 틱에 26px 밀려나는 것을 '빠르게 휘둘렀다'로 읽어 가만히 있는데도 때린다. */
 function shoveChainHead(run, dx, dy) {
@@ -2191,7 +2158,7 @@ function updateChain(b, f, dt) {
   const resp = wp.response;
   // 연결부가 도는 속도(rad/s). computeStats가 공격속도까지 반영해 둔다.
   const spin = (f.st && f.st.rot) || 0;
-  const base = wp.dmg * (f.flags.chainTwin ? 0.8 : 1), seg = rope / CHAIN_SEGS;
+  const base = wp.dmg, seg = rope / CHAIN_SEGS;
   const origin = f._chainAnchor || { x: f._motionX ?? f.x, y: f._motionY ?? f.y };
   const dxAnchor = f.x - origin.x, dyAnchor = f.y - origin.y;
   const teleported = Math.hypot(dxAnchor, dyAnchor) > Math.max(60, f.st.move * GAME_SPEED * dt * 3);
@@ -2223,8 +2190,6 @@ function updateChain(b, f, dt) {
       h._touch = new Map();
       return { h, pts, px: h.x, py: h.y, pushX: 0, pushY: 0 };
     });
-    /* 두 추를 같은 시간 간격으로 나란히 굴린다. 한 추를 끝까지 굴리고 다음 추를
-     * 굴리면 서로 다른 순간에 있어 추끼리 부딪힐 수가 없다. */
     for (let step = 1; step <= steps; step++) {
       // Moving the anchor to its final position at the first substep would
       // create a fake whip impulse at low frame rates.
@@ -2272,6 +2237,16 @@ function updateChain(b, f, dt) {
           if (hit < 0) {
             const now = h.vx * nx + h.vy * ny, want = -hit * CHAIN_WALL_BOUNCE;
             h.vx += nx * (want - now); h.vy += ny * (want - now);
+            /* 벽 강타 — 세게(피해 관문 이상) 부딪힌 자리에 충격파. 벽을 긁고 지나갈 때
+             * 매 서브스텝 터지지 않게 같은 추는 quakeCd 동안 다시 터지지 않는다.
+             * 기절·무기 잠금 중에는 무기 피해가 없으므로 충격파도 없다. */
+            if (f.flags.chainQuake && -hit * GAME_SPEED >= wp.gate && b.simT >= (h._quakeUntil || 0)
+              && !(f.timers.weaponLock > 0) && !(f.timers.stun > 0)) {
+              h._quakeUntil = b.simT + wp.quakeCd;
+              battleSound(b, 'augment.shockwave', h, 0.08);
+              explodeAt(b, f, h.x - nx * h.r, h.y - ny * h.r, wp.quakeR * ws, wp.quakeDmg * f.st.dmg,
+                'auto', true, undefined, 'augment:chainQuake');
+            }
           }
         }
         h._wallPush = null;
@@ -2313,11 +2288,6 @@ function updateChain(b, f, dt) {
           h.vx += uy * cut; h.vy -= ux * cut;
         }
       }
-      // 이중 사슬 — 추끼리도 튕긴다
-      for (let i = 0; i < runs.length; i++) for (let j = i + 1; j < runs.length; j++)
-        if (collideChainHeads(runs[i], runs[j], headR)) {
-          keepChainHeadInArena(b.arena, runs[i]); keepChainHeadInArena(b.arena, runs[j]);
-        }
       for (const run of runs) run.h._sweep.push({ x: run.h.x, y: run.h.y, px: run.pushX, py: run.pushY });
     }
     for (const run of runs) {
@@ -2870,13 +2840,28 @@ function finalDeath(b, f) {
 /* ============================================================
  * 스킬
  * ============================================================ */
+/* 분열한 뒤에는 살아 있는 분열체 모두가 본체다. 한 번 누르면 전부 같은 스킬을 쓴다
+ * (조이스틱이 이미 전부를 함께 조종하는 것과 같다).
+ * 횟수·쿨타임은 한 벌을 공유한다. 그래서 쓸 수 있는지는 모두 같은 처음 조건으로 보고,
+ * 소비는 한 번만 남긴다 — 앞 분열체가 쿨타임을 걸어 뒤 분열체가 막히면 안 된다. */
 function useSkill(b, f, slot) {
-  // After splitting, the surviving copies are the player's controllable body.
-  // Remaining uses are shared, so one input can never duplicate an active.
   if (f.mainDead && f.splitBalls && f.splitBalls.length) {
-    const active = f.splitBalls.find(s => !s.dead);
-    if (active) f = active;
+    const alive = f.splitBalls.filter(s => !s.dead);
+    if (!alive.length) return false;
+    const uses = alive[0].skillUses, before = { ...uses };
+    let result = false, after = null;
+    for (const body of alive) {
+      Object.assign(uses, before);
+      const r = useSkillBody(b, body, slot);
+      if (r) { if (result === false || result === true) result = r; after = { ...uses }; }
+    }
+    Object.assign(uses, after || before);
+    return result;
   }
+  return useSkillBody(b, f, slot);
+}
+
+function useSkillBody(b, f, slot) {
   if (b.phase !== 'fight' || f.dead || f.mainDead || f.timers.stun > 0) return false;
   // 칸은 둘뿐이다. 없는 이름이 들어오면 무기 스킬이 대신 나가 버린다.
   if (slot !== 'char' && slot !== 'weapon') return false;
@@ -3144,7 +3129,8 @@ function aiUpdate(b, f, dt) {
   const hpP = f.hp / f.maxHp;
   const eHpP = e.hp / e.maxHp;
   const wp = WEAPONS[f.weaponId];
-  const use = slot => useSkill(b, f, slot);
+  // 분열체는 주인을 거쳐 쓴다 — 사람이 조종할 때처럼 살아 있는 분열체가 함께 쓴다
+  const use = slot => useSkill(b, f.kind === 'split' && f.owner && f.owner.mainDead ? f.owner : f, slot);
   // 캐릭터 스킬 (카피 스킬도 동일 휴리스틱)
   const charHeur = id => {
     switch (id) {

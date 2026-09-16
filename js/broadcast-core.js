@@ -3,7 +3,7 @@
 (function(root) {
   const sourceNames = {
     'augment:shuriken':'표창', 'augment:missile':'유도 미사일', 'augment:swordBeam':'검기',
-    'augment:staticShock':'정전기', 'augment:shockwave':'충격파', 'augment:lightning':'번개',
+    'augment:staticShock':'정전기', 'augment:shockwave':'충격파', 'augment:chainQuake':'벽 강타', 'augment:lightning':'번개',
     'augment:chainBolt':'연쇄 번개', 'augment:satellite':'위성체', 'augment:miniBall':'꼬마볼',
     'augment:minionRevenge':'복수하는 부하', 'augment:bayonet':'총검술',
     'augment:rocketStart':'로켓 관통', 'dot:bleed':'출혈', 'dot:flame':'화염 흔적',

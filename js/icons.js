@@ -299,8 +299,8 @@
     'aug-c_long':augmentIcon(AUG_SHAPES.chain,'','<path d="M8 56 20 44M50 8 40 18"/>',AUG_BADGES.up),
     // 가시 사슬 — 줄에 가시가 돋는다
     'aug-c_barbed':augmentIcon(AUG_SHAPES.chain,'','<path d="M18 8 24 18M8 20 18 25M32 18l6 10M22 34l-10 5"/>'),
-    // 이중 사슬 — 추가 둘
-    'aug-c_twin':augmentIcon(AUG_SHAPES.chain,'<circle cx="14" cy="47" r="9"/>','<path d="M24 38 18 44"/>')
+    // 벽 강타 — 벽에 부딪힌 추에서 충격이 퍼진다
+    'aug-c_quake':augmentIcon(AUG_SHAPES.chain,'','<path d="M60 34v26M53 36l5-8M53 58l5 8M29 60q-5-8 0-16"/>')
   });
 
   const aliases = Object.freeze({

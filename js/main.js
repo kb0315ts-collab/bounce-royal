@@ -1037,7 +1037,10 @@ const Game = {
       else { const h = this.focus?.human?.(); if (h) setFlameInput(h, false); }
       return;
     }
-    if (fighter.weaponId !== 'bow' || !fighter.charging) return;
+    // 분열한 뒤에는 본체가 아니라 살아 있는 분열체들이 모으고 있다
+    const bodies = fighter.mainDead && fighter.splitBalls?.length
+      ? fighter.splitBalls.filter(s => !s.dead) : [fighter];
+    if (fighter.weaponId !== 'bow' || !bodies.some(s => s.charging)) return;
     this.pressSkill(slot);
   },
 };

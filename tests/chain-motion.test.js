@@ -18,14 +18,14 @@ function runtime() {
 const T = runtime();
 const player = id => ({ id, name: 'P' + id, charId: 'cat', weaponId: id ? 'sword' : 'chain',
   augments: [], color: '#4da6ff', isAI: false, coins: 5, wins: 0, losses: 0, streak: 0 });
-function fixture({ arena = false, enemies = false, long = false, twin = false } = {}) {
+function fixture({ arena = false, enemies = false, long = false } = {}) {
   const b = new T.Battle('diamond', [player(0), player(1)]);
   b.phase = 'fight';
   if (!enemies) b.enemiesOf = () => [];
   if (!arena) b.arena = { reflectProj() {}, collideBody() {} };
   const [f, e] = b.fighters;
   f.x = f.y = 0; f.weaponAngle = Math.PI;
-  f.flags.chainLong = long; f.flags.chainTwin = twin;
+  f.flags.chainLong = long;
   f._chainAnchor = { x: 0, y: 0 };
   T.ensureChainHeads(f);
   return { b, f, e };
@@ -297,44 +297,67 @@ test('the flail head rebounds off a wall instead of sliding along it', () => {
   assert.ok(Math.abs(ratio - T.CHAIN_WALL_BOUNCE) < 0.05, `튕기는 비율 ${ratio && ratio.toFixed(2)}`);
 });
 
-test('twin ropes tie to opposite sides of the ball and the heads bounce off each other', () => {
-  const { b, f } = fixture({ twin: true });
-  const [a, c] = f.chainHeads, dt = 1 / 60, headR = T.WEAPONS.chain.headR;
-  const wrapA = d => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
-  let worst = 0, overlap = 0;
-  for (let i = 0; i < 720; i++) {
-    const ang = Math.sin(i * dt * 1.7) * 2.4;
-    f.vx = Math.cos(ang); f.vy = Math.sin(ang);
-    f.x += f.vx * f.st.move * T.GAME_SPEED * dt; f.y += f.vy * f.st.move * T.GAME_SPEED * dt;
-    if (i === 300) T.chainSwap(b, f);          // 위치 교환 뒤에도
-    if (i === 500) f.x += 180;                  // 순간이동 뒤에도
-    b.simT += dt; T.updateChain(b, f, dt);
-    worst = Math.max(worst, Math.abs(wrapA(c.attach - a.attach - Math.PI)));
-    overlap = Math.max(overlap, 2 * headR - Math.hypot(a.x - c.x, a.y - c.y));
+/* 벽 강타(c_quake) — 오른쪽 위 벽(x+y=L) 한가운데로 추를 던진다.
+ * 적은 벽 가까이 서 있지만 추가 지나는 길에서는 비켜서 있어 추에 직접 맞지 않는다. */
+function slamWall({ quake = true, speed = 900 } = {}) {
+  const { b, f, e } = fixture({ arena: true, enemies: true });
+  const L = b.arena.L, n = Math.SQRT1_2;
+  f.x = f.y = L / 2 - n * 100; f.vx = f.vy = 0; f.st.rot = 0;
+  f.flags.chainQuake = quake; f._chainAnchor = { x: f.x, y: f.y };
+  f.chainHeads = []; f.weaponAngle = Math.PI / 4; T.ensureChainHeads(f);
+  e.x = L / 2 - n * 30 + n * 48; e.y = L / 2 - n * 30 - n * 48;
+  e.vx = e.vy = 0; e.st.move = 0; e.hp = e.maxHp = 1000;
+  const h = f.chainHeads[0], joints = h.nodes.concat(h), laid = joints.map(q => ({ x: q.x, y: q.y }));
+  // 처음 자리로 되돌려 다시 던진다 (추의 재발동 기록은 그대로 둔다)
+  const hurl = () => joints.forEach((q, i) => Object.assign(q, laid[i], { vx: n * speed, vy: n * speed }));
+  const run = steps => { for (let i = 0; i < steps; i++) { b.simT += 1 / 120; T.updateChain(b, f, 1 / 120); } };
+  hurl();
+  return { b, f, e, h, hurl, run };
+}
+
+test('the wall-strike flail bursts a shockwave where the head hits the wall and hurts an enemy nearby', () => {
+  const wp = T.WEAPONS.chain;
+  assert.equal(wp.quakeDmg, 12); assert.equal(wp.quakeR, 75); assert.equal(wp.quakeCd, 0.5);   // 반경은 공의 충격파 증강과 같다
+  const s = slamWall();
+  let hurtAt = null;
+  for (let i = 0; i < 30 && hurtAt === null; i++) { s.run(1); if (s.e.hp < 1000) hurtAt = { x: s.h.x, y: s.h.y }; }
+  assert.ok(hurtAt, '벽에 부딪힌 순간 충격파가 터진다');
+  assert.ok(Math.abs(hurtAt.x) + Math.abs(hurtAt.y) + s.h.r * Math.SQRT2 >= s.b.arena.L - 6, '터진 자리는 벽이다');
+  assert.ok(Math.hypot(s.h.x - s.e.x, s.h.y - s.e.y) > s.e.radius + wp.headR, '추에 직접 맞은 피해가 아니다');
+  s.run(30);
+  assert.equal(1000 - s.e.hp, wp.quakeDmg * s.f.st.dmg, '한 번 부딪히면 한 번만 터진다');
+  // 증강이 없으면 같은 충돌에 아무 일도 없다
+  const plain = slamWall({ quake: false }); plain.run(60);
+  assert.equal(plain.e.hp, 1000);
+  // 반경 밖의 적은 맞지 않는다
+  const far = slamWall(); far.e.x += 110 * Math.SQRT1_2; far.e.y -= 110 * Math.SQRT1_2; far.run(60);
+  assert.equal(far.e.hp, 1000);
+});
+
+test('the wall strike needs a hard hit, waits out its cooldown, and stays quiet while stunned or locked', () => {
+  const wp = T.WEAPONS.chain;
+  // 화면 속도로 벽을 향한 성분이 약 63 — 벽에 닿기는 하지만 피해 관문(80) 아래다
+  const soft = slamWall({ speed: 110 });
+  let touched = false;
+  for (let i = 0; i < 90; i++) {
+    soft.run(1);
+    if (Math.abs(soft.h.x) + Math.abs(soft.h.y) + soft.h.r * Math.SQRT2 >= soft.b.arena.L - 0.5) touched = true;
   }
-  assert.ok(worst < 1e-9, `두 줄은 늘 공 양쪽에 하나씩 매인다 (최대 어긋남 ${worst})`);
-  assert.ok(overlap < 3, `추끼리 겹치지 않고 튕긴다 (최대 겹침 ${overlap.toFixed(1)}px)`);
-  /* 정면으로 부딪히게 한다. 두 줄이 모두 닿을 수 있는 자리(공 아래쪽 가운데)에
-   * 추를 마주 보게 두고, 각자 제 매인 자리에서 줄을 곧게 깐다 — 있을 수 없는
-   * 줄로 시작하면 줄이 먼저 추를 되감아 부딪히기도 전에 떨어져 버린다. */
-  const t = fixture({ twin: true }), [p, q] = t.f.chainHeads;
-  t.f.st.rot = 0; t.f.vx = 0; t.f.vy = 0;
-  const lay = (h, x, y, vx) => {
-    Object.assign(h, { x, y, vx, vy: 0 });
-    const at = T.chainAttach(t.f, h);
-    h.nodes.forEach((n, i) => { const k = (i + 1) / 5; Object.assign(n, { x: at.x + (x - at.x) * k, y: at.y + (y - at.y) * k, vx: 0, vy: 0 }); });
-  };
-  lay(p, 16, 62, -500);          // p는 오른쪽(0도)에 매였고 왼쪽으로
-  lay(q, -16, 62, 500);          // q는 왼쪽(180도)에 매였고 오른쪽으로
-  let closest = Infinity, fastest = 0;
-  for (let i = 0; i < 12; i++) {
-    t.f._chainAnchor = { x: 0, y: 0 };
-    T.updateChain(t.b, t.f, 1 / 120);
-    closest = Math.min(closest, Math.hypot(p.x - q.x, p.y - q.y));
-    fastest = Math.max(fastest, Math.hypot(p.vx, p.vy), Math.hypot(q.vx, q.vy));
+  assert.ok(touched, '추가 벽에 닿았다');
+  assert.equal(soft.e.hp, 1000, '살살 닿으면 터지지 않는다');
+  const firm = slamWall({ speed: 160 }); firm.run(90);                // 약 92 — 관문을 넘는다
+  assert.equal(1000 - firm.e.hp, wp.quakeDmg * firm.f.st.dmg, '관문을 넘게 부딪히면 터진다');
+  const s = slamWall(), dmg = wp.quakeDmg * s.f.st.dmg;
+  s.run(12); assert.equal(1000 - s.e.hp, dmg);
+  s.hurl(); s.run(12);
+  assert.ok(s.b.simT < wp.quakeCd, '아직 재발동 간격 안이다');
+  assert.equal(1000 - s.e.hp, dmg, '재발동 간격 안에 다시 부딪혀도 터지지 않는다');
+  s.run(Math.ceil(wp.quakeCd * 120)); s.hurl(); s.run(12);
+  assert.equal(1000 - s.e.hp, 2 * dmg, '간격이 지나면 다시 터진다');
+  for (const timer of ['stun', 'weaponLock']) {
+    const t = slamWall(); t.f.timers[timer] = 5; t.run(60);
+    assert.equal(t.e.hp, 1000, timer + ' 중에는 터지지 않는다');
   }
-  assert.ok(closest >= 2 * headR - 3, `마주 날아온 추가 서로 뚫고 지나가지 않는다 (최소 거리 ${closest.toFixed(1)})`);
-  assert.ok(fastest <= T.CHAIN_MAX_SPD + 1e-6, `속도가 폭주하지 않는다 (${Math.round(fastest)})`);
 });
 
 test('a rope that starts a step far past its stretch limit does not fling the head', () => {
@@ -390,7 +413,7 @@ test('position swap retains old carrier velocity on the head and reflects the ne
   assert.equal(f.vx, 0); assert.equal(f.vy, 1);
   assert.equal(h.vx, oldSpeed); assert.equal(h.vy, 0, 'relaying must not overwrite exchanged momentum');
   assert.equal(f._chainAnchor.x, f.x); assert.equal(f._chainAnchor.y, f.y);
-  const nearWall = fixture({ arena: true, twin: true });
+  const nearWall = fixture({ arena: true });
   const nf = nearWall.f, nh = nf.chainHeads[0];
   nf.x = nearWall.b.arena.L - nf.radius * Math.SQRT2 - 12; nf.y = 0;
   nh.x = nearWall.b.arena.L - 10; nh.y = 0; nh.vx = 200; nh.vy = 0;
@@ -428,15 +451,6 @@ test('fast whip sweep hits between render frames and honors the shared 0.35s tar
   T.updateChain(b, f, 0.1); assert.equal(e.hp, hp - 48);
 });
 
-test('twin heads keep 80 percent damage and do not double-hit one target on the same step', () => {
-  const { b, f, e } = fixture({ enemies: true, twin: true });
-  e.x = 40; e.y = 0; e._motionX = 40; e._motionY = 0;
-  setHead(f, 40, -40, 0, 1800);
-  f.chainHeads[1] = structuredClone(f.chainHeads[0]);
-  const hp = e.hp; T.updateChain(b, f, 0.1);
-  assert.ok(Math.abs((hp - e.hp) - 24 * 0.8) < 0.00001);
-});
-
 test('a stunned stationary victim does not fake attack speed from its nominal movement stat', () => {
   const { b, f, e } = fixture({ enemies: true });
   e.x = 70; e.y = 0; e.st.move = 600; e.vx = 1; e.vy = 0; e.timers.stun = 1;
@@ -446,9 +460,9 @@ test('a stunned stationary victim does not fake attack speed from its nominal mo
   assert.equal(e.hp, hp, 'static contact below speed gate is not an attack');
 });
 
-test('long and twin ropes stay finite, inside walls, and within range under sustained steering and slow frames', () => {
-  for (const long of [false, true]) for (const twin of [false, true]) {
-    const { b, f } = fixture({ arena: true, long, twin }), m = metrics();
+test('normal and long ropes stay finite, inside walls, and within range under sustained steering and slow frames', () => {
+  for (const long of [false, true]) {
+    const { b, f } = fixture({ arena: true, long }), m = metrics();
     for (let i = 0; i < 2400; i++) {
       const dt = i % 120 === 0 ? 1 / 15 : 1 / 60;
       const angle = Math.atan2(f.vy, f.vx) + Math.sin(i / 53) * 1.1 * dt;
@@ -459,8 +473,8 @@ test('long and twin ropes stay finite, inside walls, and within range under sust
       for (const h of f.chainHeads) for (const q of h.nodes.concat(h))
         assert.ok(Math.abs(q.x) + Math.abs(q.y) + q.r * Math.SQRT2 <= b.arena.L + 0.001, 'joint stays in arena');
     }
-    assert.equal(f.chainHeads.length, twin ? 2 : 1);
-    assert.ok(m.reachError < 1 && m.segmentError < 0.5, JSON.stringify({ long, twin, ...m }));
+    assert.equal(f.chainHeads.length, 1);
+    assert.ok(m.reachError < 1 && m.segmentError < 0.5, JSON.stringify({ long, ...m }));
     assert.ok(m.velocity <= 2000.001 && m.speed < 450, 'no accumulating orbit energy');
   }
 });

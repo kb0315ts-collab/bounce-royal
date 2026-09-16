@@ -18,7 +18,7 @@ const {chromium}=require(process.argv[2]||'playwright');
       window.trioBattle=new Battle('circle',Game.players,{ffa:true});trioBattle.phase='fight';
       const [c,f,s,e]=trioBattle.fighters;
       [[c,-80,-80],[f,-75,65],[s,85,35],[e,80,-70]].forEach(([b,x,y])=>{b.x=x;b.y=y;b.vx=1;b.vy=0;});
-      c.weaponAngle=-1;c.flags.chainBarbed=true;c.flags.chainTwin=true;ensureChainHeads(c);
+      c.weaponAngle=-1;c.flags.chainBarbed=true;c.flags.chainQuake=true;ensureChainHeads(c);
       f.flame.on=true;f.flame.fuel=90;f.weaponAngle=0;f.steer={active:true,angle:0,strength:1};
       updateFlame(trioBattle,f,.016);s.weaponAngle=-.7;throwDisc(trioBattle,s);
       showScreen(null);hudVisible(true);updateSkillbar(trioBattle);renderBattle(trioBattle);

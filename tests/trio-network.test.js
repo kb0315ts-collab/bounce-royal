@@ -5,7 +5,7 @@ const core = require('../server/game-core.js');
 const { snapshot } = require('../server/snapshot.js');
 const { lerpSnapshot, netBattleView } = require('../js/net.js');
 
-const names = ['giantBlade', 'dualDagger', 'shotgun', 'bayonet', 'chainLong', 'chainBarbed', 'chainTwin',
+const names = ['giantBlade', 'dualDagger', 'shotgun', 'bayonet', 'chainLong', 'chainBarbed',
   'flamePressure', 'flameEmber', 'flameThrust', 'discGrip', 'discMagnet', 'discRicochet'];
 const player = (id, weaponId = 'chain') => ({ id, name: 'P' + id, charId: 'cat', weaponId,
   color: '#4da6ff', isAI: false, coins: 5, augments: [], wins: 0, losses: 0, streak: 0 });
@@ -25,7 +25,7 @@ const snap = () => ({ ph: 'fight', t: 2, sh: 0, L: 320, pil: [], f: [body()], pr
 const points = (offset = 0) => Array.from({ length: 10 }, (_, i) => i * 2 + offset);
 const near = (a, b) => assert.ok(Math.abs(a - b) <= 0.051, `${a} differs from ${b}`);
 
-test('all nine new visual flags round-trip independently while original bits remain stable', () => {
+test('all eight new visual flags round-trip independently while original bits remain stable', () => {
   const { b, f, split, players } = fixture();
   for (let i = 0; i < names.length; i++) {
     f.flags = { [names[i]]: 1 }; split.flags = { [names[i]]: 1 };
@@ -40,16 +40,16 @@ test('all nine new visual flags round-trip independently while original bits rem
   }
 });
 
-test('main and split twin ropes retain every node, owner, and head through snapshots', () => {
+test('main and split ropes retain every node, owner, and head through snapshots', () => {
   const { b, f, split, players } = fixture();
-  f.chainHeads = [rope(1.12, 2.32), rope(30, 40)];
-  split.chainHeads = [rope(90.16, 30.73), rope(-20, -40)];
+  f.chainHeads = [rope(1.12, 2.32)];
+  split.chainHeads = [rope(90.16, 30.73)];
   const wire = snapshot(b), view = netBattleView(wire, players, 0).fighters[0];
-  assert.equal(wire.f[0].cn.length, 20);
-  assert.equal(wire.f[0].sp[0].cn.length, 20);
+  assert.equal(wire.f[0].cn.length, 10);
+  assert.equal(wire.f[0].sp[0].cn.length, 10);
   assert.equal(view.splitBalls[0].uid, split.uid);
   for (const [actual, restored] of [[f, view], [split, view.splitBalls[0]]]) {
-    assert.equal(restored.chainHeads.length, 2);
+    assert.equal(restored.chainHeads.length, 1);
     restored.chainHeads.forEach((head, i) => {
       near(head.x, actual.chainHeads[i].x); near(head.y, actual.chainHeads[i].y);
       assert.equal(head.nodes.length, 4);
@@ -141,19 +141,17 @@ test('grip duration round-trips without adding inactive fields and older snapsho
   assert.equal(view.splitBalls[0].chainHeads.length, 2, 'legacy head-only ropes remain visible');
 });
 
-test('the rope tie angle crosses the network so twin ropes draw from opposite sides', () => {
+test('the rope tie angle crosses the network so the rope draws from the right spot on the ball', () => {
   const players = [player(0, 'chain'), player(1, 'sword')];
   const b = new core.Battle('diamond', players);
   const f = b.fighters[0];
-  f.flags.chainTwin = 1;
   b.phase = 'fight';
   for (let i = 0; i < 90; i++) b.update(1 / 60);
   const wire = snapshot(b), view = netBattleView(wire, players, 0).fighters[0];
   assert.ok(Number.isFinite(wire.f[0].ca), '매인 자리 각도를 싣는다');
-  assert.equal(view.chainHeads.length, 2);
+  assert.equal(view.chainHeads.length, 1);
   const wrap = d => Math.atan2(Math.sin(d), Math.cos(d));
-  for (let i = 0; i < 2; i++) near(wrap(view.chainHeads[i].attach - f.chainHeads[i].attach), 0);
-  near(Math.abs(wrap(view.chainHeads[1].attach - view.chainHeads[0].attach)), Math.PI);
+  near(wrap(view.chainHeads[0].attach - f.chainHeads[0].attach), 0);
   // 스냅샷 사이에서도 각도가 섞인다
   const later = snapshot(b); later.f[0].ca = wire.f[0].ca + 0.4;
   const mid = lerpSnapshot(wire, later, 0.5, 50);
