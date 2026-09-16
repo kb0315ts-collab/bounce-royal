@@ -177,6 +177,9 @@ class BattleScene extends Phaser.Scene {
     }
     this.textIndex++;
     t.setVisible(true).setPosition(x, y).setText(str);
+    // 글자 텍스처도 화면에 실제로 찍히는 배율만큼 촘촘히 그린다. 안 그러면 캔버스를
+    // 선명하게 키워도 글자만 늘어나 흐리다. 정수로 올려 두어 다시 그릴 일이 드물다.
+    style = { ...style, resolution: Math.max(1, Math.ceil((VIEW.s || 1) * (VIEW.px || 1))) };
     // 풀에서 돌려쓰므로 같은 자리가 이름표였다가 피해 숫자가 되기도 한다.
     // 실제로 달라졌을 때만 다시 그린다.
     const key = styleKey(style);
@@ -192,13 +195,15 @@ class BattleScene extends Phaser.Scene {
     this.gBack.clear();
     for (const g of [this.gArena, this.gArenaGlow, this.gGround, this.gGroundGlow,
       this.gUnits, this.gProj, this.gProjGlow, this.gFx, this.gFxGlow, this.gUI]) g.clear();
+    // 배경은 CSS 픽셀 좌표로 그리고 캔버스 배율만큼 키운다
+    this.gBack.setScale(VIEW.px || 1);
     drawBackdrop(this.gBack, this.stars);
     if (b) {
       applyView(b.arena);
       // 화면 흔들림
       const sh = b.shake || 0;
       const ox = sh ? rand(-sh, sh) : 0, oy = sh ? rand(-sh, sh) : 0;
-      this.world.setPosition(VIEW.w / 2 + ox * VIEW.s, VIEW.h / 2 + oy * VIEW.s);
+      this.world.setPosition((VIEW.w / 2 + ox * VIEW.s) * VIEW.px, (VIEW.h / 2 + oy * VIEW.s) * VIEW.px);
       drawArena(this.gArena, this.gArenaGlow, b);
       drawGroundFx(this.gGround, this.gGroundGlow, b);
       drawUnits(this.gUnits, b);
@@ -224,20 +229,36 @@ const phaserGame = new Phaser.Game({
   banner: false,
 });
 
+/* 전투 캔버스의 실제 픽셀 = 화면에 보이는 크기(CSS) × 기기 픽셀 비율.
+ * 예전에는 CSS 크기 그대로 그려서, 한 칸에 픽셀이 2~3개인 폰에서는 브라우저가
+ * 그림을 2~3배로 늘려 보여 줬다 — DOM으로 그리는 UI는 선명한데 경기장·공·무기만
+ * 흐렸던 이유다. 비율은 초상화와 같은 상한(최대 2배, 전체 720×1280)을 쓴다.
+ * 그리기 좌표는 계속 CSS 픽셀이다. 월드 컨테이너와 배경에만 배율을 곱한다.
+ * 캔버스의 보이는 크기는 CSS(#game)가 정하므로 인라인 스타일을 건드리지 않는다
+ * (Phaser는 zoom이 1이면 style을 쓰지 않는다). */
+function syncCanvasSize(w, h) {
+  const px = getRenderPixelRatio();
+  const bw = Math.max(1, Math.round(w * px)), bh = Math.max(1, Math.round(h * px));
+  const sm = phaserGame?.scale;
+  if (sm && (sm.width !== bw || sm.height !== bh)) sm.resize(bw, bh);
+  return px;
+}
+
 function applyView(arena) {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   if (!w || !h) return;
+  // resize 이벤트 없이 레이아웃만 바뀌어도(화면 전환·주소창 등) 매 프레임 맞춘다.
+  // 크기가 같으면 아무것도 하지 않는다.
+  const px = syncCanvasSize(w, h);
   const span = WORLD_BOX * arenaZoom(arena);
   const s = Math.min(w, h) / span;
-  VIEW = { s, w, h, span, ox: (w - span * s) / 2, oy: (h - span * s) / 2 };
+  VIEW = { s, w, h, px, span, ox: (w - span * s) / 2, oy: (h - span * s) / 2 };
   // 월드 박스를 어떻게 잡든 경기장 중심은 캔버스 정중앙에 온다.
-  if (scene) { scene.world.setPosition(w / 2, h / 2); scene.world.setScale(s); }
+  if (scene) { scene.world.setPosition(w / 2 * px, h / 2 * px); scene.world.setScale(s * px); }
 }
 
 function resizeCanvas() {
-  const w = canvas.clientWidth, h = canvas.clientHeight;
-  if (!w || !h) return;
-  if (phaserGame?.scale) phaserGame.scale.resize(w, h);
+  if (!canvas.clientWidth || !canvas.clientHeight) return;
   applyView(pendingBattle ? pendingBattle.arena : null);
 }
 window.addEventListener('resize', resizeCanvas);
