@@ -17,7 +17,9 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 /* ---------------- 아주 작은 DOM ---------------- */
 function makeEl(tag) {
   const el = {
-    tagName: tag, children: [], dataset: {}, style: {}, disabled: false,
+    tagName: tag, children: [], dataset: {}, disabled: false,
+    // 브라우저처럼 CSS 변수를 쓸 수 있어야 한다 (쿨타임 게이지가 --cd-done을 쓴다)
+    style: { setProperty(k, v) { this[k] = String(v); }, getPropertyValue(k) { return this[k] ?? ''; } },
     _attrs: {},
     _classes: new Set(), textContent: '', innerHTML: '', type: '', onclick: null,
     classList: {
@@ -79,7 +81,7 @@ for (const id of ['aug-timer', 'event-timer', 'weapon-timer']) {
   ensure(id).appendChild(fill); ensure(id).appendChild(label);
 }
 for (const id of ['sk-char', 'sk-weapon']) {
-  for (const cls of ['lbl', 'ico', 'uses', 'cdoverlay']) {
+  for (const cls of ['lbl', 'ico', 'uses', 'cdoverlay', 'cdsweep', 'cdnum']) {
     const child = makeEl('span'); child._classes.add(cls); ensure(id).appendChild(child);
   }
 }
@@ -114,7 +116,7 @@ const context = vm.createContext(sandbox);
 vm.runInContext([
   read('js/data.js'),
   read('js/ui.js'),
-  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers, updateSkillbar, updateCountdown, paintPortrait };',
+  'globalThis.__uiApi = { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, selectionPlayers, updateSkillbar, updateCountdown, paintPortrait, WEAPON_SKILL_CD };',
 ].join('\n'), context, { filename: 'bounce-royal-ui.test.bundle.js' });
 
 const { buildAugmentSelect, buildWeaponSelect, startPhaseTimer, stopPhaseTimer, updateSkillbar, updateCountdown, paintPortrait } = context.__uiApi;
@@ -254,6 +256,31 @@ test('두 칸 모두 자기 스킬 이름과 남은 횟수를 보여준다', () 
   assert.equal($('sk-weapon').querySelector('.lbl').textContent, '차지 샷');
   assert.equal($('sk-weapon').querySelector('.uses').textContent, '○', '다 쓰면 빈 동그라미');
   assert.equal($('steer-control').getAttribute('aria-disabled'), 'false', '스킬과 조향은 함께 유지되어야 한다');
+});
+
+test('무기 스킬 쿨타임은 시계 방향 게이지와 남은 초(정수)로 보이고 흐려지지 않는다', () => {
+  const fighter = cd => ({
+    dead:false, mainDead:false, splitBalls:[], charId:'cat', weaponId:'chain',
+    timers:{ stun:0, bind:0, dashPrep:0, dashT:0 }, flags:{}, player:{},
+    // 혼자 할 때는 쿨타임이 skillUses.cd에 있다 — skillCd가 없다
+    skillUses:{ char:1, weapon: cd > 0 ? 0 : 1, cd },
+  });
+  const btn = $('sk-weapon'), max = context.__uiApi.WEAPON_SKILL_CD.chain;
+  updateSkillbar({ phase:'fight', result:null, human:() => fighter(max - 3) });
+  assert.ok(btn.classList.contains('cooling'), '쿨타임 중이면 게이지를 켠다');
+  assert.ok(!btn.classList.contains('used'), '통째로 흐리게 하지 않는다');
+  assert.equal(btn.style.getPropertyValue('--cd-done'), (3 / max).toFixed(4), '지난 몫만큼 걷힌다');
+  assert.equal(btn.querySelector('.cdnum').textContent, String(max - 3));
+  // 초 단위로만: 소수점이 남으면 올려서 보여 준다 (0.2초 남았으면 1)
+  updateSkillbar({ phase:'fight', result:null, human:() => fighter(0.2) });
+  assert.equal(btn.querySelector('.cdnum').textContent, '1');
+  // 멀티 뷰는 skillCd로 받는다
+  const net = Object.assign(fighter(0), { skillCd: 7.4, skillUses:{ char:1, weapon:0 } });
+  updateSkillbar({ phase:'fight', result:null, human:() => net });
+  assert.equal(btn.querySelector('.cdnum').textContent, '8');
+  // 다 돌면 게이지가 꺼진다
+  updateSkillbar({ phase:'fight', result:null, human:() => fighter(0) });
+  assert.ok(!btn.classList.contains('cooling'), '쿨타임이 끝나면 게이지를 끈다');
 });
 
 test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활성화한다', () => {

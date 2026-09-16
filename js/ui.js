@@ -960,7 +960,9 @@ function skillSlotInfo(fighter, slot) {
   const uses = fighter.skillUses?.[slot] || 0;
   // 무기 칸은 횟수가 아니라 쿨타임이다. 남은 초를 함께 넘겨 두면
   // 버튼에 원형 게이지를 그릴 때 쓸 수 있다.
-  const cd = slot === 'weapon' ? (fighter.skillCd || 0) : 0;
+  // 멀티 뷰는 skillCd로 받고 로컬 전투원은 skillUses.cd에 들고 있다.
+  // skillCd만 읽으면 혼자 할 때는 늘 0이라 게이지가 한 번도 안 나온다.
+  const cd = slot === 'weapon' ? (fighter.skillCd ?? fighter.skillUses?.cd ?? 0) : 0;
   const cdMax = slot === 'weapon' ? (WEAPON_SKILL_CD?.[fighter.weaponId] || 0) : 0;
   const name = slot === 'char'
     ? (CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬')
@@ -1039,7 +1041,15 @@ function updateSkillbar(battle) {
     el.querySelector('.lbl').textContent = info.name; el.querySelector('.ico').innerHTML = iconMarkup(info.iconKey, info.icon);
     el.querySelector('.uses').textContent = '●'.repeat(Math.max(0, info.uses)) + '○'.repeat(Math.max(0, info.max - info.uses));
     const slotReady = canAct && info.uses > 0;
-    el.classList.toggle('charging', !!charging); el.classList.toggle('used', info.uses <= 0); el.classList.toggle('ready', !!(slotReady && !charging));
+    /* 쿨타임 중에는 버튼 전체를 흐리게 하지 않고, 시계 방향으로 걷히는
+     * 어두운 부채꼴과 남은 초로 보여 준다. 흐림까지 겹치면 아이콘이 안 보인다. */
+    const cooling = slot === 'weapon' && !charging && info.cd > 0 && info.cdMax > 0;
+    el.classList.toggle('cooling', cooling);
+    if (cooling) {
+      el.style.setProperty('--cd-done', Math.max(0, Math.min(1, 1 - info.cd / info.cdMax)).toFixed(4));
+      el.querySelector('.cdnum').textContent = String(Math.ceil(info.cd));
+    }
+    el.classList.toggle('charging', !!charging); el.classList.toggle('used', info.uses <= 0 && !cooling); el.classList.toggle('ready', !!(slotReady && !charging));
     if (charging) el.querySelector('.cdoverlay').textContent = fighter.charging.t >= 1 ? '발사 준비!' : '충전 중…';
   });
 }

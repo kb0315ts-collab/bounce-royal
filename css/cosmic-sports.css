@@ -184,3 +184,7 @@ input[type=range]{accent-color:#c46d61}.toggle{background:#bdc5c1}.toggle.on{bac
 .ready-pill{color:#5c6d67}.intro-player>span{color:#5c747a;border-color:#8b9d9e}
 .event-card-voters:empty::after{color:#695a77}
 .event-result-rule,.event-voted-name{color:#78677e}
+/* Weapon skill cooldown: a dark wedge clears clockwise from 12 o'clock, with whole seconds on top. */
+.skillbtn .cdsweep,.skillbtn .cdnum{display:none}
+.skillbtn.cooling .cdsweep{display:block;position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:conic-gradient(transparent 0 calc(var(--cd-done,0)*360deg),rgba(20,30,40,.64) 0 360deg)}
+.skillbtn.cooling .cdnum{display:grid;place-items:center;position:absolute;inset:0;pointer-events:none;font:7.4cqw/1 'Jua',sans-serif;color:#fff9e8;-webkit-text-stroke:.4cqw #243747;paint-order:stroke fill;text-shadow:0 .5cqw 0 #243747}
