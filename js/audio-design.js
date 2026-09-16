@@ -59,11 +59,6 @@
     {...N(2700,2300,.235,.060,1.1,0,.020),gainPath:[[0,0],[.09,.050],[.42,.060],[.69,.041],[.87,.044],[1,0]],noiseRateVariation:.12},
     N(4500,2700,.037,.024,.8,.078,.003,'highpass'),
   ]);
-  set('weapon.chain.swing','후웍, 차르륵 · 관성 휘두름','빠르게 움직이는 추의 낮은 바람 뒤 사슬 고리가 짧게 맞부딪칩니다. 느리게 따라오는 동안에는 조용합니다.',[
-    {...N(420,580,.20,.15,2.7,0,.018),filterPath:[[0,420],[.38,1500],[.70,1100],[1,580]],
-      gainPath:[[0,0],[.18,.07],[.40,.15],[.72,.055],[1,0]],noiseRateVariation:.08},
-    ...link(1420,.013,.088),...link(1890,.010,.133),
-  ]);
   set('weapon.chain.hit','크덩, 찰락! · 쇠추 충돌','무거운 추의 낮고 꽉 찬 충돌 뒤 느슨해진 사슬 고리가 두 번 흔들립니다. 검의 칼날 소리는 겹치지 않습니다.',[
     {...N(1900,430,.083,.24,1.1,0,.001),gainPath:[[0,0],[.018,.24],[.11,.21],[.44,.09],[1,0]]},
     {...N(420,150,.12,.15,.8,0,.001,'lowpass'),gainPath:[[0,0],[.035,.15],[.18,.13],[.6,.052],[1,0]]},
@@ -77,7 +72,7 @@
     ...link(1560,.020,.034),click(2380,.070,.188),plate(535,.045,.095,.188),
   ]);
   for(const id of ['weapon.shield.throw','weapon.shield.hit','weapon.shield.catch','weapon.shield.bounce',
-    'weapon.flame.ignite','weapon.flame.spray','weapon.chain.swing','weapon.chain.hit']) D[id].variation=.025;
+    'weapon.flame.ignite','weapon.flame.spray','weapon.chain.hit']) D[id].variation=.025;
   set('augment.shuriken','휘릭! · 작은 회전','올라갔다 내려오는 표창의 짧은 휘릭 소리를 유지합니다.',[whoosh(1.55,.075,.12)],true);
   set('augment.missile','후우릭! · 길게 추적','표창보다 낮고 길게 도는 미사일의 익숙한 바람을 유지합니다.',[whoosh(.7,.1,.26)],true);
   set('augment.beam','쉬익! · 날아가는 검기','검기의 날카로운 바람 재질을 유지해 칼날과 자연스럽게 이어집니다.',[whoosh(1,.1,.18)],true);

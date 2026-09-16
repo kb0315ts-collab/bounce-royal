@@ -12,7 +12,7 @@ function runtime() {
   context.window = context;
   vm.runInContext(['js/data.js', 'js/sim.js'].map(file =>
     fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n')
-    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN };', context);
+    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN, ropeLen, chainAttach, CHAIN_MAX_STRETCH };', context);
   return context.testCore;
 }
 const T = runtime();
@@ -30,27 +30,33 @@ function fixture({ arena = false, enemies = false, long = false, twin = false } 
   T.ensureChainHeads(f);
   return { b, f, e };
 }
+// 줄은 공 표면에 매여 있다. 추를 옮기면 매인 자리도 추 쪽 표면으로 두고
+// 마디를 그 사이에 깐다 — 가운데에서 깔면 있을 수 없는 줄이 되어 한 틱에 튕겨 나간다.
 function setHead(f, x, y, vx, vy) {
   const h = f.chainHeads[0];
   Object.assign(h, { x, y, vx, vy });
+  h.attach = Math.hypot(x - f.x, y - f.y) > 1e-6 ? Math.atan2(y - f.y, x - f.x) : (h.attach || 0);
+  const at = T.chainAttach(f, h);
   h.nodes.forEach((n, i) => {
     const t = (i + 1) / 5;
-    Object.assign(n, { x: f.x + (x - f.x) * t, y: f.y + (y - f.y) * t, vx: vx * t, vy: vy * t });
+    Object.assign(n, { x: at.x + (x - at.x) * t, y: at.y + (y - at.y) * t, vx: vx * t, vy: vy * t });
   });
   return h;
 }
+// 줄은 탄성이 있어 제 길이보다 늘어날 수 있다. 오차는 '최대 늘어남'을 넘은 만큼으로 잰다.
 function measure(f, metrics) {
-  const length = T.chainLen(f);
+  const rope = T.ropeLen(f), stretch = T.CHAIN_MAX_STRETCH;
   for (const h of f.chainHeads) {
-    let previous = f;
+    let previous = T.chainAttach(f, h);
     for (const q of h.nodes.concat(h)) {
       for (const key of ['x', 'y', 'vx', 'vy']) assert.ok(Number.isFinite(q[key]), `finite ${key}`);
       const gap = Math.hypot(q.x - previous.x, q.y - previous.y);
-      metrics.segmentError = Math.max(metrics.segmentError, gap - length / 5);
+      metrics.segmentError = Math.max(metrics.segmentError, gap - rope / 5 * stretch);
       metrics.velocity = Math.max(metrics.velocity, Math.hypot(q.vx, q.vy));
       previous = q;
     }
-    metrics.reachError = Math.max(metrics.reachError, Math.hypot(h.x - f.x, h.y - f.y) - length);
+    metrics.reachError = Math.max(metrics.reachError,
+      Math.hypot(h.x - f.x, h.y - f.y) - ((f.radius || 0) + rope * stretch));
     metrics.speed = Math.max(metrics.speed, Math.hypot(h.sx, h.sy));
   }
 }
@@ -178,6 +184,78 @@ test('attack speed now means spin: faster rotation and a harder-hitting head', (
   assert.ok(slow.speed > T.WEAPONS.chain.gate,
     `기본 회전만으로 관문을 넘는다 (추 ${slow.speed.toFixed(0)} > 관문 ${T.WEAPONS.chain.gate})`);
   assert.ok(fast.speed > slow.speed, '빨리 돌수록 추가 더 세게 지나간다');
+});
+
+const spinFor = aspd => T.WEAPONS.chain.rot * (aspd > 1 ? 1 + (aspd - 1) * T.MELEE_ASPD_GAIN : aspd);
+const wrapAngle = d => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+
+test('the rope is tied to the ball surface and the tie point travels around it at the spin rate', () => {
+  const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0];
+  const start = h.attach;
+  let turned = 0, prev = start;
+  for (let i = 0; i < 180; i++) {
+    b.simT += dt; T.updateChain(b, f, dt);
+    assert.ok(Math.abs(Math.hypot(h._anchor.x - f.x, h._anchor.y - f.y) - f.radius) < 1e-6,
+      '매인 자리는 공 가운데가 아니라 표면에 있다');
+    turned += wrapAngle(h.attach - prev); prev = h.attach;
+  }
+  const expected = f.st.rot * T.GAME_SPEED * 3;
+  assert.ok(Math.abs(turned / expected - 1) < 0.01, `매인 자리가 회전속도로 돈다 (${turned.toFixed(3)} / ${expected.toFixed(3)})`);
+});
+
+test('a surface tie hands spin to the chain far faster than a center tie did', () => {
+  // 가운데에 매였을 때는 멈춘 추가 목표 회전의 90%에 닿기까지 1.8초였다.
+  const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0];
+  h.vx = h.vy = 0; for (const n of h.nodes) { n.vx = n.vy = 0; }
+  const target = f.st.rot * T.GAME_SPEED;
+  let prev = Math.atan2(h.y - f.y, h.x - f.x), reached = null;
+  for (let i = 0; i < 360 && reached === null; i++) {
+    b.simT += dt; T.updateChain(b, f, dt);
+    const a = Math.atan2(h.y - f.y, h.x - f.x);
+    if (wrapAngle(a - prev) / dt >= target * 0.9) reached = i * dt;
+    prev = a;
+  }
+  assert.ok(reached !== null && reached < 1.2, `표면에 매면 회전이 빨리 실린다 (${reached}초)`);
+});
+
+test('the rope stretches with spin and springs back after a turn, but keeps its reach and limit', () => {
+  const settle = aspd => {
+    const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0];
+    f.st.rot = spinFor(aspd);
+    let stretch = 0, reach = 0, n = 0;
+    for (let i = 0; i < 720; i++) {
+      b.simT += dt; T.updateChain(b, f, dt);
+      if (i >= 300) {
+        stretch += Math.hypot(h.x - h._anchor.x, h.y - h._anchor.y) / T.ropeLen(f);
+        reach += Math.hypot(h.x - f.x, h.y - f.y); n++;
+      }
+    }
+    return { stretch: stretch / n, reach: reach / n, L: T.chainLen(f) };
+  };
+  const base = settle(1), fast = settle(2);
+  assert.ok(base.stretch > 1.01 && base.stretch < 1.08, `기본 회전에서 살짝 늘어난다 (${base.stretch.toFixed(3)})`);
+  assert.ok(fast.stretch > base.stretch + 0.03, '빨리 돌수록 더 팽팽하게 늘어난다');
+  assert.ok(fast.stretch < T.CHAIN_MAX_STRETCH - 0.02, `공속 2배에서도 한계에 붙지 않는다 (${fast.stretch.toFixed(3)})`);
+  // 표면에 매도 가운데에서 잰 사거리는 그대로다 — 늘어난 몫만 조금 더해진다
+  assert.ok(base.reach > base.L * 0.98 && base.reach < base.L * 1.08,
+    `사거리 유지 (${base.reach.toFixed(1)} / ${base.L})`);
+
+  // 급선회 뒤 줄이 늘었다 줄었다를 여러 번 반복한다 — 탄력
+  const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0], series = [];
+  for (let i = 0; i < 480; i++) {
+    const t = i * dt, ang = t >= 4 ? Math.PI : 0;
+    f.vx = Math.cos(ang); f.vy = Math.sin(ang);
+    f.x += f.vx * f.st.move * T.GAME_SPEED * dt; f.y += f.vy * f.st.move * T.GAME_SPEED * dt;
+    b.simT += dt; T.updateChain(b, f, dt);
+    if (t >= 4) {
+      let prev = T.chainAttach(f, h), len = 0;
+      for (const q of h.nodes.concat(h)) { len += Math.hypot(q.x - prev.x, q.y - prev.y); prev = q; }
+      series.push(len / T.ropeLen(f));
+    }
+  }
+  let peaks = 0;
+  for (let i = 1; i < series.length - 1; i++) if (series[i] > series[i - 1] && series[i] > series[i + 1] && series[i] > 1.03) peaks++;
+  assert.ok(peaks >= 3, `선회 뒤 여러 번 튕긴다 (늘어남 봉우리 ${peaks}개)`);
 });
 
 test('position swap retains old carrier velocity on the head and reflects the new carrier safely', () => {

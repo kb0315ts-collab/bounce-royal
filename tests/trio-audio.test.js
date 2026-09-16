@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { create, catalog } = require('../js/audio.js');
 const design = require('../js/audio-design.js');
 
-const ids = ['weapon.flame.ignite', 'weapon.flame.spray', 'weapon.chain.swing',
+const ids = ['weapon.flame.ignite', 'weapon.flame.spray',
   'weapon.chain.hit', 'skill.chain.swap', 'weapon.shield.throw', 'weapon.shield.hit',
   'weapon.shield.bounce', 'weapon.shield.catch'];
 // Inspect the actual merged recipe handed to the scheduler, not a duplicate
@@ -50,12 +50,10 @@ test('held flame is textured air without a pitched drone, ignition is a separate
   assert.ok(duration <= spray.gap * 1.2, 'no many-layer drone buildup on held input');
 });
 
-test('chain movement is quieter and rate limited; successful contact has a distinct weighted attack', () => {
-  const swing = recipe('weapon.chain.swing'), hit = recipe('weapon.chain.hit');
-  assert.ok(swing.gap >= .35);
-  assert.ok(swing.priority < hit.priority);
-  const peakBudget = def => def.layers.reduce((sum, layer) => sum + layer.gain, 0);
-  assert.ok(peakBudget(swing) < peakBudget(hit) * .6);
+test('chain makes no swing sound at all; only a successful contact has a weighted attack', () => {
+  // 계속 도는 무기라 상시 휘두름 소리는 과했다. 카탈로그에서도 뺐다.
+  assert.equal(catalog.find(s => s.id === 'weapon.chain.swing'), undefined);
+  const hit = recipe('weapon.chain.hit');
   assert.ok(hit.layers.some(l => l.kind === 'tone' && l.f < 200));
   assert.ok(hit.layers.some(l => l.delay >= .075), 'short loose-link rattle after impact');
   assert.ok(recipe('skill.chain.swap').layers.some(l => l.delay >= .18), 'exchange ends with a tension/catch cue');

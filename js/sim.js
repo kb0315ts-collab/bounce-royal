@@ -1968,6 +1968,13 @@ function bodyVel(body) {
   return { x: (body.vx || 0) * s, y: (body.vy || 0) * s };
 }
 
+/* 표면에 매인 줄의 실제 길이. chainLen은 '공 가운데에서 추까지의 사거리'라는
+ * 약속을 그대로 지키고, 표면에 매인 만큼(반지름) 줄을 짧게 둔다.
+ * 안 그러면 표면으로 옮기는 것만으로 사거리가 반지름만큼(약 +24%) 늘어난다. */
+function ropeLen(f) {
+  return Math.max(chainLen(f) * 0.5, chainLen(f) - (f.radius || 0));
+}
+
 function chainLen(f) {
   const wp = WEAPONS.chain;
   return (f.flags.chainLong ? 130 : wp.chainLen) * weaponScale(f);
@@ -1982,6 +1989,13 @@ const CHAIN_SEGS = 5;
 const CHAIN_MAX_SPD = 2000;
 // 추의 역질량. 1이면 마디와 같은 무게(끝이 채찍처럼 튄다), 작을수록 무겁다.
 const CHAIN_HEAD_W = 0.25;
+// 줄의 탄성. 마디가 제 길이를 넘은 만큼 당기는 세기와, 늘어나는 속도를 죽이는 세기.
+// 최대 늘어남을 넘으면 그때만 딱 잡는다 (끊어질 듯 늘어나지 않게).
+const CHAIN_SPRING = 5500;
+const CHAIN_SPRING_DAMP = 8;
+// 한계 근처에서 몇 배까지 뻣뻣해지나 (한계에서 1 + 이 값 배)
+const CHAIN_SPRING_HARDEN = 4;
+const CHAIN_MAX_STRETCH = 1.18;
 const CHAIN_ITERS = 8;
 // 줄이 당긴 힘 중 추가 운동량으로 쌓는 몫. 1이면 채찍, 작을수록 묵직하다.
 const CHAIN_INHERIT = 1;
@@ -1990,23 +2004,37 @@ const CHAIN_INHERIT = 1;
 const CHAIN_SPIN_GRIP = 2.5;
 const CHAIN_STEP = 1 / 120;
 
+/* 사슬은 공 가운데가 아니라 공 표면에 매여 있다. 매인 자리(attach)는 사슬
+ * 회전속도로 표면을 따라 돈다 — 도는 공이 줄을 직접 끌고 가야 회전력이
+ * 줄에 실린다. 가운데에 매면 공이 돌아도 줄에는 아무 힘이 안 간다. */
+function chainAttach(f, h, cx = f.x, cy = f.y) {
+  const r = f.radius || 0, a = h.attach || 0;
+  return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+}
+
 function ensureChainHeads(f) {
   const want = f.flags.chainTwin ? 2 : 1;
-  const L = chainLen(f);
+  const L = ropeLen(f);
   if (f.chainHeads.length !== want) {
     f.chainHeads = [];
     for (let i = 0; i < want; i++) {
       const a = f.weaponAngle + i * Math.PI;
-      f.chainHeads.push({ x: f.x + Math.cos(a) * L, y: f.y + Math.sin(a) * L, vx: 0, vy: 0 });
+      const h = { attach: a, vx: 0, vy: 0 };
+      const at = chainAttach(f, h);
+      h.x = at.x + Math.cos(a) * L; h.y = at.y + Math.sin(a) * L;
+      f.chainHeads.push(h);
     }
   }
-  // 마디는 공과 추 사이에 고르게 깐다. 추가 곧 마지막 마디다.
   for (const h of f.chainHeads) {
+    // 매인 자리가 없던 추(예전 상태)는 추가 있는 쪽 표면에 맨다
+    if (!Number.isFinite(h.attach)) h.attach = Math.atan2(h.y - f.y, h.x - f.x);
     if (h.nodes && h.nodes.length === CHAIN_SEGS - 1) continue;
+    // 마디는 매인 자리와 추 사이에 고르게 깐다. 추가 곧 마지막 마디다.
+    const at = chainAttach(f, h);
     h.nodes = [];
     for (let i = 1; i < CHAIN_SEGS; i++) {
       const t = i / CHAIN_SEGS;
-      h.nodes.push({ x: f.x + (h.x - f.x) * t, y: f.y + (h.y - f.y) * t, vx: 0, vy: 0 });
+      h.nodes.push({ x: at.x + (h.x - at.x) * t, y: at.y + (h.y - at.y) * t, vx: 0, vy: 0 });
     }
   }
 }
@@ -2016,18 +2044,25 @@ function ensureChainHeads(f) {
  * 쓴다. 그냥 두면 구속이 줄 전체를 한 프레임에 되감고, 그 변위가 그대로
  * 속도가 되어 추가 경기장을 가로질러 튕겨 나간다. */
 function relayChain(f, h, velocity = bodyVel(f)) {
-  const L = chainLen(f);
-  let dx = h.x - f.x, dy = h.y - f.y;
+  const L = ropeLen(f);
+  /* 다시 깔 때는 추를 향한 쪽 표면에 다시 맨다. 위치 교환 뒤에는 공과 추의
+   * 자리가 뒤바뀌어 줄 방향이 반대가 된다 — 옛 각도를 두면 매인 자리가 공
+   * 반대편에 가서 줄이 공을 관통하고, 교환한 추가 제자리에서 끌려 나간다. */
+  if (Math.hypot(h.x - f.x, h.y - f.y) > 1e-6) h.attach = Math.atan2(h.y - f.y, h.x - f.x);
+  else if (!Number.isFinite(h.attach)) h.attach = f.weaponAngle || 0;
+  const at = chainAttach(f, h);
+  let dx = h.x - at.x, dy = h.y - at.y;
   let d = Math.hypot(dx, dy);
-  if (d < 1e-6) { dx = Math.cos(f.weaponAngle); dy = Math.sin(f.weaponAngle); d = 1; }
-  if (d > L) { h.x = f.x + dx / d * L; h.y = f.y + dy / d * L; }
+  if (d < 1e-6) { dx = Math.cos(h.attach); dy = Math.sin(h.attach); d = 1; }
+  if (d > L) { h.x = at.x + dx / d * L; h.y = at.y + dy / d * L; }
   const bvx = velocity.x, bvy = velocity.y;
   h.vx = bvx; h.vy = bvy;
   for (let i = 0; i < h.nodes.length; i++) {
     const t = (i + 1) / CHAIN_SEGS, n = h.nodes[i];
-    n.x = f.x + (h.x - f.x) * t; n.y = f.y + (h.y - f.y) * t;
+    n.x = at.x + (h.x - at.x) * t; n.y = at.y + (h.y - at.y) * t;
     n.vx = bvx; n.vy = bvy;
   }
+  h._anchor = at;
 }
 
 /* 마디 사이 거리를 맞춘다. 줄은 늘어나지 않지만 줄어들 수는 있어서 접힌다.
@@ -2044,8 +2079,11 @@ function solveChainRope(anchor, h, seg, arena) {
       const i = pass ? last - j : j, q = pts[i], a = i ? pts[i - 1] : anchor;
       const wa = i ? 1 : 0, wb = i === last ? CHAIN_HEAD_W : 1;
       const dx = q.x - a.x, dy = q.y - a.y, d = Math.hypot(dx, dy);
-      if (d <= seg || d < 1e-6) continue;
-      const c = (d - seg) / (d * (wa + wb));
+      // 제 길이까지는 스프링(springChainRope)이 맡는다. 여기서는 끊어지듯
+      // 늘어나지 않게 최대 늘어남만 막는다.
+      const lim = seg * CHAIN_MAX_STRETCH;
+      if (d <= lim || d < 1e-6) continue;
+      const c = (d - lim) / (d * (wa + wb));
       if (wa) { a.x += dx * c * wa; a.y += dy * c * wa; }
       q.x -= dx * c * wb; q.y -= dy * c * wb;
     }
@@ -2058,17 +2096,42 @@ function solveChainRope(anchor, h, seg, arena) {
   }
 }
 
+/* 사슬 마디의 탄성. 제 길이보다 벌어진 만큼 서로 끌어당기는 힘을 속도에 준다.
+ * 줄이 관성·원심력에 살짝 늘어났다가, 모은 속도로 되돌아오며 조금 지나쳐
+ * 다시 펴진다 — 그게 탄력이다. 줄이라 짧아질 때는 밀어내지 않는다.
+ * 위치를 곧장 제 길이로 되돌리던 예전 방식은 늘 같은 길이라 딱딱했다. */
+function springChainRope(anchor, anchorV, h, seg, travelDt) {
+  const pts = h.nodes.concat(h), last = pts.length - 1;
+  for (let i = 0; i < pts.length; i++) {
+    const q = pts[i], a = i ? pts[i - 1] : anchor;
+    const dx = q.x - a.x, dy = q.y - a.y, d = Math.hypot(dx, dy);
+    if (d <= seg || d < 1e-6) continue;
+    const wa = i ? 1 : 0, wb = i === last ? CHAIN_HEAD_W : 1;
+    const ux = dx / d, uy = dy / d;
+    const avx = i ? a.vx : anchorV.x, avy = i ? a.vy : anchorV.y;
+    const apart = (q.vx - avx) * ux + (q.vy - avy) * uy;   // + 이면 벌어지는 중
+    /* 늘어날수록 뻣뻣해진다. 조금 늘어날 때는 부드럽게 튕기고, 한계에 가까워지면
+     * 강하게 버틴다. 일정한 세기로 두면 공격속도가 높을 때 줄이 늘 한계에 붙어
+     * 다시 딱딱해졌다 (공속 2배부터 1.18에 고정). */
+    const x = d - seg, room = seg * (CHAIN_MAX_STRETCH - 1);
+    const stiff = CHAIN_SPRING * (1 + CHAIN_SPRING_HARDEN * (x / room) * (x / room));
+    const pull = (stiff * x + CHAIN_SPRING_DAMP * apart) * travelDt / (wa + wb);
+    if (wa) { a.vx += ux * pull * wa; a.vy += uy * pull * wa; }
+    q.vx -= ux * pull * wb; q.vy -= uy * pull * wb;
+  }
+}
+
 function updateChain(b, f, dt) {
   if (!(dt > 0)) return;
   const wp = WEAPONS.chain;
   ensureChainHeads(f);
-  const L = chainLen(f), ws = weaponScale(f), headR = wp.headR * ws;
+  const L = chainLen(f), rope = ropeLen(f), ws = weaponScale(f), headR = wp.headR * ws;
   /* 접힌 줄을 펴는 힘. 예전에는 공격속도를 곱해 '추가 빨리 따라오는 것'이
    * 곧 공격속도였다. 이제 공격속도는 회전속도로만 들어간다 — 펴는 힘은 고정이다. */
   const resp = wp.response;
   // 연결부가 도는 속도(rad/s). computeStats가 공격속도까지 반영해 둔다.
   const spin = (f.st && f.st.rot) || 0;
-  const base = wp.dmg * (f.flags.chainTwin ? 0.8 : 1), seg = L / CHAIN_SEGS;
+  const base = wp.dmg * (f.flags.chainTwin ? 0.8 : 1), seg = rope / CHAIN_SEGS;
   const origin = f._chainAnchor || { x: f._motionX ?? f.x, y: f._motionY ?? f.y };
   const dxAnchor = f.x - origin.x, dyAnchor = f.y - origin.y;
   const teleported = Math.hypot(dxAnchor, dyAnchor) > Math.max(60, f.st.move * GAME_SPEED * dt * 3);
@@ -2089,16 +2152,23 @@ function updateChain(b, f, dt) {
     for (let step = 1; step <= steps; step++) {
       // Moving the anchor to its final position at the first substep would
       // create a fake whip impulse at low frame rates.
-      const anchor = { x: origin.x + dxAnchor * step / steps, y: origin.y + dyAnchor * step / steps };
+      const center = { x: origin.x + dxAnchor * step / steps, y: origin.y + dyAnchor * step / steps };
+      // 매인 자리가 표면을 따라 돈다. 그 자리의 실제 속도 = 공의 이동 + 표면의 회전.
+      h.attach = (h.attach || 0) + spin * travelDt;
+      const rim = f.radius || 0;
+      const anchor = chainAttach(f, h, center.x, center.y);
+      const rimV = { x: anchorV.x - Math.sin(h.attach) * spin * rim,
+        y: anchorV.y + Math.cos(h.attach) * spin * rim };
       const dx = h.x - anchor.x, dy = h.y - anchor.y, d = Math.hypot(dx, dy);
-      if (d < L) {
+      if (d < rope) {
         // A fully folded rope opens in its own last direction, never toward an
         // enemy. Turning and wall rebounds remain the only source of aiming.
         const a = d > 1 ? Math.atan2(dy, dx) : (h._unfoldAngle ?? f.weaponAngle);
-        const k = (L - d) * resp * subDt;
+        const k = (rope - d) * resp * subDt;
         h.vx += Math.cos(a) * k; h.vy += Math.sin(a) * k;
       }
       if (d > headR) h._unfoldAngle = Math.atan2(dy, dx);
+      springChainRope(anchor, rimV, h, seg, travelDt);
       for (const q of pts) {
         q.vx *= damp; q.vy *= damp;
         q.x += q.vx * travelDt; q.y += q.vy * travelDt;
@@ -2117,7 +2187,9 @@ function updateChain(b, f, dt) {
        * 뿐이라 공이 움직이면 추는 관성으로 늦거나 앞서고, 줄은 원심력으로 펴진다.
        * 예전에는 같은 자리에서 접선 속도를 0으로 눌렀다 — 목표만 바뀌었다.
        * 공 자체의 이동은 빼고 잰다. 안 그러면 달리는 공이 회전을 망친다. */
-      const tx = h.x - anchor.x, ty = h.y - anchor.y, td = Math.hypot(tx, ty);
+      // 회전 목표는 공 가운데를 기준으로 잰다 — 매인 자리가 도는 것과 별개로,
+      // 추가 공 둘레를 st.rot 속도로 도는 것이 이 무기의 약속이다.
+      const tx = h.x - center.x, ty = h.y - center.y, td = Math.hypot(tx, ty);
       if (td > L * 0.35) {
         const ux = tx / td, uy = ty / td;
         const tangent = -uy * (h.vx - anchorV.x) + ux * (h.vy - anchorV.y);
@@ -2131,12 +2203,12 @@ function updateChain(b, f, dt) {
       h._sweep.push({ x: h.x, y: h.y });
     }
     h.sx = (h.x - px) / dt; h.sy = (h.y - py) / dt;
+    h._anchor = chainAttach(f, h);
   }
   const h0 = f.chainHeads[0];
   f.weaponAngle = Math.atan2(h0.y - f.y, h0.x - f.x);
   if (f.timers.weaponLock > 0 || f.timers.stun > 0) return;
-  if (f.chainHeads.some(h => Math.hypot(h.sx, h.sy) > wp.gate * 1.25))
-    battleSound(b, 'weapon.chain.swing', f, 0.38);
+  // 휘두르는 소리는 내지 않는다. 계속 도는 무기라 상시 휙휙 소리가 과했다 — 맞을 때만 소리 낸다.
 
   for (const e of b.enemiesOf(f)) for (const body of b.bodiesOf(e)) {
     if (b.simT < (f.chainHits.get(body.uid) || 0)) continue;
@@ -2178,7 +2250,8 @@ function updateChain(b, f, dt) {
 /* 꺾인 줄까지의 거리. 마디를 이은 꺾은선 전체에서 가장 가까운 곳을 본다.
  * 직선으로 재면 접힌 줄이 실제로는 없는 자리를 때린다. */
 function ropeDist(f, h, x, y) {
-  let ax = f.x, ay = f.y, best = Infinity;
+  const at = h._anchor || chainAttach(f, h);
+  let ax = at.x, ay = at.y, best = Infinity;
   for (const q of h.nodes.concat([h])) {
     best = Math.min(best, segDist(x, y, ax, ay, q.x, q.y));
     ax = q.x; ay = q.y;

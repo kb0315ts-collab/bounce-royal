@@ -319,7 +319,8 @@ test('removed cues stay silent even for old snapshots; revised sounds have exact
     assert.ok(!catalog.some(item=>item.id===id));
   }
   // 새 무기의 점화·쇠추 휘두름·방패 벽 반사까지 청음실에서 확인할 수 있다.
-  assert.equal(catalog.filter(item=>item.revised && !item.internal).length,60);
+  // 쇠사슬 휘두름 소리를 뺐다 (60 -> 59)
+  assert.equal(catalog.filter(item=>item.revised && !item.internal).length,59);
   const previous=require('../js/audio-design-previous.js');
   assert.equal(previous['weapon.mine.place'].layers[0].name,'actionMine');
   assert.equal(previous['skill.bow.charge'].layers[0].name,'actionDraw');

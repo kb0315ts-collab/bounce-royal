@@ -334,7 +334,7 @@ test('방패는 든 채 적중·실제 원판 벽 반사·회수를 각각 다�
     ['weapon.shield.hit', 'weapon.shield.throw', 'weapon.shield.bounce', 'weapon.shield.catch']);
 });
 
-test('쇠사슬은 정지 상태에서 조용하고 실제 빠른 휘두름은 쿨다운과 행동 차단을 지킨다', () => {
+test('쇠사슬은 아무리 빨리 휘둘러도 휘두름 소리를 내지 않는다', () => {
   const r = runtime(), b = r.battle({ weaponId: 'chain' }), f = b.fighters[0];
   b.phase = 'fight'; f.x = 0; f.y = 0; f.vx = 0; f.vy = 0; f.weaponAngle = 0;
   b.fighters[1].x = -300; b.fighters[1].y = 150;
@@ -351,12 +351,8 @@ test('쇠사슬은 정지 상태에서 조용하고 실제 빠른 휘두름은 �
     assert.ok(f.chainHeads.some(h => Math.hypot(h.sx, h.sy) > 150), '실제로 빠르게 움직이는 추');
   };
   const count = () => ids(b).filter(id => id === 'weapon.chain.swing').length;
-  swingAt(.20); assert.equal(count(), 1);
-  swingAt(.21); swingAt(.57); assert.equal(count(), 1, '.38초 안쪽의 휘두름은 겹치지 않음');
-  swingAt(.59); assert.equal(count(), 2);
-  f.timers.stun = 1; swingAt(.99); assert.equal(count(), 2, '기절하면 관성으로 움직여도 무기음 없음');
-  f.timers.stun = 0; f.timers.weaponLock = 1; swingAt(1.10); assert.equal(count(), 2);
-  f.timers.weaponLock = 0; swingAt(1.20); assert.equal(count(), 3);
+  for (const t of [.20, .21, .57, .59, .99, 1.10, 1.20]) swingAt(t);
+  assert.equal(count(), 0, '빠르게 휘둘러도 휙휙 소리는 없다 — 맞을 때만 소리 난다');
 });
 
 test('모든 전투 이벤트 ID가 공용 효과음 카탈로그의 실제 재생 항목과 대응한다', () => {
