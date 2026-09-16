@@ -741,7 +741,7 @@ test('105개 증강 각각이 실제 전투에서 런타임 오류 없이 동작
     const weaponId = a.weapon || 'sword';
     const copiedSkill = a.cat === 'copy' ? a.charId : null;
     const b = makeBattle({ weaponId, augments: [a.id], copiedSkill, isAI: true }, { weaponId: 'bow', isAI: true });
-    for (let i = 0; i < 60 * (BATTLE_TIME + OVERTIME + 10) && !b.finished; i++) b.update(1 / 60);
+    for (let i = 0; i < 60 * (BATTLE_TIME + 10) && !b.finished; i++) b.update(1 / 60);
     assert.ok(b.result, a.id + ' 전투가 종료되어야 한다');
   }
 });
@@ -756,7 +756,7 @@ test('무기 6×6 조합 전투가 멈추지 않고 피해와 정상 종료를 �
         { charId: chars[i % chars.length], weaponId: weapons[i], isAI: true },
         { charId: chars[j % chars.length], weaponId: weapons[j], isAI: true },
       );
-      for (let step = 0; step < 60 * (BATTLE_TIME + OVERTIME + 10) && !b.result; step++) b.update(1 / 60);
+      for (let step = 0; step < 60 * (BATTLE_TIME + 10) && !b.result; step++) b.update(1 / 60);
       assert.ok(b.result, weapons[i] + ' vs ' + weapons[j]);
       if (b.fighters.some(f => f.hp < f.maxHp || f.dead || f.mainDead)) damaged++;
       if (b.fighters.some(f => f.dead)) knockouts++;
@@ -792,33 +792,46 @@ test('조준 예측선은 이벤트로 생긴 기둥을 실제 반사와 동일�
   assert.ok(Math.hypot(body.vx - rx, body.vy - ry) < 1e-6, '예측 반사 방향이 실제와 일치해야 한다');
 });
 
-test('본전투 30초 뒤 연장전 10초는 1배속에서 5초에 걸쳐 1.5배속까지 가속한다', () => {
-  assert.equal(BATTLE_TIME, 30, '본전투는 30초여야 한다');
-  assert.equal(OVERTIME, 10, '연장전은 10초여야 한다');
+test('전투는 연장전 없이 실시간 40초 동안 1배속으로 진행되고 끝나면 체력 비율로 판정한다', () => {
+  assert.equal(BATTLE_TIME, 40, '전투는 40초여야 한다');
   const b = makeBattle({ isAI: true }, { isAI: true });
   // 판정 전에 KO로 끝나지 않도록 체력만 크게 잡는다
   for (const f of b.fighters) { f.maxHp = 1e9; f.hp = 1e9; }
   const RDT = 1 / 60;
-  const samples = new Map();
-  let mainTicks = 0, otTicks = 0;
+  let fightTicks = 0, clockOk = true;
   for (let i = 0; i < 60 * 120 && !b.result; i++) {
-    const phase = b.phase, wasOvertime = b.overtime;
+    const phase = b.phase, before = b.simT;
     b.update(RDT);
-    if (phase === 'fight') { if (wasOvertime) otTicks++; else mainTicks++; }
-    if (b.overtime) {
-      const elapsed = OVERTIME - b.otT;
-      for (const mark of [0, 2.5, 5, 7.5]) {
-        if (!samples.has(mark) && elapsed >= mark) samples.set(mark, b.timeScale);
-      }
+    if (phase === 'fight') {
+      fightTicks++;
+      if (!b.result && Math.abs(b.simT - before - RDT) > 1e-9) clockOk = false;
     }
   }
-  assert.ok(b.result, '연장전이 끝나면 체력 비율 판정으로 종료되어야 한다');
-  assert.ok(Math.abs(mainTicks * RDT - BATTLE_TIME) < 0.1, '본전투는 실시간 30초여야 한다');
-  assert.ok(Math.abs(otTicks * RDT - OVERTIME) < 0.1, '연장전은 실시간 10초여야 한다');
-  assert.ok(Math.abs(samples.get(0) - 1) < 0.02, '연장 진입 순간에는 아직 1배속이어야 한다');
-  assert.ok(Math.abs(samples.get(2.5) - 1.25) < 0.02, '절반 지점에서는 1.25배속이어야 한다');
-  assert.equal(samples.get(5), 1.5, '5초째에 정확히 1.5배속에 도달해야 한다');
-  assert.equal(samples.get(7.5), 1.5, '5초 이후로는 1.5배속을 유지해야 한다');
+  assert.ok(b.result, '시간이 다 되면 전투가 끝나야 한다');
+  assert.equal(b.result.reason, '체력 비율 판정');
+  assert.ok(Math.abs(fightTicks * RDT - BATTLE_TIME) < 0.1, '전투는 실시간 40초여야 한다 (' + (fightTicks * RDT).toFixed(2) + ')');
+  assert.ok(clockOk, '끝날 때까지 시계가 가속 없이 1배속으로 흐른다');
+  assert.equal(b.overtime, undefined, '연장전 상태가 없다');
+});
+
+test('장기전 체질은 전투 30초에 잃은 체력의 절반을 한 번 회복한다', () => {
+  const b = makeBattle({ isAI: true, augments: ['marathoner'] }, { isAI: true });
+  const [f] = b.fighters;
+  for (const x of b.fighters) { x.maxHp = 1e9; x.hp = 1e9; }
+  f.hp = f.maxHp * 0.4;
+  const RDT = 1 / 60;
+  b.phase = 'fight'; b.simT = MARATHON_TIME - 0.5;
+  // 회복 직전에는 그대로
+  for (let i = 0; i < 20; i++) { b.update(RDT); for (const x of b.fighters) { x.vx = 0; x.vy = 0; } }
+  const early = f.hp;
+  assert.ok(Math.abs(early - f.maxHp * 0.4) < f.maxHp * 0.001, '30초 전에는 회복하지 않는다');
+  for (let i = 0; i < 20; i++) b.update(RDT);
+  assert.ok(Math.abs(f.hp - f.maxHp * 0.7) < f.maxHp * 0.01, '30초에 잃은 체력(60%)의 절반을 회복한다: ' + (f.hp / f.maxHp).toFixed(3));
+  const after = f.hp;
+  f.hp = f.maxHp * 0.5;
+  for (let i = 0; i < 60; i++) b.update(RDT);
+  assert.ok(f.hp <= f.maxHp * 0.5 + f.maxHp * 0.001, '한 번만 회복한다');
+  assert.ok(after > early);
 });
 
 // 표적을 칼날 앞에 고정한 채 공격자만 회전시켜 타격 횟수를 센다

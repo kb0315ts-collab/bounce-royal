@@ -296,8 +296,8 @@ test('조준 단계부터 스냅샷에 숫자 아닌 값이 섞이지 않는다'
   ];
   const b = new core.Battle('diamond', players);
   assert.equal(b.phase, 'count');
-  // 비어 있는 것이 정상인 자리 (복사한 스킬, 결과, 연장 시간, 큐브)
-  const NULLABLE = new Set(['cp', 'res', 'ot', 'cube']);
+  // 비어 있는 것이 정상인 자리 (복사한 스킬, 결과, 큐브)
+  const NULLABLE = new Set(['cp', 'res', 'cube']);
   const bad = [];
   const scan = (node, path, key) => {
     if (NULLABLE.has(key)) return;

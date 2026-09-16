@@ -259,7 +259,7 @@ test('the same situation cycles through several phrasings, deterministically', (
   assert.deepEqual(say(5), say(5));
 });
 
-test('the caster calls first blood, danger, comebacks and overtime', () => {
+test('the caster calls first blood, danger and comebacks', () => {
   // 선제 타격
   {
     const { d, b } = running();
@@ -295,14 +295,5 @@ test('the caster calls first blood, danger, comebacks and overtime', () => {
     const line = d.observe(b, 9000);
     assert.equal(line.kind, 'comeback');
     assert.equal(line.actor.uid, 2);
-  }
-  // 연장전 — 한 번만
-  {
-    const { d, b } = running();
-    b.overtime = true;
-    const line = d.observe(b, 4000);
-    assert.equal(line.kind, 'overtime');
-    assert.match(line.text, /연장/);
-    assert.equal(d.observe(b, 9000), null, '연장 돌입은 한 번만 알린다');
   }
 });

@@ -79,7 +79,7 @@ test('순간이동한 전투원은 보간하지 않고 목적지에 그린다', 
 
 test('정상 속도의 이동은 순간이동으로 오인하지 않는다', () => {
   const a = snap([]); const b = snap([]);
-  a.f[0].x = 0; b.f[0].x = 60;         // 50ms에 60px = 1200px/s. 연장전 최고속 안쪽
+  a.f[0].x = 0; b.f[0].x = 60;         // 50ms에 60px = 1200px/s. 로켓 스타트 최고속 안쪽
   const mid = lerpSnapshot(a, b, 0.5, 50);
   assert.ok(Math.abs(mid.f[0].x - 30) < 1e-9, '정상 이동은 섞어야 한다 (실제 ' + mid.f[0].x + ')');
 });

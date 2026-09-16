@@ -9,28 +9,55 @@
   const noise = (f, to, dur, gain, filter = 'bandpass', delay = 0, attack = .008, q = .8) =>
     ({ kind:'noise', f, to, dur, gain, filter, delay, attack, q });
   const sample = (name, gain, dur, fallback) => ({ kind:'sample', name, gain, dur, fallback, delay:0, attack:.003 });
-  // Two moving vocal resonances shape one shared pitch into a small plush-toy
-  // voice. These are invented vowel gestures, not speech or sampled dialogue.
-  function chatterLayers(index, emphasis = false, muffled = false, variation = .5, delay = 0) {
-    const vowels = [[470,1200],[650,1700],[390,1350],[760,1500],[540,1850],[430,1000]];
-    const [first,second] = vowels[index % vowels.length];
-    const duration = .082 + (index % 3) * .012 + variation * .014;
-    const pitch = (muffled ? 164 : emphasis ? 234 : 184) + (index % 5) * 7 + variation * 15;
-    const pitchPath = [[0,pitch*.94],[.27,pitch*1.055],[.65,pitch],[1,pitch*(index % 2 ? .9 : .98)]];
-    const envelope = gain => [[0,.0001],[.16,gain*.82],[.35,gain],[.66,gain*.86],[1,.0001]];
+  /* 선인장 해설자의 목소리 — 동물의 숲 주민 말투.
+   * 글자 하나에 아주 짧고 높은 음절 하나('뾱')를 낸다. 음절의 모음은 실제 대사의
+   * 모음을 따르고(해설 쪽이 vowel로 알려 준다), ㅅ·ㅈ·ㅊ 같은 자음은 앞머리에 쉿,
+   * ㄱ·ㄷ·ㅂ 계열은 톡 하는 짧은 공명을 얹는다. tilt는 억양(문장 끝 내려앉기·
+   * 물음표 올리기)이다. 녹음이나 실제 발음은 쓰지 않는 합성음이다. */
+  // [첫째, 둘째 공명] Hz. 몸집이 작은 목소리라 사람 모음보다 높게 잡았다.
+  const CHATTER_VOWELS = [
+    [900,1500],   // 0 ㅏ
+    [620,2100],   // 1 ㅔ·ㅐ
+    [700,1250],   // 2 ㅓ
+    [560,1000],   // 3 ㅗ
+    [420,950],    // 4 ㅜ
+    [470,1650],   // 5 ㅡ
+    [380,2450],   // 6 ㅣ
+  ];
+  function chatterLayers(index, emphasis = false, muffled = false, variation = .5, delay = 0, shape = {}) {
+    const vowelIndex = Number.isInteger(shape.vowel) ? shape.vowel : index;
+    const [first,second] = CHATTER_VOWELS[((vowelIndex % CHATTER_VOWELS.length) + CHATTER_VOWELS.length) % CHATTER_VOWELS.length];
+    // 음절 간격(약 62ms)보다 짧게 끊어야 글자가 하나하나 또렷하다
+    const duration = .04 + (index % 3) * .004 + variation * .006;
+    const tilt = clamp(finite(shape.tilt, 0), -.2, .35);
+    const pitch = (muffled ? 250 : emphasis ? 440 : 370) * (1 + tilt) * (.95 + variation * .1);
+    // 톡 튀어 올랐다가 내려앉는 짧은 음정 곡선
+    const pitchPath = [[0,pitch*.92],[.25,pitch*1.08],[.7,pitch],[1,pitch*.9]];
+    const envelope = gain => [[0,.0001],[.08,gain],[.45,gain*.8],[1,.0001]];
     const formant = (f,gain,q) => ({
       ...tone(pitch,pitch,duration,gain,'sawtooth',delay),
       freqPath:pitchPath, gainPath:envelope(gain),
-      filter:{type:'bandpass',q,path:[[0,f*.76],[.27,f],[.66,f*1.025],[1,f*.86]]},
+      filter:{type:'bandpass',q,path:[[0,f*.9],[.3,f],[1,f*.94]]},
     });
-    return [
-      formant(muffled ? first*.6 : first, muffled ? .046 : .086, 4.2),
-      formant(muffled ? second*.48 : second, muffled ? .012 : .044, 5.8),
-      {...tone(pitch,pitch,duration,muffled ? .012 : .009,'triangle',delay),
-        freqPath:pitchPath,gainPath:envelope(muffled ? .012 : .009),
-        filter:{type:'lowpass',q:.65,f:muffled ? 420 : 700,to:muffled ? 300 : 510}},
+    const layers = [
+      // 음량은 예전 웅얼거림과 비슷한 정점에 맞춘다 — 전투 효과음 밑에 깔려야 한다
+      formant(muffled ? first*.6 : first, muffled ? .03 : .05, 5),
+      formant(muffled ? second*.45 : second, muffled ? .008 : .03, 7),
+      {...tone(pitch,pitch,duration,muffled ? .012 : .018,'square',delay),
+        freqPath:pitchPath,gainPath:envelope(muffled ? .012 : .018),
+        filter:{type:'lowpass',q:.7,f:muffled ? 500 : 1100,to:muffled ? 380 : 800}},
     ];
+    // 자음 앞머리 — 난수를 쓰는 잡음 대신 높은 공명을 16ms만 얹는다
+    if (!muffled && (shape.onset === 'hiss' || shape.onset === 'pop')) {
+      const hiss = shape.onset === 'hiss', gain = hiss ? .018 : .013;
+      layers.push({...tone(pitch*2,pitch*2,.016,gain,'sawtooth',delay),
+        freqPath:[[0,pitch*2.2],[1,pitch*1.6]],gainPath:[[0,.0001],[.2,gain],[1,.0001]],
+        filter:hiss ? {type:'highpass',q:.7,path:[[0,4200],[1,3200]]} : {type:'bandpass',q:2.5,path:[[0,2600],[1,1800]]}});
+    }
+    return layers;
   }
+  // 사운드 랩 미리 듣기: "싸요~" 두 음절 (청음실은 한 소리에 8겹까지)
+  const CHATTER_PREVIEW = [[0,'hiss',.06],[3,null,-.03]];
   const definitions = [];
   function sound(id, name, group, description, icon, layers, options = {}) {
     definitions.push({ id, name, group, description, icon, layers, gap:.055, priority:2, ...options });
@@ -109,9 +136,10 @@
   sound('ui.fight', '전투 · 시작', '인터페이스', '강한 첫 박자 위로 두 음이 힘차게 열립니다.', 'sword', [tone(150,65,.20,.085), tone(523,523,.30,.048,'triangle'), tone(784,784,.36,.039,'triangle',.045), noise(1900,490,.18,.07)], { priority:5, gap:.5 });
   sound('ui.vote.tick', '이벤트 · 추첨 이동', '인터페이스', '빛이 다른 플레이어로 옮겨갈 때 울리는 작은 클릭입니다.', 'watch', [tone(960,690,.054,.035,'sine'), noise(3300,1700,.022,.021)], { priority:3, gap:.035 });
   sound('ui.vote.win', '이벤트 · 당첨', '인터페이스', '선택된 플레이어를 밝은 세 음과 반짝임으로 강조합니다.', 'ranked', [tone(784,784,.24,.045,'triangle'), tone(1046,1046,.30,.042,'triangle',.11), tone(1568,1568,.43,.032,'sine',.22), tone(2093,2093,.33,.015,'sine',.255)], { priority:5, gap:.5 });
-  sound('caster.chatter', '선인장 해설자 · 조잘조잘', '인터페이스', '둥근 모음과 작은 억양으로 웅얼거리는 장난감 목소리입니다. 실제 단어나 녹음된 대사는 사용하지 않습니다.', 'skill', chatterLayers(0), {
-    priority:-1,gap:.075,previewLayers:[...chatterLayers(0,false,false,.35),...chatterLayers(3,false,false,.7,.16)],
-    source:'오리지널 모음 합성',signature:'두 모음 공명 · 부드러운 입모양 변화',
+  sound('caster.chatter', '선인장 해설자 · 조잘조잘', '인터페이스', '동물의 숲 주민처럼 글자마다 짧고 높은 음절을 냅니다. 대사의 모음과 자음을 따라 입모양이 바뀌고, 문장 끝에서 내려앉고 물음표에서 올라갑니다. 녹음된 목소리는 쓰지 않습니다.', 'skill', chatterLayers(0), {
+    priority:-1,gap:.035,
+    previewLayers:CHATTER_PREVIEW.flatMap(([vowel,onset,tilt],i)=>chatterLayers(i,false,false,.5,i*.062,{vowel,onset,tilt})),
+    source:'오리지널 모음 합성',signature:'글자마다 한 음절 · 높고 짧은 뾱 · 대사 모음 따라가기',
   });
 
   // The listening room loads the deployed 511fb88 design for exact A/B. It is
@@ -417,18 +445,20 @@
     shoot() { return this.play('weapon.pistol.fire'); }
     slash(weaponId) { return this.play(weaponId === 'dagger' ? 'weapon.dagger.hit' : 'weapon.sword.hit'); }
     fire(kind) { return this.play(fireIds[kind]); }
-    chatterSyllable({index = 0, emphasis = false, muffled = false} = {}) {
+    chatterSyllable({index = 0, emphasis = false, muffled = false, vowel, onset, tilt = 0} = {}) {
       // Dialogue cadence belongs to the caster controller. No timer or audio
       // context is created here, and this voice cannot displace combat sounds.
       if (this._muted || this._volume <= 0 || !this.ctx || this.ctx.state !== 'running' || this._document?.hidden) return false;
       const now = this.ctx.currentTime;
-      if (this.lastAt.has('caster.chatter') && now - this.lastAt.get('caster.chatter') < .075) return false;
+      // 글자마다 한 음절이라 간격이 짧다(약 62ms). 같은 순간 겹치기만 막는다.
+      if (this.lastAt.has('caster.chatter') && now - this.lastAt.get('caster.chatter') < .035) return false;
       let seed = this._chatterRandomState;
       seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
       this._chatterRandomState = seed >>> 0;
       const syllable = Math.abs(Math.trunc(finite(index,0))) % 30;
-      return this._playDefinition({id:'caster.chatter',gap:.075,priority:-1,
-        layers:chatterLayers(syllable,!!emphasis,!!muffled,this._chatterRandomState/4294967296)},{});
+      return this._playDefinition({id:'caster.chatter',gap:.035,priority:-1,
+        layers:chatterLayers(syllable,!!emphasis,!!muffled,this._chatterRandomState/4294967296,0,
+          {vowel:Number.isInteger(vowel) ? vowel : undefined,onset,tilt})},{});
     }
     stopChatter() { this.stop('caster.chatter'); this.lastAt.delete('caster.chatter'); }
     tone(freq, duration, type = 'sine', vol = .08, slide = 0, delay = 0) {

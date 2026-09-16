@@ -130,6 +130,9 @@ function comicStar(g, x, y, radius, color, alpha = 1, points = 7, rotation = 0) 
   g.lineStyle(Math.max(1.5, radius * 0.085), CASUAL_INK, alpha); g.strokePath();
 }
 
+// 텍스트 풀에서 칸을 넘겨받을 때마다 깔아 두는 기본 모양. 호출하는 쪽이 골라 쓰는 속성은 모두 여기 있어야 한다.
+const TEXT_STYLE_BASE = Object.freeze({ fontStyle: '', stroke: '#000000', strokeThickness: 0 });
+
 class BattleScene extends Phaser.Scene {
   constructor() { super('battle'); }
 
@@ -176,10 +179,13 @@ class BattleScene extends Phaser.Scene {
       this.texts[this.textIndex] = t;
     }
     this.textIndex++;
-    t.setVisible(true).setPosition(x, y).setText(str);
+    /* 칸은 돌려쓰므로 앞 주인의 흔적을 지운다. 사라지던 피해 숫자의 투명도가
+     * 남아 스탯판 글자가 흐려졌다 나타났고, Phaser의 setStyle은 넘기지 않은
+     * 속성(테두리·굵기)을 그대로 두어 다른 글자의 테두리가 스탯판에 묻어났다. */
+    t.setVisible(true).setPosition(x, y).setText(str).setAlpha(1);
     // 글자 텍스처도 화면에 실제로 찍히는 배율만큼 촘촘히 그린다. 안 그러면 캔버스를
     // 선명하게 키워도 글자만 늘어나 흐리다. 정수로 올려 두어 다시 그릴 일이 드물다.
-    style = { ...style, resolution: Math.max(1, Math.ceil((VIEW.s || 1) * (VIEW.px || 1))) };
+    style = { ...TEXT_STYLE_BASE, ...style, resolution: Math.max(1, Math.ceil((VIEW.s || 1) * (VIEW.px || 1))) };
     // 풀에서 돌려쓰므로 같은 자리가 이름표였다가 피해 숫자가 되기도 한다.
     // 실제로 달라졌을 때만 다시 그린다.
     const key = styleKey(style);

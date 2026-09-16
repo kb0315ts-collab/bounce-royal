@@ -715,8 +715,10 @@ function boltFx(b, x1, y1, x2, y2) {
 /* ============================================================
  * 전투
  * ============================================================ */
-const BATTLE_TIME = 30, OVERTIME = 10, OVERTIME_RAMP = 5;
-const OVERTIME_SPEED = 1.5;   // 연장전이 끝까지 올라가는 배속
+/* 한 판은 실시간 40초로 끝난다. 연장전은 없다 — 시간이 다 되면 체력 비율로 가린다. */
+const BATTLE_TIME = 40;
+// 장기전 체질이 발동하는 경기 시각. 예전 연장전 진입 시점(남은 10초)과 같다.
+const MARATHON_TIME = 30;
 
 /* 경기 진행 속도. 1이면 수치 그대로, 0.583이면 그 속도로 굴러간다.
  *
@@ -764,7 +766,7 @@ class Battle {
     this.placeFighters();
     this.phase = 'count';         // count → fight → ending
     this.countT = COUNT_TIME;
-    this.simT = 0; this.overtime = false; this.otT = 0; this.timeScale = 1;
+    this.simT = 0; this.marathonDone = false;
     this.projectiles = []; this.mines = []; this.flames = []; this.stickies = [];
     this.fx = []; this.popups = []; this.particles = [];
     this.shake = 0; this.result = null; this.finished = false; this.endT = 0;
@@ -940,19 +942,13 @@ class Battle {
       }
     } else if (this.phase === 'fight') {
       // 시계용. 여기에는 GAME_SPEED를 곱하지 않는다 — 한 판 길이는 실시간이다.
-      const clockDt = rdt * this.timeScale;
-      this.simT += clockDt;
-      if (!this.overtime && this.simT >= BATTLE_TIME) {
-        this.overtime = true; this.otT = OVERTIME; this.timeScale = 1;
+      this.simT += rdt;
+      if (!this.marathonDone && this.simT >= MARATHON_TIME) {
+        this.marathonDone = true;
         for (const f of this.fighters) if (f.flags.marathoner && this.fighterAlive(f)) healFighter(this, f, (f.maxHp - f.hp) * 0.5);
-      } else if (this.overtime) {
-        this.otT -= rdt;
-        if (this.otT <= 0) { this.timeoutResolve(); return; }
-        // 연장전은 1배속에서 시작해 OVERTIME_RAMP초에 걸쳐 OVERTIME_SPEED까지
-        // 서서히 오르고, 그 이후 남은 시간은 그 배속을 유지한다.
-        this.timeScale = 1 + (OVERTIME_SPEED - 1) * Math.min(1, (OVERTIME - this.otT) / OVERTIME_RAMP);
       }
-      this.step(clockDt);
+      if (this.simT >= BATTLE_TIME) { this.timeoutResolve(); return; }
+      this.step(rdt);
     } else if (this.phase === 'ending') {
       // 거의 멈춘 상태에서 시작해 서서히 풀린다. 파편과 팝업도 같은 속도로
       // 흘러야 화면 전체가 느려진 것처럼 보인다.

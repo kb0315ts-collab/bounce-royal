@@ -118,7 +118,6 @@ function snapshot(battle) {
     ce: (battle.commentaryEvents || []).map(e => ({ seq: e.seq, t: r2(e.t), type: e.type,
       actor: e.actor, target: e.target, source: e.source, amount: r2(e.amount) })),
     cd: battle.phase === 'count' ? r1(battle.countT) : 0,
-    ot: battle.overtime ? r1(battle.otT) : null,
     sh: r1(battle.shake),
     L: battle.arena.L,
     pil: battle.arena.pillars.map(p => ({ x: p.x, y: p.y, r: p.r })),

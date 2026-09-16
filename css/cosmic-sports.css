@@ -141,7 +141,6 @@ input[type=range]{accent-color:#c46d61}.toggle{background:#bdc5c1}.toggle.on{bac
 .prow .hud-streak b.lose{background:#cdd5d9;color:#566579}
 .prow.eliminated::after{background:rgba(23,35,53,.7)}
 #hud-top{background:#fff4d9}#hud-round{color:#646c72}#hud-map{color:#868578}#hud-timer::after{color:#8c8775}
-#ot-tag{background:#ffeac4;border-color:#b66f5b;color:#a64e41}
 #hud-spec{background:#dcd3e9;color:#705984}
 #hud-hint{background:#fff0c6;color:#7d6842}
 #skillbar{background:linear-gradient(0deg,#172239,rgba(23,34,57,.62) 55%,transparent)}

@@ -472,7 +472,7 @@ function lerpById(prevList, nextList, k, jump, body) {
  * spanMs는 두 스냅샷이 실제로 도착한 시간 간격이다. 스냅샷의 simT는 소수
  * 1자리로 반올림되어 20Hz(0.05초 간격)에서는 차이가 0이 되기도 하므로
  * 시간 근거로 쓸 수 없다. 호출자가 실제 간격을 넘겨준다.
- * 1600 = 로켓 스타트(760px/s) × 연장전 배속에 여유를 넉넉히 더한 값. */
+ * 1600 = 로켓 스타트(760px/s)에 여유를 넉넉히 더한 값. */
 const SNAP_INTERVAL_MS = 50;   // 서버 기본 전송 간격
 function maxTravel(spanMs) {
   return 1600 * Math.max(0, spanMs) / 1000 + 24;
@@ -674,8 +674,6 @@ function netBattleView(snap, players, seat) {
     matchConclusion: snap.mc || undefined,
     roundReport: snap.rr,
     countT: snap.cd || 0,
-    overtime: snap.ot != null,
-    otT: snap.ot != null ? snap.ot : 0,
     shake: snap.sh,
     result: snap.res ? { winner: owner(snap.res.w), reason: snap.res.why, draw: snap.res.draw, losers: [] } : null,
     fighters,

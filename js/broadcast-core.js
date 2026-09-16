@@ -10,7 +10,58 @@
   };
   const name = value => Array.from(String(value || '선수')).slice(0,12).join('');
   const number = value => Math.round(Math.max(0, value || 0) * 10) / 10;
-  const voiceDuration = text => Math.min(1500, Math.max(500, 350 + Array.from(String(text || '')).length * 28));
+  /* 대사를 음절 악보로 바꾼다 — 동물의 숲 주민 말투.
+   * 글자 하나(한글 음절·영문자·숫자)가 짧은 음절 하나다. 모음은 그 글자의 모음을
+   * 따르고, ㅅ·ㅈ·ㅊ·ㅎ은 쉿, ㄱ·ㄷ·ㅂ 계열은 톡 하는 자음 앞머리를 단다.
+   * 띄어쓰기와 문장부호에서는 쉬고, 말 덩어리마다 높게 시작해 조금씩 내려앉는다.
+   * 물음표 앞 음절은 올리고, 느낌표 앞 음절도 살짝 올린다.
+   * 난수 없이 글자만으로 정해지므로 같은 대사는 늘 같은 말투로 나온다. */
+  const VOICE_STEP_MS = 62, VOICE_MAX_MS = 2400;
+  // 중성 21개 -> 모음 소리 7가지 (0 ㅏ, 1 ㅔ, 2 ㅓ, 3 ㅗ, 4 ㅜ, 5 ㅡ, 6 ㅣ)
+  //                  ㅏ ㅐ ㅑ ㅒ ㅓ ㅔ ㅕ ㅖ ㅗ ㅘ ㅙ ㅚ ㅛ ㅜ ㅝ ㅞ ㅟ ㅠ ㅡ ㅢ ㅣ
+  const JUNG_VOWEL = [0, 1, 0, 1, 2, 1, 2, 1, 3, 0, 1, 1, 3, 4, 2, 1, 6, 4, 5, 6, 6];
+  //                  ㄱ     ㄲ     ㄴ    ㄷ     ㄸ     ㄹ    ㅁ    ㅂ     ㅃ     ㅅ      ㅆ      ㅇ    ㅈ      ㅉ      ㅊ      ㅋ     ㅌ     ㅍ     ㅎ
+  const CHO_ONSET = ['pop','pop',null,'pop','pop',null,null,'pop','pop','hiss','hiss',null,'hiss','hiss','hiss','pop','pop','pop','hiss'];
+  const LATIN_VOWEL = { a:0, e:1, i:6, o:3, u:4, y:6 };
+  // 0~9를 읽을 때의 모음: 영 일 이 삼 사 오 육 칠 팔 구
+  const DIGIT_VOWEL = [2, 6, 6, 0, 0, 3, 4, 6, 0, 4];
+  function voiceScript(text) {
+    const steps = [];
+    for (const ch of Array.from(String(text == null ? '' : text))) {
+      const code = ch.codePointAt(0);
+      let syllable = null;
+      if (code >= 0xac00 && code <= 0xd7a3) {
+        const k = code - 0xac00;
+        syllable = { vowel: JUNG_VOWEL[Math.floor((k % 588) / 28)], onset: CHO_ONSET[Math.floor(k / 588)] };
+      } else if (/^[a-z]$/i.test(ch)) {
+        const c = ch.toLowerCase();
+        syllable = { vowel: c in LATIN_VOWEL ? LATIN_VOWEL[c] : 5,
+          onset: 'szcfhxj'.includes(c) ? 'hiss' : 'bdgkpt'.includes(c) ? 'pop' : null };
+      } else if (/^[0-9]$/.test(ch)) syllable = { vowel: DIGIT_VOWEL[Number(ch)], onset: null };
+      if (syllable) { steps.push({ ...syllable, tilt: 0, wait: VOICE_STEP_MS }); continue; }
+      const last = steps[steps.length - 1];
+      if (!last) continue;
+      if (ch === ' ') last.wait += 40;
+      else if (ch === ',') last.wait += 130;
+      else if (ch === '.' || ch === '…') last.wait += 170;
+      else if (ch === '!') { last.tilt += .14; last.wait += 120; }
+      else if (ch === '?') { last.tilt += .26; last.wait += 150; }
+      else if (ch === '~') { last.tilt += .06; last.wait += 80; }
+    }
+    // 말 덩어리(100ms 넘게 쉬는 자리까지)마다 높게 시작해 내려앉는다
+    let from = 0;
+    steps.forEach((s, i) => {
+      if (i < steps.length - 1 && s.wait < VOICE_STEP_MS + 100) return;
+      const n = i - from + 1;
+      for (let j = from; j <= i; j++) steps[j].tilt += .07 - .12 * (n > 1 ? (j - from) / (n - 1) : 0);
+      from = i + 1;
+    });
+    // 음절마다 조금씩 흔들린다. 난수 대신 자리와 모음에서 뽑는다.
+    steps.forEach((s, i) => { s.tilt = Math.round((s.tilt + (((i * 7 + s.vowel * 3) % 5) - 2) * .015) * 1000) / 1000; });
+    return steps;
+  }
+  // 말하는 시간 = 악보 길이. 긴 대사도 VOICE_MAX_MS에서 끊는다.
+  const voiceDuration = text => Math.min(VOICE_MAX_MS, voiceScript(text).reduce((t, s) => t + s.wait, 0));
   function sourceName(source, weapons = {}, characters = {}) {
     const [type, id] = source.split(':');
     return sourceNames[source] || (type === 'weapon' ? weapons[id]?.name
@@ -217,7 +268,7 @@
       return chosen.sort((a,b)=>a.at-b.at).slice(0,3);
     }
   }
-  const api={voiceDuration,sourceName,recapLines,eventIntro,eventWinner,ReplayBuffer,paintFrame,playbackFrame};
+  const api={voiceDuration,voiceScript,sourceName,recapLines,eventIntro,eventWinner,ReplayBuffer,paintFrame,playbackFrame};
   root.BounceRoyalBroadcastCore=api;
   if(typeof module==='object'&&module.exports)module.exports=api;
 })(globalThis);

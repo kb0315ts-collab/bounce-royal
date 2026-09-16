@@ -107,7 +107,7 @@ const AUGMENTS = [
   { id:'accelRot',  cat:'time', name:'가속', desc:'전투 중 5초마다 공격속도 +10%' },
   { id:'speedster', cat:'time', name:'속도광', desc:'전투 중 5초마다 이동속도 +6%' },
   { id:'meditate',  cat:'time', name:'명상', desc:'전투 중 5초마다 체력 5% 회복' },
-  { id:'marathoner',cat:'time', name:'장기전 체질', desc:'연장전 돌입 시 잃은 체력의 50% 회복' },
+  { id:'marathoner',cat:'time', name:'장기전 체질', desc:'전투 30초가 지나면 잃은 체력의 50% 회복' },
   { id:'rampage20', cat:'time', name:'폭주 시간', desc:'전투 20초 이후 공격력·이동속도·공격속도 +20%' },
   // ---- 초반 / 후반 조건 ----
   { id:'firstStrike', cat:'tempo', name:'선제공격', desc:'전투 시작 후 10초간 공격력 +30%' },

@@ -10,7 +10,7 @@
   const director = new root.BounceRoyalCommentaryCore.Director({ weapons: WEAPONS, characters: CHARACTERS });
   let muted = false, until = 0, murmurUntil = 0, nextMurmur = 0, lastKey = null;
   let gg = false, finale = false, finalized = false, matchSerial = 0;
-  let frame = 0, voiceUntil = 0, nextSyllable = 0, mouthUntil = 0, syllable = 0;
+  let frame = 0, voiceUntil = 0, nextSyllable = 0, mouthUntil = 0, syllable = 0, script = [];
   let studio = null, studioTimer = 0, report = null, screenId = null;
   try { muted = localStorage.getItem(storeKey) === '1'; } catch (_) { /* Session-only fallback. */ }
   const sound = () => typeof SFX !== 'undefined' ? SFX : null;
@@ -52,15 +52,19 @@
       clearSpeech();
     }
     if (now >= murmurUntil) host.classList.remove('is-murmuring');
-    if (voiceUntil && now < voiceUntil) {
-      if (now >= nextSyllable) {
-        if (!muted || gg) sound()?.chatterSyllable?.({ index:syllable, emphasis:gg });
-        mouthUntil = now + 65 + (syllable % 3) * 15;
-        nextSyllable = now + [125, 160, 115, 190, 145][syllable % 5];
+    // 대사 악보대로 글자마다 한 음절. 마지막 음절은 끝까지 울리게 둔다.
+    if (voiceUntil && now < voiceUntil && (syllable < script.length || now < nextSyllable)) {
+      if (syllable < script.length && now >= nextSyllable) {
+        const step = script[syllable];
+        if (!muted || gg) sound()?.chatterSyllable?.({ index:syllable, emphasis:gg,
+          vowel:step.vowel, onset:step.onset, tilt:step.tilt });
+        mouthUntil = now + 45;
+        nextSyllable = now + step.wait;
         syllable++;
       }
       host.classList.toggle('is-syllable', now < mouthUntil);
-    } else if (voiceUntil) stopVoice();
+    } else if (voiceUntil && now >= voiceUntil) stopVoice();
+    else if (voiceUntil) { voiceUntil = 0; mouthUntil = 0; host.classList.remove('is-syllable', 'is-talking'); }
     if (until || now < murmurUntil) frame = requestAnimationFrame(animate);
   }
   function wake() { if (!frame) frame = requestAnimationFrame(animate); }
@@ -92,6 +96,7 @@
     until = now + (gg ? 2500 : Math.min(3300, Math.max(2500, text.length * 65)));
     // The cloth splits before the final voice starts.
     nextSyllable = now + (gg && muted ? 220 : 0);
+    script = root.BounceRoyalBroadcastCore.voiceScript(text);
     voiceUntil = nextSyllable + root.BounceRoyalBroadcastCore.voiceDuration(text);
     syllable = 0;
     wake();
@@ -109,7 +114,7 @@
     const key = (b.soundSource || 'local') + ':' + b.soundId + ':' + b.fighters.map(f => f.uid).join(',');
     if (key !== lastKey) { clearSpeech(); lastKey = key; }
     const line = director.observe(b, now);
-    if (b.phase === 'count') { host.hidden = true; hud.classList.remove('with-commentator'); return; }
+    // 카운트다운부터 자리를 지킨다. 대사는 전투가 시작돼야 나온다(감독이 count에서는 말하지 않는다).
     host.hidden = false; hud.classList.add('with-commentator');
     if (!line) return;
     if (muted) { murmur(now); return; }

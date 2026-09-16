@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { snapshot } = require('../server/snapshot.js');
-const { voiceDuration, sourceName, recapLines, eventIntro, eventWinner,
+const { voiceDuration, voiceScript, sourceName, recapLines, eventIntro, eventWinner,
   ReplayBuffer, paintFrame, playbackFrame } = require('../js/broadcast-core.js');
 
 const json = value => JSON.parse(JSON.stringify(value));
@@ -170,19 +170,28 @@ test('리포트 문구는 알려진 출처와 실제 수치를 쓰고 보조 공
   assert.equal(sourceName('not:known', weapons, characters), null);
 });
 
-test('선인장 웅얼거림은 빈 대사부터 긴 대사까지 0.5~1.5초이며 대사 길이에 따라 증가한다', () => {
-  assert.equal(voiceDuration(''), 500);
-  assert.equal(voiceDuration(null), 500);
-  assert.equal(voiceDuration('가'.repeat(1000)), 1500);
+test('선인장 말투는 글자마다 한 음절이고, 대사의 모음·쉼·억양을 따른다', () => {
+  assert.equal(voiceDuration(''), 0);
+  assert.equal(voiceDuration(null), 0);
+  assert.equal(voiceDuration('가'.repeat(1000)), 2400, '긴 대사도 2.4초에서 끊는다');
   let previous = 0;
-  for (let n = 0; n < 100; n++) {
+  for (let n = 0; n < 60; n++) {
     const duration = voiceDuration('가'.repeat(n));
-    assert.ok(duration >= 500 && duration <= 1500);
-    assert.ok(duration >= previous);
+    assert.ok(duration >= previous && duration <= 2400);
     previous = duration;
   }
-  assert.equal(voiceDuration('🌵'.repeat(10)), voiceDuration('가'.repeat(10)),
-    '이모지는 UTF-16 코드 단위 두 개가 아니라 한 글자로 계산');
+  assert.equal(voiceScript('가나다라').length, 4, '한글 한 글자에 한 음절');
+  assert.equal(voiceScript('🌵🌵').length, 0, '이모지는 소리 내지 않는다');
+  assert.equal(voiceScript('GG 3').length, 3, '영문자와 숫자도 한 글자에 한 음절');
+  assert.deepEqual(voiceScript('가기고구그게거').map(s => s.vowel), [0, 6, 3, 4, 5, 1, 2], '글자의 모음을 따른다');
+  assert.deepEqual(voiceScript('사가아').map(s => s.onset), ['hiss', 'pop', null], '자음 앞머리');
+  const joined = voiceScript('가가'), spaced = voiceScript('가 가'), comma = voiceScript('가, 가');
+  assert.ok(spaced[0].wait > joined[0].wait, '띄어쓰기에서 쉰다');
+  assert.ok(comma[0].wait > spaced[0].wait, '쉼표에서는 더 쉰다');
+  assert.ok(voiceScript('그래요?').at(-1).tilt > voiceScript('그래요.').at(-1).tilt + .2, '물음표 앞은 올라간다');
+  const run = voiceScript('가가가가가가가가');
+  assert.ok(run[0].tilt > run.at(-1).tilt, '말 덩어리 끝으로 갈수록 내려앉는다');
+  assert.deepEqual(voiceScript('바운서의 철퇴!'), voiceScript('바운서의 철퇴!'), '같은 대사는 늘 같은 말투');
 });
 
 test('이벤트 해설은 투표 방식과 당첨된 선수·이벤트의 설명을 그대로 안내한다', () => {

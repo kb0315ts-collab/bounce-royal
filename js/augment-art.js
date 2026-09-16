@@ -207,7 +207,7 @@
     ['accelRot', 'attackSpeed', 'time', 'growth', '공격속도 검 + 시계: 일정 시간마다 공격속도 성장.'],
     ['speedster', 'move', 'time', 'growth', '이동속도 공 + 시계: 일정 시간마다 이동속도 성장.'],
     ['meditate', 'heal', 'time', 'periodic', '회복 하트 + 시계: 일정 시간마다 체력 회복.'],
-    ['marathoner', 'heal', 'overtime', 'missing-health', '회복 하트 + 연장 시계: 연장전 진입 시 잃은 체력 회복.'],
+    ['marathoner', 'heal', 'overtime', 'missing-health', '회복 하트 + 흘러간 시계: 전투 후반(30초)에 잃은 체력 회복.'],
     ['rampage20', 'allStats', 'time', 'late-buff', '검과 움직이는 공 + 시계: 일정 시간 이후 공격력·공격속도·이동속도 강화.'],
     ['firstStrike', 'attack', 'start', 'temporary', '공격력 검 + 출발 깃발: 전투 초반에만 공격력 강화.'],
     ['rocketStart', 'rocketBall', 'start', 'piercing', '추진 불꽃이 붙은 공 + 출발 깃발: 첫 벽까지 초고속 관통 돌진.'],

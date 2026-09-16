@@ -298,23 +298,14 @@ const Multi = {
     if (!v) return;
     $('hud-round').textContent = `ROUND ${BounceRoyalNet.round}` + (this.spectating ? ' · 관전' : '');
     $('hud-map').textContent = v.arena.name;
-    const timer = $('hud-timer'), tag = $('ot-tag');
+    const timer = $('hud-timer');
     timer.classList.remove('waiting');
-    if (v.phase === 'fight') {
-      if (v.overtime) { timer.textContent = Math.max(0, v.otT).toFixed(1); timer.classList.add('ot'); tag.classList.add('on'); }
-      else { timer.textContent = Math.max(0, BATTLE_TIME - v.simT).toFixed(1); timer.classList.remove('ot'); tag.classList.remove('on'); }
-      timer.classList.remove('urgent');
-    } else {
-      timer.textContent = BATTLE_TIME.toFixed(1);
-      timer.classList.remove('ot', 'urgent'); tag.classList.remove('on');
-    }
+    timer.textContent = (v.phase === 'fight' ? Math.max(0, BATTLE_TIME - v.simT) : BATTLE_TIME).toFixed(1);
     updateSkillbar(v);
     updateCountdown(v);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this.panelState());
-    const me = v.human();
-    // 안내는 라운드 시작 카운트다운에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (v.phase === 'count' && me) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
-    else setHint(null);
+    // 카운트다운 안내 문구는 띄우지 않는다. 그 자리는 처음부터 선인장 해설자의 자리다.
+    setHint(null);
     // 다른 전투 관전 전환
     this.offerSpectate();
   },

@@ -421,7 +421,7 @@ test('caster voice stays lazy and does not consume combat or simulation randomne
   engine.stopAll();
 });
 
-test('caster syllables have bounded, varied formants instead of isolated electronic beeps', async () => {
+test('caster syllables are short, high, vowel-shaped chirps like an Animal Crossing villager', async () => {
   const engine = newEngine({seed:89});
   await engine.ensure();
   const pitches = new Set(), vowels = new Set();
@@ -431,9 +431,9 @@ test('caster syllables have bounded, varied formants instead of isolated electro
     const voice = [...engine.voices][0];
     assert.equal(voice.id,'caster.chatter');
     assert.equal(voice.sources.length,3);
-    assert.ok(voice.endTime > .1 && voice.endTime <= .147);
+    assert.ok(voice.endTime > .06 && voice.endTime <= .08, '글자 하나는 음절 간격(62ms)보다 짧게 끊긴다 (' + voice.endTime + ')');
     assert.ok(voice.nodes.length <= 10);
-    assert.deepEqual(voice.sources.map(source=>source.type),['sawtooth','sawtooth','triangle']);
+    assert.deepEqual(voice.sources.map(source=>source.type),['sawtooth','sawtooth','square']);
     const filters = voice.nodes.filter(node=>node.kind==='filter');
     assert.deepEqual(filters.map(filter=>filter.type),['bandpass','bandpass','lowpass']);
     pitches.add(voice.sources[0].frequency.events[0][1]);
@@ -445,6 +445,22 @@ test('caster syllables have bounded, varied formants instead of isolated electro
   }
   assert.ok(pitches.size>=4);
   assert.ok(vowels.size>=4);
+  // 모음·억양·자음은 해설이 넘기는 대사 악보를 따른다
+  const say = shape => {
+    engine.stopChatter();
+    assert.equal(engine.chatterSyllable({index:0,...shape}),true);
+    const voice = [...engine.voices].at(-1);
+    return { voice, filters:voice.nodes.filter(node=>node.kind==='filter'), pitch:voice.sources[0].frequency.events[1][1] };
+  };
+  const i = say({vowel:6}), o = say({vowel:3});
+  assert.ok(i.filters[1].frequency.events[1][1] > o.filters[1].frequency.events[1][1] * 2, 'ㅣ는 ㅗ보다 둘째 공명이 훨씬 높다');
+  const flat = say({vowel:0}), rise = say({vowel:0,tilt:.3});
+  assert.ok(flat.pitch > 300 && flat.pitch < 480, '작은 동물처럼 높은 음 (' + flat.pitch + 'Hz)');
+  assert.ok(rise.pitch > flat.pitch * 1.15, '억양을 올리면 음이 올라간다');
+  const hiss = say({vowel:0,onset:'hiss'}), pop = say({vowel:0,onset:'pop'});
+  assert.equal(hiss.voice.sources.length,4,'자음 앞머리가 한 겹 붙는다');
+  assert.equal(hiss.filters[3].type,'highpass');
+  assert.equal(pop.filters[3].type,'bandpass');
   engine.stopAll();
 });
 
@@ -530,8 +546,8 @@ test('sound lab can audition the toy voice without changing combat recipes', asy
   const engine=newEngine();
   assert.equal(await engine.preview(cue.id),true);
   const voice=[...engine.voices][0];
-  assert.equal(voice.sources.length,6);
-  assert.ok(voice.sources.some(source=>source.starts[0]>.1),'Preview has two separate syllables');
+  assert.equal(voice.sources.length,7,'두 음절 + 자음 앞머리 하나');
+  assert.ok(voice.sources.some(source=>source.starts[0]>.05),'Preview has two separate syllables');
   engine.stopChatter();
   assert.equal(engine.voices.size,0);
 });

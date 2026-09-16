@@ -198,7 +198,7 @@ function applyResultsFor(state, battles) {
       }).join('');
       const winnerNote = winnerBits.length ? ` <span class="coinloss">${winnerBits.join(' · ')}</span>` : '';
       lines.push({ html: `🏆 <span class="win">${fmt(r.winner)} 승리!</span>${winnerNote}<br>${loserHtml}` });
-      if (r.reason === '체력 비율 판정') lines.push({ html: `<span style="color:#8b94b3;font-size:13px">…연장전 종료, 체력 비율 판정</span>` });
+      if (r.reason === '체력 비율 판정') lines.push({ html: `<span style="color:#8b94b3;font-size:13px">…시간 종료, 체력 비율 판정</span>` });
     }
     for (const f of b.fighters) f.player.rounds++;
   }
@@ -708,7 +708,6 @@ const Game = {
           if (fb.phase === 'fight') { banner('FIGHT!', '', 650); }
           fb._lastPhase = fb.phase;
         }
-        if (fb.overtime && !fb._otShown) { fb._otShown = true; banner('연장전!', '5초에 걸쳐 1.5배속까지 가속', 900); }
         if (fb.result && !fb._endShown) {
           fb._endShown = true;
           const h = fb.human();
@@ -749,35 +748,21 @@ const Game = {
     $('hud-round').textContent = `ROUND ${this.round}` +
       (this.ffa ? ' · 전원 집결' : '') + (this.spectating ? ' · 관전' : '');
     $('hud-map').textContent = fb.arena.name;
-    const timerEl = $('hud-timer'), tag = $('ot-tag');
-    if (fb.phase === 'fight') {
-      if (fb.overtime) {
-        timerEl.textContent = Math.max(0, fb.otT).toFixed(1);
-        timerEl.classList.add('ot'); tag.classList.add('on');
-      } else {
-        timerEl.textContent = Math.max(0, BATTLE_TIME - fb.simT).toFixed(1);
-        timerEl.classList.remove('ot'); tag.classList.remove('on');
-      }
-    } else {
-      timerEl.textContent = BATTLE_TIME.toFixed(1);
-      timerEl.classList.remove('ot', 'urgent'); tag.classList.remove('on');
-    }
+    const timerEl = $('hud-timer');
+    timerEl.textContent = (fb.phase === 'fight' ? Math.max(0, BATTLE_TIME - fb.simT) : BATTLE_TIME).toFixed(1);
     updateSkillbar(fb);
     updateCountdown(fb);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this);
     specTag(this.spectating ? `관전 중 · ${fb.fighters.map(f => f.name).join(' vs ')}` : null);
-    const h = fb.human();
-    // 안내는 라운드 시작 카운트다운에만 띄운다. 전투 중에는 띄우지 않는다.
-    if (fb.phase === 'count' && h) setHint('🧭 조이스틱을 당기고 있으면 그 방향으로 출발합니다');
-    else setHint(null);
+    // 카운트다운 안내 문구는 띄우지 않는다. 그 자리는 처음부터 선인장 해설자의 자리다.
+    setHint(null);
   },
 
   updateByeHUD() {
     $('hud-round').textContent = `ROUND ${this.round} · 부전승`;
     $('hud-map').textContent = MAPS[this.mapId]?.name || '경기 대기';
     const timer = $('hud-timer');
-    timer.textContent = 'BYE'; timer.classList.remove('ot'); timer.classList.add('waiting');
-    $('ot-tag').classList.remove('on');
+    timer.textContent = 'BYE'; timer.classList.add('waiting');
     specTag(null);
     updateSkillbar(null);
     if (typeof updatePlayerStatuses === 'function') updatePlayerStatuses(this);
@@ -964,7 +949,7 @@ const Game = {
       const { battles } = makeBattlesFor(this);
       for (const b of battles) {
         let steps = 0;
-        while (!b.result && steps++ < 60 * (BATTLE_TIME + OVERTIME + 10)) b.update(1 / 60);
+        while (!b.result && steps++ < 60 * (BATTLE_TIME + 10)) b.update(1 / 60);
         if (!b.result) b.finish(b.fighters[0], '강제 종료');
       }
       applyResultsFor(this, battles);
@@ -1684,7 +1669,7 @@ window.__autotest = function (n = 10) {
         for (const b of battles) {
           b.update(0.016); // aim/count 진행용
           let steps = 0;
-          while (!b.result && steps++ < 60 * (BATTLE_TIME + OVERTIME + 10)) b.update(1 / 60);
+          while (!b.result && steps++ < 60 * (BATTLE_TIME + 10)) b.update(1 / 60);
           if (!b.result) b.finish(b.fighters[0], '강제 종료');
           if (b.result.reason === '체력 비율 판정') timeouts++;
           if (b.result.draw) draws++;

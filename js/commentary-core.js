@@ -114,12 +114,6 @@
       `${who}의 역전! 이거 모르겠는데요!`,
       `${josa(who,'이','가')} 순위를 뒤집어 놓았습니다!`,
     ],
-    overtime: () => [
-      '연장전 돌입! 이제 진짜 승부입니다!',
-      '시간이 다 됐습니다. 연장전으로 갑니다!',
-      '승부를 못 냈습니다! 연장전 시작!',
-      '연장전입니다. 여기서 갈립니다!',
-    ],
     roundWin: who => [
       `${who}, 이번 라운드를 가져갑니다!`,
       `이번 라운드는 ${who}의 것입니다!`,
@@ -213,8 +207,8 @@
       if (fresh) {
         state = { seq: 0, simT: -Infinity, phase: battle.phase, introDone: false,
           resultDone: false, hits: new Map(), sourceTimes: new Map(), leadArmed: true,
-          // 새로 잡는 상황들: 선제 타격 · 위기 · 역전 · 연장전
-          firstHitDone: false, otDone: false, leaderUid: null, lowArmed: new Set() };
+          // 새로 잡는 상황들: 선제 타격 · 위기 · 역전
+          firstHitDone: false, leaderUid: null, lowArmed: new Set() };
         this.battles.set(key, state);
         // A normal session is much smaller; keep spectator/reconnect history bounded.
         if (this.battles.size > 64) this.battles.delete(this.battles.keys().next().value);
@@ -322,12 +316,6 @@
               pick(LINES.combo(name), spin(event.seq + pair)), '연속 적중'), cooldownKey: sourceKey });
           }
         }
-      }
-      // 연장전 돌입. 한 번만 알린다.
-      if (battle.overtime && !state.otDone) {
-        state.otDone = true;
-        candidates.push(this.line('overtime', 88, null,
-          pick(LINES.overtime(), spin(state.seq + ':' + (battle.fighters || []).length)), '연장 돌입'));
       }
       /* 위기 — 체력이 25% 밑으로 떨어진 순간. 한 번 알린 선수는 35% 위로
        * 회복해야 다시 알린다. 안 그러면 바닥권에서 계속 떠든다. */
