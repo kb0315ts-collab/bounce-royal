@@ -22,7 +22,7 @@ const CHARACTERS = {
 /* 무기 스킬은 라운드당 1회가 아니라 쿨타임으로 돈다 (초).
  * 캐릭터 스킬은 그대로 라운드당 1회다 — 왁뿌볼 파괴 폭주처럼 대가가
  * 영구히 남는 스킬은 두 번째 사용이 자해라서 횟수로 두는 편이 맞다. */
-const WEAPON_SKILL_CD = { sword: 9, dagger: 9, bow: 10, pistol: 12, staff: 12, mine: 8, chain: 4 };
+const WEAPON_SKILL_CD = { sword: 8, dagger: 20, bow: 15, pistol: 12, staff: 18, mine: 12, chain: 12 };
 
 const WEAPONS = {
   // 회전은 검 3.0 -> 2.6, 단검 5.0 -> 5.8. 검이 무증강 대진에서 68%로 혼자 앞서고
@@ -30,12 +30,12 @@ const WEAPONS = {
   sword:  { name:'검', ico:'⚔️', type:'melee', dmg:20, reach:60, tip:13, rot:2.6, moveMult:0.90,
     desc:'긴 사거리와 높은 피해. 대신 공격속도·이동속도가 느리다.', stat:{atk:.85,spd:.45,rng:.7,mob:.4},
     skillName:'믹서기', skillDesc:'별도 피해 없이 1.2초 동안 두 바퀴 연속 회전한다.' },
-  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:18, reach:30, tip:9, rot:5.8, moveMult:1.15,
+  dagger: { name:'단검', ico:'🔪', type:'melee', dmg:18, reach:30, tip:9, rot:5.8, moveMult:1.15, dashDmg:22,
     desc:'짧고 피해는 낮지만 공격속도·이동속도가 매우 빠르다.', stat:{atk:.45,spd:.95,rng:.3,mob:.95},
-    skillName:'관통 돌진', skillDesc:'1초간 정지 후 원래 진행 방향으로 돌진해 관통하며 40의 무기 피해.' },
-  bow:    { name:'활', ico:'🏹', type:'ranged', dmg:8, interval:1.5, projSpeed:300, rot:2.6, moveMult:1.0,
+    skillName:'관통 돌진', skillDesc:'1초간 정지 후 원래 진행 방향으로 돌진해 관통하며 22의 무기 피해.' },
+  bow:    { name:'활', ico:'🏹', type:'ranged', dmg:8, interval:1.5, projSpeed:300, rot:2.6, moveMult:1.0, chargeDmg:15,
     desc:'상대를 자동으로 겨눠 화살을 계속 발사하는 안정적인 원거리 무기.', stat:{atk:.55,spd:.65,rng:.95,mob:.7},
-    skillName:'차지 샷', skillDesc:'자동 조준을 끄고 두 바퀴에 걸쳐 천천히 회전한다. 1초 후부터 다시 눌러 노린 방향으로 발사 — 적과 장애물을 관통하는 피해 30. 안 쏘면 두 바퀴째에 그대로 나간다.' },
+    skillName:'차지 샷', skillDesc:'자동 조준을 끄고 두 바퀴에 걸쳐 천천히 회전한다. 1초 후부터 다시 눌러 노린 방향으로 발사 — 적과 장애물을 관통하는 피해 15. 안 쏘면 두 바퀴째에 그대로 나간다.' },
   pistol: { name:'권총', ico:'🔫', type:'ranged', dmg:3, burst:7, shotGap:0.12, reload:3.0, projSpeed:500, rot:3.0, moveMult:1.0,
     desc:'상대를 자동으로 겨눠 7연사 후 3초 재장전. 화력과 공백이 명확하다.', stat:{atk:.6,spd:.9,rng:.85,mob:.7},
     skillName:'회전 난사', skillDesc:'1.5초간 빙글빙글 돌며 재장전 없이 사방으로 난사한다.' },
@@ -46,9 +46,9 @@ const WEAPONS = {
    * 던진 뒤에는 주울 때까지 무기가 없으니 신중해야 한다.
    * 횟수 제한이 필요 없다 — 주워야만 다시 던질 수 있어 제한이 저절로 걸린다. */
   shield: { name:'방패', ico:'🛡️', type:'melee', dmg:16, reach:42, tip:14, rot:2.2, moveMult:0.95,
-    throwSpd:520, throwDmg:22, decel:0.82, restSpd:40, pickupPad:18, discR:15,
+    throwSpd:520, throwDmg:22, decel:0.82, restSpd:40, pickupPad:18, discR:15, hitBounce:0.5,
     desc:'몸에 붙여 휘두르다 던질 수 있다. 던진 뒤에는 주울 때까지 무기가 없다.', stat:{atk:.65,spd:.5,rng:.45,mob:.65},
-    skillName:'투척', skillDesc:'방패가 바라보는 방향으로 던진다. 주워야 다시 던질 수 있다.' },
+    skillName:'투척', skillDesc:'방패가 바라보는 방향으로 던진다. 벽과 상대에 맞으면 튕겨 나오고, 주워야 다시 던질 수 있다.' },
   /* 자동 공격이 없는 첫 무기. 스킬 버튼을 누르고 있는 동안만 조향 방향으로
    * 분사하고 연료를 쓴다. 떼면 다시 찬다. 투사체가 없어 피할 수 없는 대신
    * 사거리가 짧고 연료가 상한 역할을 한다.

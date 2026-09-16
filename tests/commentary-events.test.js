@@ -67,7 +67,7 @@ test('차지 샷은 충전 접수와 실제 적중을 구분하고 실패 입력
   const charge = b.projectiles.find(p => p.kind === 'charge');
   r.projectileHit(b, charge, e);
   assert.equal(hits(b)[0].source, 'skill:bow');
-  assert.equal(hits(b)[0].amount, 30);
+  assert.equal(hits(b)[0].amount, charge.dmg);   // 차지 샷 피해 (data.js chargeDmg)
   assert.equal(hits(b)[0].actor, a.uid);
   assert.equal(hits(b)[0].target, e.uid);
 });
@@ -78,7 +78,7 @@ test('단검 돌진과 농구공 돌진은 관통 경로·접촉 두 경로에�
   r.useSkill(b, a, 'weapon'); r.updateTimers(b, a, 1.01);
   r.moveFighter(b, a, 0.05);
   assert.equal(hits(b)[0].source, 'skill:dagger');
-  assert.equal(hits(b)[0].amount, 40);
+  assert.equal(hits(b)[0].amount, 22);   // 관통 돌진 피해 (data.js dashDmg)
   r.tryDashHit(b, a, e);
   assert.equal(hits(b).length, 1, '같은 돌진을 중복 적중으로 세지 않는다');
   a.dash = { kind: 'rush' }; a.dashHit = new Set(); a.timers.dashT = 1;

@@ -118,7 +118,8 @@ test('활 차지 샷은 0.2초를 모아야 나가고 그때 쿨타임이 돈다
   assert.equal(f.skillUses.cd, WEAPON_SKILL_CD.bow, '쏜 순간부터 쿨타임이 돈다');
   const charge = b.projectiles.find(p => p.kind === 'charge');
   assert.ok(charge);
-  assert.equal(charge.dmg, 30);
+  assert.equal(charge.dmg, WEAPONS.bow.chargeDmg);
+  assert.equal(WEAPONS.bow.chargeDmg, 15);
   assert.equal(charge.pierce, true);
   assert.equal(charge.pierceObstacles, true);
   const obstacleArena = new Arena('obstacle');
@@ -280,7 +281,8 @@ test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용�
   dasher.dash = { kind: 'dash' }; dasher.timers.dashT = 1; dasher.dashHit = new Set();
   const beforeDash = dashTarget.hp;
   tryDashHit(dashBattle, dasher, dashTarget);
-  assert.equal(beforeDash - dashTarget.hp, 40);
+  assert.equal(beforeDash - dashTarget.hp, WEAPONS.dagger.dashDmg);
+  assert.equal(WEAPONS.dagger.dashDmg, 22);
 
   const bayonetBattle = makeBattle({ weaponId: 'pistol', augments: ['p_bayonet'] });
   const [gunner, bayonetTarget] = bayonetBattle.fighters;
@@ -1382,7 +1384,7 @@ test('연승과 연패를 따로 센다', () => {
 /* 유도 화살은 상대 가까이 갔을 때만 살짝 휜다. 멀리서도 따라붙으면
  * 조준이 필요 없어지고(승률 71% -> 93%), 트리플 샷의 부채꼴도 총구 앞에서
  * 접혀 세 발이 한 줄로 날아간다. */
-test('던진 방패는 한 번 지나갈 때 한 번만 맞힌다', () => {
+test('던진 방패는 상대에 한 번 맞고 한 대만 준다', () => {
   const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
   const [f, e] = b.fighters;
   computeStats(f); computeStats(e);
@@ -1406,6 +1408,58 @@ test('던진 방패는 한 번 지나갈 때 한 번만 맞힌다', () => {
     updateDisc(b, f, 1 / 60);
     assert.ok(e.hp < hpWas - 1e-9, '벗어났다 다시 닿으면 또 맞아야 한다');
   }
+});
+
+test('던진 방패는 상대를 관통하지 않고 튕겨 나온다', () => {
+  const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  e.maxHp = e.hp = 1e9; e.st.move = 0; e.vx = 0; e.vy = 0;
+  f.x = 0; f.y = 0; f.weaponAngle = 0;
+  e.x = 120; e.y = 0;
+  throwDisc(b, f);
+  const d = f.disc;
+  let deepest = 0, reversed = false, hp = e.hp, hits = 0;
+  for (let i = 0; i < 90 && f.disc; i++) {
+    e.x = 120; e.y = 0;
+    updateDisc(b, f, 1 / 60);
+    if (e.hp < hp - 1e-9) { hits++; hp = e.hp; }
+    deepest = Math.min(deepest, Math.hypot(d.x - e.x, d.y - e.y) - d.r - bodyRadius(e));
+    if (d.vx < -0.5) reversed = true;
+  }
+  assert.equal(hits, 1, '맞으면 한 대');
+  assert.ok(reversed, '정면으로 맞으면 되돌아 나온다');
+  assert.ok(deepest > -1, '몸에 박히지 않는다 (최대 ' + deepest.toFixed(2) + 'px 파고듦)');
+});
+
+test('벽에 붙은 상대와 벽 사이에 낀 방패가 탁구처럼 계속 때리지 않는다', () => {
+  /* 몸에 부딪힐 때 법선 속도를 다 돌려주면 벽과 상대 사이를 오가며
+   * 초당 31대까지 맞았다. 부딪힐 때마다 일부를 잃어 몇 번 만에 멈춘다. */
+  // 실제 경기는 다이아 맵뿐이다. 벽 위치 계산도 다이아 기준이다.
+  const b = new Battle('diamond', [makePlayer({ weaponId: 'shield' }),
+    makePlayer({ isAI: true, color: '#ff6b6b', weaponId: 'sword' })]);
+  b.phase = 'fight'; b.simT = 0;
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  e.maxHp = e.hp = 1e9; e.st.move = 0; e.vx = 0; e.vy = 0;
+  const L = b.arena.L;
+  e.x = L - 62; e.y = 0;
+  f.x = -L + 80; f.y = 0; f.weaponAngle = 0;
+  throwDisc(b, f);
+  const d = f.disc;
+  Object.assign(d, { x: e.x + bodyRadius(e) + d.r + 2, y: 0, vx: 1, vy: 0,
+    spd: WEAPONS.shield.throwSpd, armed: true });
+  d.contact = new Set();
+  let hits = 0, hp = e.hp;
+  for (let i = 0; i < 60 * 6 && f.disc; i++) {
+    e.x = L - 62; e.y = 0;
+    updateDisc(b, f, 1 / 60);
+    if (e.hp < hp - 1e-9) { hits++; hp = e.hp; }
+    assert.ok(Number.isFinite(d.x) && Number.isFinite(d.y), '좌표가 유한하다');
+  }
+  assert.ok(hits <= 6, '끼여도 몇 대 안에 멈춘다 (실제 ' + hits + '대)');
+  assert.ok(d.resting, '결국 멈춘다');
+  assert.ok(Math.abs(d.x) + Math.abs(d.y) <= L + 1, '경기장 밖으로 밀려나지 않는다');
 });
 
 test('벽에 튕긴 방패는 붙어 있던 상대를 다시 맞힌다', () => {

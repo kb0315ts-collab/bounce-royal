@@ -125,15 +125,16 @@ test('차지 시작만 한 경우 빗나감이라 하지 않으며 실제 발사
   let lines = recapLines(b.roundReport[a.pid], weapons, characters);
   assert.match(lines[0], /체력 피해로 이어지지/);   // 표현은 돌아가도 이 사실은 남는다
   const charge = b.projectiles.find(p => p.kind === 'charge');
-  target.shield = 30; r.projectileHit(b, charge, target);
+  // 보호막을 차지 샷 피해와 똑같이 둔다: 첫 발은 전부 막히고 둘째 발은 그대로 들어간다
+  target.shield = charge.dmg; r.projectileHit(b, charge, target);
   assert.equal(b.roundReport[a.pid].damage['skill:bow'], undefined);
   lines = recapLines(b.roundReport[a.pid], weapons, characters);
   assert.ok(lines.every(line => !line.includes('빗나')),
     '보호막 적중과 진짜 빗나감을 구분할 수 없으면 피해로 이어지지 않았다고만 말한다');
   r.projectileHit(b, charge, target);
-  assert.equal(b.roundReport[a.pid].damage['skill:bow'], 30);
+  assert.equal(b.roundReport[a.pid].damage['skill:bow'], charge.dmg);
   lines = recapLines(b.roundReport[a.pid], weapons, characters);
-  assert.ok(lines.some(line => line.includes('차지 샷') && line.includes('30')));
+  assert.ok(lines.some(line => line.includes('차지 샷') && line.includes(String(charge.dmg))));
   assert.ok(lines.every(line => !line.includes('발사했지만')));
 });
 

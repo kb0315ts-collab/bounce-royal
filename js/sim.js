@@ -1455,7 +1455,7 @@ function moveFighter(b, f, dt) {
       if (segDist(e.x, e.y, px, py, f.x, f.y) < e.radius + f.radius) {
         f.dashHit.add(e.uid);
         if (f.dash.kind === 'dash') {
-          weaponDamage(b, f, e, 40, 'skill:dagger');
+          weaponDamage(b, f, e, WEAPONS.dagger.dashDmg, 'skill:dagger');
         } else {
           dealDamage(b, f, e, 26 * f.st.dmg, { kind: 'auto', commentarySource: 'char:bball' });
         }
@@ -1578,7 +1578,7 @@ function registerBodyCollision(b, a, c) {
 
 function tryDashHit(b, a, c) {
   if (a.timers.dashT <= 0 || !a.dashHit || a.dashHit.has(c.uid)) return;
-  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, 40, 'skill:dagger'); }
+  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, WEAPONS.dagger.dashDmg, 'skill:dagger'); }
   else dealDamage(b, a, c, 26 * a.st.dmg, { kind: 'auto', commentarySource: 'char:bball' });
   a.dashHit.add(c.uid);
   b.shake = Math.min(16, b.shake + 10);
@@ -1798,23 +1798,51 @@ function updateDisc(b, f, dt) {
       sparks(b, d.x, d.y, 3, '#b7ffe9', 90);
     }
     if (d.spd < wp.restSpd) { d.resting = true; d.spd = 0; }
-    /* 적중 — 관통해 계속 간다. 재타격은 시간이 아니라 접촉 상태로 막는다.
-     * 판정에 새로 들어온 순간에만 1회 때리고, 완전히 벗어났다가 다시
-     * 닿아야 다음 타격이 나간다. 근접 무기가 쓰는 방식 그대로다.
-     * 시간 잠금으로 두면 스쳐 지나가는 동안 두 번 맞는다. */
+    /* 적중 — 관통하지 않고 맞은 상대에게서 튕겨 나온다. 벽과 똑같이.
+     * 재타격은 시간이 아니라 접촉 상태로 막는다: 판정에 새로 들어온 순간에만
+     * 한 대, 완전히 벗어났다 다시 닿아야 다음 한 대다. */
     const mult = f.flags.discRicochet ? 1 + 0.25 * Math.min(3, d.bounces) : 1;
     const contact = new Set();
     for (const e of b.enemiesOf(f)) {
       for (const body of b.bodiesOf(e)) {
-        if (dist(d.x, d.y, body.x, body.y) > d.r + bodyRadius(body)) continue;
+        const br = bodyRadius(body);
+        let nx = d.x - body.x, ny = d.y - body.y;
+        const gap = Math.hypot(nx, ny);
+        if (gap > d.r + br) continue;
         contact.add(body.uid);
-        if (d.contact.has(body.uid)) continue;        // 아직 안 벗어났다
-        if (weaponDamage(b, f, body, wp.throwDmg * mult) > 0) {
-          battleSound(b, 'weapon.shield.hit', body, 0.05);
+        if (!d.contact.has(body.uid)) {
+          if (weaponDamage(b, f, body, wp.throwDmg * mult) > 0) {
+            battleSound(b, 'weapon.shield.hit', body, 0.05);
+          }
         }
+        /* 튕김. 상대도 움직이므로 '상대 기준 속도'를 표면 법선에 대해 뒤집는다 —
+         * 달려오는 공에 맞으면 더 세게, 도망가는 공에 맞으면 덜 튕긴다.
+         * 이미 멀어지는 중이면 뒤집지 않는다(겹친 채 다시 끌려 들어가지 않게).
+         * 마지막에 겹친 만큼 밀어내서 몸에 박혀 떨지 않게 한다.
+         *
+         * 벽과 달리 몸에 부딪히면 법선 방향 속도를 일부 잃는다(hitBounce).
+         * 다 돌려주면 벽에 붙은 상대와 벽 사이에 끼었을 때 탁구처럼 오가며
+         * 초당 31대까지 맞았다. 부딪힐 때마다 잃으니 몇 번 만에 멈춘다. */
+        if (gap < 1e-6) { nx = d.vx; ny = d.vy; } else { nx /= gap; ny /= gap; }
+        const bv = bodyVel(body);
+        const vx = d.vx * d.spd, vy = d.vy * d.spd;
+        const rx = vx - bv.x, ry = vy - bv.y;
+        const into = rx * nx + ry * ny;
+        if (into < 0) {
+          const k = 1 + wp.hitBounce;
+          const ox = rx - k * into * nx + bv.x, oy = ry - k * into * ny + bv.y;
+          // 막 던진 속도보다 빨라지지는 않는다 — 달려오는 공이 방패를 발사대로 쓰면 곤란하다
+          const sp = Math.min(wp.throwSpd, Math.hypot(ox, oy));
+          if (sp > 1e-6) { const h = Math.hypot(ox, oy); d.vx = ox / h; d.vy = oy / h; d.spd = sp; }
+          sparks(b, d.x - nx * d.r, d.y - ny * d.r, 4, '#b7ffe9', 110);
+        }
+        const push = d.r + br - gap + 0.5;
+        if (push > 0) { d.x += nx * push; d.y += ny * push; }
       }
     }
     d.contact = contact;
+    // 몸에서 밀려난 자리가 벽 밖일 수 있다. 벽 반사는 방향만 뒤집고 자리를 되돌린다.
+    b.arena.reflectProj(d);
   }
   // 회수 — 주인이 닿으면 다시 든다
   const pad = (f.flags.discMagnet ? 55 : wp.pickupPad);
@@ -2269,7 +2297,7 @@ function releaseCharge(b, f) {
   battleSound(b, 'skill.bow.release', f);
   spawnProj(b, f, {
     kind: 'charge', x: f.x + Math.cos(f.weaponAngle) * (f.radius + 10), y: f.y + Math.sin(f.weaponAngle) * (f.radius + 10),
-    ang: f.weaponAngle, spd: 580, dmg: 30, r: 8, life: 3, pierce: true, pierceObstacles: true, weapon: true,
+    ang: f.weaponAngle, spd: 580, dmg: WEAPONS.bow.chargeDmg, r: 8, life: 3, pierce: true, pierceObstacles: true, weapon: true,
   });
   f.charging = null;
   b.shake = Math.min(12, b.shake + 5);
