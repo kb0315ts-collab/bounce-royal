@@ -1315,7 +1315,8 @@ function computeStats(f) {
   // 무기를 실제로 돌리는 경우에만 회전속도가 생긴다.
   // 근접은 항상, 권총은 '회전 난사' 스킬 중에만 돈다. 나머지 원거리는 상대를 조준한다.
   let rot = 0;
-  if (wp.type === 'melee') {
+  // 쇠사슬도 연결부가 돌아간다. 검·단검과 같은 규칙으로 공격속도를 회전으로 받는다.
+  if (wp.type === 'melee' || wp.type === 'chain') {
     // 근접은 조우가 짧아 회전이 조금 빨라져도 결국 한 번 스치고 끝난다.
     // 그래서 공격속도가 오른 만큼을 더 얹어 준다 (속사 하나 = 회전 +22.5%).
     // 반대로 느려지는 쪽(빙결·야만)은 그대로 둔다. 배로 깎으면 회전이 멈추거나 뒤집힌다.
@@ -1956,8 +1957,9 @@ const CHAIN_HEAD_W = 0.25;
 const CHAIN_ITERS = 8;
 // 줄이 당긴 힘 중 추가 운동량으로 쌓는 몫. 1이면 채찍, 작을수록 묵직하다.
 const CHAIN_INHERIT = 1;
-// 줄이 팽팽할 때 접선(도는) 속도를 깎는 세기. 클수록 덜 돈다.
-const CHAIN_SWING_DAMP = 0.65;
+// 추가 목표 회전속도를 따라잡는 세기(1/s). 클수록 검처럼 정확히 돌고,
+// 작을수록 공의 움직임에 휘둘린다. 물리 느낌과 조작감 사이의 손잡이다.
+const CHAIN_SPIN_GRIP = 2.5;
 const CHAIN_STEP = 1 / 120;
 
 function ensureChainHeads(f) {
@@ -2033,7 +2035,11 @@ function updateChain(b, f, dt) {
   const wp = WEAPONS.chain;
   ensureChainHeads(f);
   const L = chainLen(f), ws = weaponScale(f), headR = wp.headR * ws;
-  const resp = wp.response * Math.max(0.2, f.st.aspd);
+  /* 접힌 줄을 펴는 힘. 예전에는 공격속도를 곱해 '추가 빨리 따라오는 것'이
+   * 곧 공격속도였다. 이제 공격속도는 회전속도로만 들어간다 — 펴는 힘은 고정이다. */
+  const resp = wp.response;
+  // 연결부가 도는 속도(rad/s). computeStats가 공격속도까지 반영해 둔다.
+  const spin = (f.st && f.st.rot) || 0;
   const base = wp.dmg * (f.flags.chainTwin ? 0.8 : 1), seg = L / CHAIN_SEGS;
   const origin = f._chainAnchor || { x: f._motionX ?? f.x, y: f._motionY ?? f.y };
   const dxAnchor = f.x - origin.x, dyAnchor = f.y - origin.y;
@@ -2078,12 +2084,20 @@ function updateChain(b, f, dt) {
         const speed = Math.hypot(q.vx, q.vy);
         if (speed > CHAIN_MAX_SPD) { q.vx *= CHAIN_MAX_SPD / speed; q.vy *= CHAIN_MAX_SPD / speed; }
       }
+      /* 연결부 회전. 검처럼 일정한 속도로 돌되, 강제로 각도를 박지 않는다.
+       * 추의 '공 기준' 접선 속도를 목표(회전속도 x 반지름)로 서서히 끌어당길
+       * 뿐이라 공이 움직이면 추는 관성으로 늦거나 앞서고, 줄은 원심력으로 펴진다.
+       * 예전에는 같은 자리에서 접선 속도를 0으로 눌렀다 — 목표만 바뀌었다.
+       * 공 자체의 이동은 빼고 잰다. 안 그러면 달리는 공이 회전을 망친다. */
       const tx = h.x - anchor.x, ty = h.y - anchor.y, td = Math.hypot(tx, ty);
-      if (td > L * 0.85) {
+      if (td > L * 0.35) {
         const ux = tx / td, uy = ty / td;
-        // Dampen swing relative to the carrier, not the carrier's own motion.
         const tangent = -uy * (h.vx - anchorV.x) + ux * (h.vy - anchorV.y);
-        const cut = tangent * (1 - Math.exp(-CHAIN_SWING_DAMP * subDt));
+        /* 공기 저항(drag)이 매 순간 회전을 깎아서, 목표를 그대로 두면 정상
+         * 상태가 목표의 k/(k+drag) 배에 머문다 (실측 84%). 알려진 손실만큼 목표를
+         * 올려 잡아 st.rot이 곧 화면에서 도는 속도가 되게 한다 — 검과 같은 뜻이다. */
+        const aim = spin * td * (CHAIN_SPIN_GRIP + wp.drag) / CHAIN_SPIN_GRIP;
+        const cut = (tangent - aim) * (1 - Math.exp(-CHAIN_SPIN_GRIP * subDt));
         h.vx += uy * cut; h.vy -= ux * cut;
       }
       h._sweep.push({ x: h.x, y: h.y });

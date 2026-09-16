@@ -12,7 +12,7 @@ function runtime() {
   context.window = context;
   vm.runInContext(['js/data.js', 'js/sim.js'].map(file =>
     fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n')
-    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap };', context);
+    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN };', context);
   return context.testCore;
 }
 const T = runtime();
@@ -60,7 +60,12 @@ test('chain combat numbers and augmentation damage/range contracts remain unchan
   assert.equal(T.WEAPONS.chain.dmg, 24);
   assert.equal(T.WEAPONS.chain.chainLen, 85);
   assert.equal(T.WEAPONS.chain.headR, 10);
-  assert.equal(T.WEAPONS.chain.gate, 120);
+  // 연결부가 검처럼 돈다. 검(2.6)보다 살짝 느리게.
+  assert.equal(T.WEAPONS.chain.rot, 2.3);
+  assert.ok(T.WEAPONS.chain.rot < T.WEAPONS.sword.rot, '검보다 살짝 느리다');
+  // 기본 회전만으로도 맞아야 한다. 화면 추 속도가 약 109인데 관문이 120이면
+  // 돌고 있는 사슬이 닿아도 피해가 없다 — 그게 '맞히기 어렵다'의 정체였다.
+  assert.equal(T.WEAPONS.chain.gate, 80);
   assert.equal(T.WEAPONS.chain.hitLock, 0.35);
   const { f } = fixture();
   assert.equal(T.chainLen(f), 85);
@@ -70,39 +75,109 @@ test('chain combat numbers and augmentation damage/range contracts remain unchan
   assert.equal(T.chainLen(f), 130 * 1.6);
 });
 
-test('a turn retains inertia, carries the head past the carrier, and stays stable across frame rates', () => {
+test('a sharp turn still throws the spinning head with inertia, independent of frame rate', () => {
+  /* 회전이 붙어도 물리 느낌은 남아야 한다. 선회 한 번이 추를 얼마나 가속하는지는
+   * 그 순간 추가 회전의 어느 위상에 있었느냐에 따라 뒤집히므로, 선회 시점을
+   * 여러 번 바꿔 평균으로 본다. 한 시점만 재면 같은 코드에서도 1.0 ~ 2.1이 나왔다. */
   const runs = [];
   for (const dt of [1 / 120, 1 / 60, 1 / 30, 1 / 15]) {
-    const { b, f } = fixture(), m = metrics();
-    let afterTurn = null, crossed = false;
-    for (let i = 0; i < Math.round(10 / dt); i++) {
-      const time = i * dt, angle = time >= 4 ? Math.PI / 2 : 0;
-      f.vx = Math.cos(angle); f.vy = Math.sin(angle);
-      f.x += f.vx * f.st.move * T.GAME_SPEED * dt;
-      f.y += f.vy * f.st.move * T.GAME_SPEED * dt;
-      b.simT += dt; T.updateChain(b, f, dt); measure(f, m);
-      const head = f.chainHeads[0];
-      if (time >= 4 && afterTurn === null) afterTurn = head.x - f.x;
-      if (time > 4 && head.x - f.x > 20) crossed = true;
+    let amp = 0, count = 0;
+    const m = metrics();
+    for (let k = 0; k < 12; k++) {
+      const { b, f } = fixture(), turnAt = 5 + k * (2.73 / 12);
+      let before = 0, n = 0, peak = 0;
+      for (let i = 0; i < Math.round((turnAt + 1.6) / dt); i++) {
+        const time = i * dt, angle = time >= turnAt ? Math.PI : 0;
+        f.vx = Math.cos(angle); f.vy = Math.sin(angle);
+        f.x += f.vx * f.st.move * T.GAME_SPEED * dt;
+        f.y += f.vy * f.st.move * T.GAME_SPEED * dt;
+        b.simT += dt; T.updateChain(b, f, dt); measure(f, m);
+        const sp = Math.hypot(f.chainHeads[0].sx, f.chainHeads[0].sy);
+        if (time >= turnAt - 2 && time < turnAt) { before += sp; n++; }
+        if (time >= turnAt) peak = Math.max(peak, sp);
+      }
+      amp += peak / (before / n); count++;
     }
-    assert.ok(afterTurn < -70, 'head keeps old momentum rather than rotating instantly');
-    assert.ok(crossed, 'one intentional turn creates a usable swing');
+    const mean = amp / count;
+    assert.ok(mean > 1.4, `선회가 추를 확실히 가속한다 (평균 ${mean.toFixed(2)}배)`);
     assert.ok(m.reachError < 1, 'rope stays within 1px solver tolerance of its defined range');
     assert.ok(m.segmentError < 0.5, 'rope joints converge without visible stretching');
-    assert.ok(m.speed > 170 && m.speed < 240, 'a turn supplies a bounded attacking swing');
-    runs.push(m.speed);
+    runs.push(mean);
   }
-  assert.ok(Math.max(...runs) - Math.min(...runs) < 5,
-    `same turn must not depend on frame rate: ${runs.map(x => x.toFixed(2)).join(', ')}`);
+  assert.ok(Math.max(...runs) - Math.min(...runs) < 0.05,
+    `same turn must not depend on frame rate: ${runs.map(x => x.toFixed(3)).join(', ')}`);
 });
 
-test('completely collapsed stationary ropes open on their own without aiming at enemies', () => {
-  const { b, f } = fixture(); f.weaponAngle = 0;
-  const h = setHead(f, 0, 0, 0, 0);
-  for (let i = 0; i < 240; i++) T.updateChain(b, f, 1 / 60);
-  assert.ok(h.x > 65 && h.x <= 86, 'folded chain recovers useful reach');
-  assert.ok(Math.abs(h.y) < 0.001, 'unfolding follows prior facing, not an external target');
-  assert.ok(Math.hypot(h.vx, h.vy) < 60, 'recovery settles rather than becoming a runaway whip');
+test('a collapsed rope on a still ball opens and spins on its own, never toward an enemy', () => {
+  /* 가만히 있어도 천천히 돈다. 연결부 회전이 만드는 것이지 상대를 노리는 게 아니다 —
+   * 적이 어디 있든 같은 궤적이어야 한다. */
+  const trace = enemyAt => {
+    const { b, f, e } = fixture({ enemies: !!enemyAt });
+    if (enemyAt) { e.x = enemyAt.x; e.y = enemyAt.y; e.hp = e.maxHp = 1e9; }
+    f.weaponAngle = 0;
+    setHead(f, 0, 0, 0, 0);
+    const out = [];
+    for (let i = 0; i < 600; i++) {
+      b.simT += 1 / 60; T.updateChain(b, f, 1 / 60);
+      out.push(f.chainHeads[0].x, f.chainHeads[0].y);
+    }
+    return { f, out };
+  };
+  const alone = trace(null);
+  const h = alone.f.chainHeads[0], L = T.chainLen(alone.f);
+  assert.ok(Math.hypot(h.x, h.y) > L * 0.95, '접힌 줄이 제 길이를 되찾는다');
+  assert.ok(Math.hypot(h.vx, h.vy) < 400, '폭주하지 않고 일정하게 돈다');
+  const withEnemy = trace({ x: -60, y: 0 });
+  const drift = alone.out.reduce((mx, v, i) => Math.max(mx, Math.abs(v - withEnemy.out[i])), 0);
+  assert.ok(drift < 1e-9, `적 위치가 회전을 끌어당기지 않는다 (최대 차이 ${drift})`);
+});
+
+test('the spin runs at the weapon rotation speed, in the same direction as melee weapons', () => {
+  const { b, f } = fixture();
+  const dt = 1 / 60;
+  let prev = null, turned = 0, time = 0;
+  for (let i = 0; i < 60 * 12; i++) {
+    b.simT += dt; T.updateChain(b, f, dt);
+    const hh = f.chainHeads[0], ang = Math.atan2(hh.y - f.y, hh.x - f.x);
+    if (i * dt >= 4 && prev !== null) {
+      let d = ang - prev; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      turned += d; time += dt;
+    }
+    prev = ang;
+  }
+  const rate = turned / time, target = f.st.rot * T.GAME_SPEED;
+  assert.ok(rate > 0, '근접 무기와 같은 방향(각도 증가)으로 돈다');
+  // 공기 저항만큼 목표를 올려 잡아 두었다. 줄 구속에서 조금 더 잃는 몫만 남는다.
+  assert.ok(Math.abs(rate / target - 1) < 0.08,
+    `화면 회전속도가 설정값과 맞는다 (${rate.toFixed(3)} / ${target.toFixed(3)})`);
+});
+
+test('attack speed now means spin: faster rotation and a harder-hitting head', () => {
+  const spinAt = aspd => {
+    const { b, f } = fixture();
+    f.st.rot = T.WEAPONS.chain.rot * (aspd > 1 ? 1 + (aspd - 1) * T.MELEE_ASPD_GAIN : aspd);
+    const dt = 1 / 60;
+    let prev = null, turned = 0, time = 0, speed = 0, n = 0;
+    for (let i = 0; i < 60 * 12; i++) {
+      b.simT += dt; T.updateChain(b, f, dt);
+      const hh = f.chainHeads[0], ang = Math.atan2(hh.y - f.y, hh.x - f.x);
+      if (i * dt >= 4) {
+        if (prev !== null) {
+          let d = ang - prev; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+          turned += d; time += dt;
+        }
+        speed += Math.hypot(hh.sx, hh.sy); n++;
+      }
+      prev = ang;
+    }
+    return { rate: turned / time, speed: speed / n };
+  };
+  const slow = spinAt(1), fast = spinAt(1.5);
+  assert.ok(fast.rate > slow.rate * 1.5,
+    `공격속도 +50%면 회전이 확실히 빨라진다 (${slow.rate.toFixed(2)} -> ${fast.rate.toFixed(2)})`);
+  assert.ok(slow.speed > T.WEAPONS.chain.gate,
+    `기본 회전만으로 관문을 넘는다 (추 ${slow.speed.toFixed(0)} > 관문 ${T.WEAPONS.chain.gate})`);
+  assert.ok(fast.speed > slow.speed, '빨리 돌수록 추가 더 세게 지나간다');
 });
 
 test('position swap retains old carrier velocity on the head and reflects the new carrier safely', () => {
