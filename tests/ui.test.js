@@ -370,29 +370,49 @@ test('초상화는 칸 비율 그대로 그려진다 (눌리지 않는다)', () 
  * 아래 꼭짓점에 둘러싸여 있다. 크기나 좌우를 손볼 때 어느 하나를
  * 덮으면 그 버튼이 통째로 안 눌린다. 실제로 두 번 그랬다.
  *
- * 좌우가 바뀔 수 있으므로 자리를 박아 두지 않고 index.html에 적힌
- * left/right·padding·justify-content를 그대로 읽어 상자를 세운다.
- * 좌표는 모두 cqw, 원점은 화면 왼쪽 아래.
+ * 좌우가 바뀔 수 있으므로 자리를 박아 두지 않고 실제로 적용되는 값을
+ * 읽어 상자를 세운다. index.html의 규칙은 뒤에 불러오는 스타일시트가
+ * 덮어쓰므로, 불러오는 순서대로 훑어 마지막에 적힌 값을 쓴다.
+ * 좌표는 모두 cqw, 원점은 화면 왼쪽 아래. 안전 영역(env)은 0으로 본다.
  * ============================================================ */
 {
   const html = read('index.html');
-  const rule = sel => {
-    const at = html.indexOf(sel + '{');
-    if (at < 0) throw new Error(sel + ' 규칙을 찾지 못했다');
-    return html.slice(at + sel.length + 1, html.indexOf('}', at));
-  };
+  const sheets = [html].concat([...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map(m => read(m[1])));
   const pick = (sel, prop) => {
-    for (const decl of rule(sel).split(';')) {
-      const c = decl.indexOf(':');
-      if (decl.slice(0, c).trim() === prop) return decl.slice(c + 1).trim();
+    let found = null;
+    for (const src of sheets) {
+      for (let at = src.indexOf(sel + '{'); at >= 0; at = src.indexOf(sel + '{', at + 1)) {
+        const before = src[at - 1];
+        if (before && !/[\s},]/.test(before)) continue;          // #a.b{ 같은 다른 선택자
+        const body = src.slice(at + sel.length + 1, src.indexOf('}', at));
+        for (const decl of body.split(';')) {
+          const c = decl.indexOf(':');
+          if (decl.slice(0, c).trim() === prop) found = decl.slice(c + 1).trim();
+        }
+      }
     }
-    return null;
+    return found;
   };
-  const num = (sel, prop, unit) => {
+  // 12cqw 또는 calc(12cqw + env(...)) 에서 cqw 값을 꺼낸다
+  const cqw = (v, what) => {
+    const m = /^(?:calc\()?(-?[\d.]+)cqw(?![\w-])/.exec(v || '');
+    if (!m) throw new Error(what + ' 의 값을 cqw로 읽지 못했다: ' + v);
+    return parseFloat(m[1]);
+  };
+  const num = (sel, prop) => {
     const v = pick(sel, prop);
     if (v === null) throw new Error(sel + ' 의 ' + prop + '을 찾지 못했다');
-    if (!v.endsWith(unit || 'cqw')) throw new Error(sel + ' 의 ' + prop + ' 단위가 바뀌었다: ' + v);
-    return parseFloat(v);
+    return cqw(v, sel + ' ' + prop);
+  };
+  // 괄호 안의 공백은 나누지 않는다 — calc(5cqw + env(...))가 한 칸이다
+  const splitTop = v => {
+    const out = []; let depth = 0, cur = '';
+    for (const ch of v) {
+      if (ch === '(') depth++; else if (ch === ')') depth--;
+      if (ch === ' ' && depth === 0) { if (cur) out.push(cur); cur = ''; } else cur += ch;
+    }
+    if (cur) out.push(cur);
+    return out;
   };
 
   const APP_H = 1280 / 7.2;                    // 720×1280 화면의 세로 = 177.78cqw
@@ -409,14 +429,15 @@ test('초상화는 칸 비율 그대로 그려진다 (눌리지 않는다)', () 
   const disc = { x: jx + jw / 2, y: jb + jh - D / 2, r: D / 2 };
 
   // 스킬 버튼 — 복사 스킬을 먹어 셋이 되는 때가 가장 빠듯하다
-  const pad = pick('#skillbar', 'padding').split(/ +/).map(parseFloat);   // 위 오른 아래 왼
+  const pad = splitTop(pick('#skillbar', 'padding')).map(v => cqw(v, '#skillbar padding'));   // 위 오른 아래 왼
   const gap = num('#skillbar', 'gap'), size = num('.skillbtn', 'width');
+  const tall = pick('.skillbtn', 'height') ? num('.skillbtn', 'height') : size;
   const span3 = size * 2 + gap;
   const toRight = pick('#skillbar', 'justify-content') === 'flex-end';
   const btn3 = toRight
     ? { x0: 100 - pad[1] - span3, x1: 100 - pad[1] }
     : { x0: pad[3], x1: pad[3] + span3 };
-  btn3.y0 = pad[2]; btn3.y1 = pad[2] + size;
+  btn3.y0 = pad[2]; btn3.y1 = pad[2] + tall;
 
   // 좌하단 스탯판 — render.js drawStatPanel과 같은 식으로 다시 센다
   const padY = L * 0.022;
@@ -460,7 +481,8 @@ test('초상화는 칸 비율 그대로 그려진다 (눌리지 않는다)', () 
 
   test('시작 방향 문구 띠가 조이스틱·라운드 정보와 겹치지 않는다', () => {
     const hintRight = 100 - num('#hud-hint', 'right');
-    const top = parseFloat(pick('#hud-hint', 'top')) / 100 * APP_H;   // 화면 위에서
+    const topV = pick('#hud-hint', 'top');
+    const top = topV.endsWith('%') ? parseFloat(topV) / 100 * APP_H : cqw(topV, '#hud-hint top');   // 화면 위에서
     const HINT_H = 7;                          // 한 줄 + 여백을 넉넉히 잡은 값
     const roundBox = 100 - 2.5 - 21;           // #hud-top: right 2.5cqw, min-width 21cqw
     assert.ok(hintRight <= roundBox, '문구 오른끝 ' + hintRight.toFixed(1)

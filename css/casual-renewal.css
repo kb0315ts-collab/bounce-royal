@@ -159,21 +159,22 @@ input[type=range]{width:40cqw;accent-color:#27936e}.toggle{height:7.5cqw;border:
 #hud-spec{top:32cqw;border:.4cqw solid #243747;background:#e8d5ef;color:#604479;font:2.8cqw/1 'Jua',sans-serif;box-shadow:0 .5cqw 0 #243747}
 #hud-hint{top:32cqw;left:3cqw;right:32cqw;border:.4cqw solid #243747;background:#fff2bd;color:#775e30;font:2.7cqw/1.3 'Jua',sans-serif;box-shadow:0 .5cqw 0 #243747}
 #skillbar{height:17%;padding:2cqw 34cqw calc(5cqw + env(safe-area-inset-bottom,0px)) 4cqw;gap:3cqw;background:linear-gradient(0deg,#97dcb4,rgba(151,220,180,.5) 60%,transparent)}
-.skillbtn{width:17cqw;height:18.3cqw;border:.6cqw solid #243747;border-radius:4cqw;color:#243747;background:#e0e5cb;box-shadow:0 1cqw 0 #243747,inset 0 .8cqw 0 #fff5d8}
-.skillbtn::before{display:none}.skillbtn .ico{height:7.5cqw;color:#243747;filter:drop-shadow(0 .4cqw 0 #fff5ce);margin-bottom:.8cqw}.skillbtn .ico .ui-svg{width:7cqw;height:7cqw}
-.skillbtn .lbl{max-width:15cqw;font:2.4cqw/1.1 'Jua',sans-serif;color:#243747}.skillbtn .uses{font:2.1cqw/1 'Jua',sans-serif;color:#7c6127;margin-top:.7cqw;letter-spacing:.3cqw}
+.skillbtn{width:20cqw;height:21.5cqw;border:.6cqw solid #243747;border-radius:4.6cqw;color:#243747;background:#e0e5cb;box-shadow:0 1cqw 0 #243747,inset 0 .8cqw 0 #fff5d8}
+.skillbtn::before{display:none}.skillbtn .ico{height:8.8cqw;color:#243747;filter:drop-shadow(0 .4cqw 0 #fff5ce);margin-bottom:.9cqw}.skillbtn .ico .ui-svg{width:8.2cqw;height:8.2cqw}
+.skillbtn .lbl{max-width:17.5cqw;font:2.8cqw/1.1 'Jua',sans-serif;color:#243747}.skillbtn .uses{font:2.4cqw/1 'Jua',sans-serif;color:#7c6127;margin-top:.7cqw;letter-spacing:.3cqw}
 .skillbtn.ready{border-color:#243747;background:#ffd44c;box-shadow:0 1.2cqw 0 #243747,inset 0 .8cqw 0 #ffe994}.skillbtn.ready:nth-child(2){background:#79dec0;box-shadow:0 1.2cqw 0 #243747,inset 0 .8cqw 0 #c0f3d3}
 .skillbtn.used{opacity:.52;filter:grayscale(.75);box-shadow:0 .5cqw 0 #243747}.skillbtn.charging{border-color:#243747;background:#ffbf66;animation:casualCharge .45s ease-in-out infinite alternate}
-.skillbtn .cdoverlay{border-radius:3.3cqw;background:rgba(255,238,181,.91);color:#8b532a;font:2.8cqw/1 'Jua',sans-serif}
+.skillbtn .cdoverlay{border-radius:3.9cqw;background:rgba(255,238,181,.91);color:#8b532a;font:3.2cqw/1 'Jua',sans-serif}
 @keyframes casualCharge{to{box-shadow:0 1.2cqw 0 #243747,0 0 0 1cqw #fff1a2}}
-#steer-control{right:4.5cqw;bottom:calc(4cqw + env(safe-area-inset-bottom,0px));width:25cqw;height:29cqw;gap:1.3cqw}
-#steer-base{width:25cqw;height:25cqw;border:.65cqw solid #243747;background:radial-gradient(circle,#9dc7a8 0 39%,#c9e6bc 40% 66%,#f5f3d2 67%);box-shadow:0 1.1cqw 0 #243747,inset 0 .8cqw 0 #f5ffdf;backdrop-filter:none}
+/* 조이스틱은 모서리에서 떼어 엄지가 편한 자리에 둔다 (오른쪽 8cqw, 아래 7.5cqw) */
+#steer-control{right:8cqw;bottom:calc(7.5cqw + env(safe-area-inset-bottom,0px));width:29cqw;height:33.5cqw;gap:1.3cqw}
+#steer-base{width:29cqw;height:29cqw;border:.65cqw solid #243747;background:radial-gradient(circle,#9dc7a8 0 39%,#c9e6bc 40% 66%,#f5f3d2 67%);box-shadow:0 1.1cqw 0 #243747,inset 0 .8cqw 0 #f5ffdf;backdrop-filter:none}
 #steer-base::before{inset:12%;width:76%;height:76%;transform:none;border:.4cqw solid #85a893;background:none;mask:none;-webkit-mask:none;opacity:1;left:12%;top:12%}.steer-ring{inset:21%;border:.35cqw dashed #779887}
-#steer-knob{width:11.5cqw;height:11.5cqw;margin:-5.75cqw 0 0 -5.75cqw;border:.55cqw solid #243747;background:#79dec0;box-shadow:0 .8cqw 0 #315c4b,inset 0 .9cqw 0 #bcf2d1}
-#steer-knob .steer-arrow{color:#276650;font-size:4.3cqw;text-shadow:0 .3cqw 0 #c0f3d3}
+#steer-knob{width:13.3cqw;height:13.3cqw;margin:-6.65cqw 0 0 -6.65cqw;border:.55cqw solid #243747;background:#79dec0;box-shadow:0 .8cqw 0 #315c4b,inset 0 .9cqw 0 #bcf2d1}
+#steer-knob .steer-arrow{color:#276650;font-size:5cqw;text-shadow:0 .3cqw 0 #c0f3d3}
 #steer-control.active #steer-base{border-color:#243747;box-shadow:0 1.1cqw 0 #243747,0 0 0 .8cqw rgba(255,249,206,.75)}#steer-control.active #steer-knob{filter:none;background:#99edc1;box-shadow:0 .8cqw 0 #315c4b,inset 0 .9cqw 0 #e1ffdd}
 #steer-control.aiming #steer-base{border-color:#243747}#steer-control.aiming #steer-knob{border-color:#243747;background:#ffd44c;box-shadow:0 .8cqw 0 #8e7732,inset 0 .9cqw 0 #ffeb9c}
-#steer-label{height:2.8cqw;padding:.4cqw 1.6cqw;background:#fff8df;border:.25cqw solid #769b7d;border-radius:99px;color:#4c715a;font:2.3cqw/1 'Jua',sans-serif;text-shadow:none}
+#steer-label{height:3.2cqw;padding:.4cqw 1.8cqw;background:#fff8df;border:.25cqw solid #769b7d;border-radius:99px;color:#4c715a;font:2.6cqw/1 'Jua',sans-serif;text-shadow:none}
 #steer-control.active #steer-label,#steer-control.aiming #steer-label{color:#466841}#steer-control.disabled{opacity:.45;filter:grayscale(.5)}
 #btn-watch-other{bottom:31cqw;min-width:42cqw;max-width:48cqw;background:#fff8df;z-index:9}
 #hud-count{color:#fff8df;font-family:'Jua',sans-serif;-webkit-text-stroke:1cqw #243747;paint-order:stroke fill;text-shadow:0 1.5cqw 0 #243747}
