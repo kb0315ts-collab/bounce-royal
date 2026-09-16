@@ -22,6 +22,122 @@
   const ratio = fighter => Math.max(0, Math.min(1, finite(fighter.hp) / Math.max(1, finite(fighter.maxHp, 1))));
   const entry = (data, id) => Object.prototype.hasOwnProperty.call(data, id) ? data[id] : null;
 
+  /* 같은 상황이라도 표현이 돌아가게 한다. 난수는 쓸 수 없다 — 중계는 게임
+   * RNG를 절대 건드리지 않는다 — 그래서 이미 확정된 사실(이벤트 seq, uid,
+   * 경기 시각)에서 뽑은 정수로 고른다. 같은 경기를 다시 봐도 같은 대사가 나온다. */
+  const pick = (list, n) => list[((Math.trunc(finite(n)) % list.length) + list.length) % list.length];
+  /* 문자열에서 고르게 퍼지는 정수를 만든다. 사실을 그냥 더하면 배수가 겹쳐
+   * 늘 같은 항목만 나온다 (실제로 12n+11 꼴이 되어 한 가지만 뽑혔다). */
+  const spin = value => {
+    let h = 2166136261;
+    const text = String(value);
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 8;
+  };
+  /* 한국어 조사. 받침이 있으면 앞쪽, 없으면 뒤쪽을 쓴다.
+   * 이게 없으면 '지훈가 앞섭니다', '방어을 발동' 같은 말이 나간다. */
+  const hasJong = word => {
+    const text = String(word || '');
+    const code = text.charCodeAt(text.length - 1);
+    return code >= 0xac00 && code <= 0xd7a3 ? (code - 0xac00) % 28 !== 0 : false;
+  };
+  const josa = (word, withJong, without) => String(word) + (hasJong(word) ? withJong : without);
+  // 으로/로는 ㄹ 받침도 '로'를 쓴다
+  const ro = word => {
+    const text = String(word || '');
+    const code = text.charCodeAt(text.length - 1);
+    const jong = code >= 0xac00 && code <= 0xd7a3 ? (code - 0xac00) % 28 : 0;
+    return text + (jong === 0 || jong === 8 ? '로' : '으로');
+  };
+
+  /* 대사 사전. 각 항목은 사실(이름·스킬명 등)을 반드시 담고, 달라지는 것은
+   * 그 주변의 말투뿐이다. 그래야 표현이 바뀌어도 전달되는 정보는 같다. */
+  const LINES = {
+    intro: (who, weapon) => [
+      `${who}의 ${weapon}! 대결 시작합니다!`,
+      `${who}의 ${weapon}, 오늘은 어떤 그림이 나올까요!`,
+      `자, ${who}의 ${weapon}! 첫 합을 노립니다!`,
+      `${ro(weapon)} 출발합니다. ${who}, 시작!`,
+      `${who}의 ${weapon}! 준비됐습니다, 갑니다!`,
+    ],
+    streak: (who, n) => [
+      `${who}, ${n}연승의 기세!`,
+      `${who}, ${n}연승 중입니다. 막을 사람 있습니까!`,
+      `${who}, ${n}연승! 오늘 감이 아주 좋습니다!`,
+      `${who}, ${n}연승을 달리고 있습니다. 계속 갈까요?`,
+    ],
+    skillUse: (who, skill) => [
+      `${who}의 ${skill}, 발동!`,
+      `${who}, ${skill} 발동합니다!`,
+      `나왔습니다, ${who}의 ${skill} 발동!`,
+      `${josa(who,'이','가')} ${josa(skill,'을','를')} 발동했습니다!`,
+    ],
+    skillHit: (who, skill) => [
+      `${who}의 ${skill}! 적중합니다!`,
+      `${who}의 ${skill}, 그대로 적중!`,
+      `${who}의 ${skill}이 적중했습니다! 좋았어요!`,
+      `${who}의 ${skill}! 정확히 적중입니다!`,
+    ],
+    special: (who, what) => [
+      `${who}의 ${what}, 제대로 들어갔습니다!`,
+      `${who}의 ${what}까지 꽂힙니다!`,
+      `${who}의 ${what}! 이건 아프겠는데요!`,
+      `${who}의 ${what}, 정통으로 맞았습니다!`,
+    ],
+    combo: who => [
+      `${who}, 세 번 연속 적중! 몰아붙입니다!`,
+      `${who}의 연속타! 빈틈을 놓치지 않습니다!`,
+      `${who}, 쉬지 않고 들어갑니다! 연속 적중!`,
+      `${who}의 몰아치기! 상대가 버티질 못하네요!`,
+    ],
+    lead: who => [
+      `${who}, 체력 차이를 크게 벌립니다!`,
+      `${josa(who,'이','가')} 앞서 나갑니다! 격차가 큽니다!`,
+      `${who}, 확실히 우세를 잡았습니다!`,
+      `${josa(who,'이','가')} 주도권을 가져갔습니다!`,
+    ],
+    firstBlood: who => [
+      `${who}, 선제 타격 성공!`,
+      `첫 피해는 ${who}입니다!`,
+      `${josa(who,'이','가')} 먼저 때렸습니다! 기선 제압!`,
+      `${who}, 오늘의 첫 유효타를 만듭니다!`,
+    ],
+    lowHp: who => [
+      `${who}, 체력이 얼마 남지 않았습니다!`,
+      `${who} 위험합니다! 한 방이면 끝나요!`,
+      `${who}, 아슬아슬합니다. 버틸 수 있을까요!`,
+      `${who}의 체력이 바닥을 보입니다!`,
+    ],
+    comeback: who => [
+      `${who}, 뒤집었습니다! 역전입니다!`,
+      `분위기가 바뀝니다! ${josa(who,'이','가')} 앞섭니다!`,
+      `${who}의 역전! 이거 모르겠는데요!`,
+      `${josa(who,'이','가')} 순위를 뒤집어 놓았습니다!`,
+    ],
+    overtime: () => [
+      '연장전 돌입! 이제 진짜 승부입니다!',
+      '시간이 다 됐습니다. 연장전으로 갑니다!',
+      '승부를 못 냈습니다! 연장전 시작!',
+      '연장전입니다. 여기서 갈립니다!',
+    ],
+    roundWin: who => [
+      `${who}, 이번 라운드를 가져갑니다!`,
+      `이번 라운드는 ${who}의 것입니다!`,
+      `${who}, 깔끔하게 마무리했습니다!`,
+      `${josa(who,'이','가')} 이번 라운드를 잡았습니다!`,
+    ],
+    draw: () => [
+      '끝까지 팽팽했습니다! 이번 라운드는 무승부!',
+      '승부를 가리지 못했습니다. 무승부입니다!',
+      '누구도 물러서지 않았네요. 무승부!',
+    ],
+    gg: who => [
+      `GG~~! ${who}, 최종 우승입니다!`,
+      `GG~~! ${who}, 최종 우승을 차지합니다!`,
+      `GG~~! ${who}, 최종 우승! 오늘의 주인공입니다!`,
+    ],
+  };
+
   class Director {
     constructor({ weapons = {}, characters = {} } = {}) {
       this.weapons = weapons;
@@ -51,7 +167,7 @@
       if (this.finishedMatches.size > 64) this.finishedMatches.delete(this.finishedMatches.values().next().value);
       this.lastSpoken = finite(nowMilliseconds);
       return this.line('gg', 100, champion,
-        'GG~~! ' + nameOf(champion.name) + ', 최종 우승입니다!', '최종 승부', true);
+        pick(LINES.gg(nameOf(champion.name)), spin(champion.id + ':' + champion.name)), '최종 승부', true);
     }
 
     // Result-screen fallback for reconnects, old servers or offscreen fast-sim.
@@ -96,7 +212,9 @@
       const fresh = !state;
       if (fresh) {
         state = { seq: 0, simT: -Infinity, phase: battle.phase, introDone: false,
-          resultDone: false, hits: new Map(), sourceTimes: new Map(), leadArmed: true };
+          resultDone: false, hits: new Map(), sourceTimes: new Map(), leadArmed: true,
+          // 새로 잡는 상황들: 선제 타격 · 위기 · 역전 · 연장전
+          firstHitDone: false, otDone: false, leaderUid: null, lowArmed: new Set() };
         this.battles.set(key, state);
         // A normal session is much smaller; keep spectator/reconnect history bounded.
         if (this.battles.size > 64) this.battles.delete(this.battles.keys().next().value);
@@ -120,9 +238,10 @@
         const fighter = winner && typeof winner === 'object' ? winner
           : (battle.fighters || []).find(f => f.uid === winner) || null;
         this.lastSpoken = now;
+        const turn = spin(state.seq + ':' + finite(fighter && fighter.uid));
         return this.line('round-end', 90, fighter, fighter && !battle.result.draw
-          ? nameOf(fighter.name) + ', 이번 라운드를 가져갑니다!'
-          : battle.result.draw ? '끝까지 팽팽했습니다! 이번 라운드는 무승부!'
+          ? pick(LINES.roundWin(nameOf(fighter.name)), turn)
+          : battle.result.draw ? pick(LINES.draw(), turn)
             : '이번 라운드가 끝났습니다!', '라운드 종료');
       }
       if (battle.phase !== 'fight' || battle.result) return null;
@@ -136,10 +255,12 @@
         const fighter = streak || active[0];
         if (fighter) {
           const weapon = entry(this.weapons, fighter.weaponId);
+          const who = nameOf(fighter.name);
+          const turn = spin(finite(fighter.uid) + ':' + who + ':'
+            + finite(fighter.player && fighter.player.rounds) + ':' + finite(battle.soundId));
           candidates.push(this.line('intro', 20, fighter, streak
-            ? nameOf(fighter.name) + ', ' + Math.floor(fighter.player.streak) + '연승의 기세!'
-            : nameOf(fighter.name) + '의 ' + (weapon ? weapon.name : '무기') + '! '
-              + '대결 시작합니다!', 'ON AIR'));
+            ? pick(LINES.streak(who, Math.floor(fighter.player.streak)), turn)
+            : pick(LINES.intro(who, weapon ? weapon.name : '무기'), turn), 'ON AIR'));
         }
       }
 
@@ -162,7 +283,7 @@
         if (event.type === 'skill') {
           // Charge, dash and detonation acceptance do not prove an impact.
           if (UTILITY_SKILLS.has(source)) candidates.push(this.line('skill-use', 55, fighter,
-            name + '의 ' + this.skillName(source) + ', 발동!', '스킬 발동'));
+            pick(LINES.skillUse(name, this.skillName(source)), spin(event.seq + source)), '스킬 발동'));
           continue;
         }
         if (event.type !== 'hit' || !(event.amount > 0) || !fighters.has(event.target) || event.target === event.actor) continue;
@@ -171,19 +292,24 @@
           const sourceKey = event.actor + ':' + source;
           if (now - (state.sourceTimes.get(sourceKey) ?? -Infinity) >= 8000) {
             candidates.push({ ...this.line('skill-hit', 80, fighter,
-              name + '의 ' + this.skillName(source) + '! 적중합니다!', '스킬 적중'), cooldownKey: sourceKey });
+              pick(LINES.skillHit(name, this.skillName(source)), spin(event.seq + source)), '스킬 적중'), cooldownKey: sourceKey });
           }
         }
         if (Object.prototype.hasOwnProperty.call(SPECIALS, source)) {
           const sourceKey = event.actor + ':' + source;
           if (now - (state.sourceTimes.get(sourceKey) ?? -Infinity) >= 8000) {
-            const end = event.seq % 2 ? '까지 꽂힙니다!' : ', 제대로 들어갔습니다!';
             candidates.push({ ...this.line('special-hit', 60, fighter,
-              name + '의 ' + SPECIALS[source] + end, '특수 공격'), cooldownKey: sourceKey });
+              pick(LINES.special(name, SPECIALS[source]), spin(event.seq + source)), '특수 공격'), cooldownKey: sourceKey });
           }
         }
         // Periodic damage, summons and passive systems must not look like a weapon combo.
         if (!source.startsWith('weapon:') && !source.startsWith('skill:')) continue;
+        // 오늘의 첫 유효타. 지속 피해나 소환수가 아니라 직접 때린 것만 센다.
+        if (!state.firstHitDone) {
+          state.firstHitDone = true;
+          candidates.push(this.line('first-blood', 65, fighter,
+            pick(LINES.firstBlood(name), spin(event.seq + name)), '선제 타격'));
+        }
         const pair = event.actor + '>' + event.target;
         let hits = (state.hits.get(pair) || []).filter(t => eventTime - t <= COMBO_WINDOW);
         if (!hits.length || eventTime - hits[hits.length - 1] >= .08 - 1e-6) hits.push(eventTime);
@@ -192,18 +318,46 @@
           state.hits.set(pair, []);
           const sourceKey = 'combo:' + pair;
           if (now - (state.sourceTimes.get(sourceKey) ?? -Infinity) >= 8000) {
-            candidates.push({ ...this.line('combo', 70, fighter, event.seq % 2
-              ? name + ', 세 번 연속 적중! 몰아붙입니다!'
-              : name + '의 연속타! 빈틈을 놓치지 않습니다!', '연속 적중'), cooldownKey: sourceKey });
+            candidates.push({ ...this.line('combo', 70, fighter,
+              pick(LINES.combo(name), spin(event.seq + pair)), '연속 적중'), cooldownKey: sourceKey });
           }
         }
       }
+      // 연장전 돌입. 한 번만 알린다.
+      if (battle.overtime && !state.otDone) {
+        state.otDone = true;
+        candidates.push(this.line('overtime', 88, null,
+          pick(LINES.overtime(), spin(state.seq + ':' + (battle.fighters || []).length)), '연장 돌입'));
+      }
+      /* 위기 — 체력이 25% 밑으로 떨어진 순간. 한 번 알린 선수는 35% 위로
+       * 회복해야 다시 알린다. 안 그러면 바닥권에서 계속 떠든다. */
+      for (const f of (battle.fighters || [])) {
+        if (f.dead || f.mainDead) { state.lowArmed.delete(f.uid); continue; }
+        const r = ratio(f);
+        if (r > .35) { state.lowArmed.delete(f.uid); continue; }
+        if (r > 0 && r <= .25 && !state.lowArmed.has(f.uid)) {
+          state.lowArmed.add(f.uid);
+          candidates.push(this.line('low-hp', 52, f,
+            pick(LINES.lowHp(nameOf(f.name)), spin(state.seq + ':' + f.uid)), '위기'));
+        }
+      }
       const lead = this.lead(battle);
+      /* 역전 — 앞서던 선수가 바뀌었다. 첫 관측은 기준만 잡고 넘어간다.
+       * 체력이 붙어 있을 때 엎치락뒤치락하는 것까지 역전이라 부르지는 않는다. */
+      if (lead.fighter) {
+        const uid = lead.fighter.uid;
+        if (state.leaderUid == null) state.leaderUid = uid;
+        else if (state.leaderUid !== uid) {
+          state.leaderUid = uid;
+          if (time >= 4 && lead.gap >= .12) candidates.push(this.line('comeback', 75, lead.fighter,
+            pick(LINES.comeback(nameOf(lead.fighter.name)), spin(state.seq + ':' + uid)), '역전'));
+        }
+      }
       if (lead.gap <= .2) state.leadArmed = true;
       if (time >= 3 && lead.fighter && lead.gap >= .35 && state.leadArmed) {
         state.leadArmed = false;
         candidates.push(this.line('lead', 50, lead.fighter,
-          nameOf(lead.fighter.name) + ', 체력 차이를 크게 벌립니다!', '체력 우세'));
+          pick(LINES.lead(nameOf(lead.fighter.name)), spin(state.seq + ':' + lead.fighter.uid)), '체력 우세'));
       }
       for (const [pair, hits] of state.hits) {
         const recent = hits.filter(t => time - t <= COMBO_WINDOW);

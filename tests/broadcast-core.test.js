@@ -123,7 +123,7 @@ test('차지 시작만 한 경우 빗나감이라 하지 않으며 실제 발사
   assert.equal(r.useSkill(b, a, 'weapon'), true);
   assert.equal(b.roundReport[a.pid].releases['skill:bow'], 1);
   let lines = recapLines(b.roundReport[a.pid], weapons, characters);
-  assert.match(lines[0], /발사했지만 체력 피해로 이어지지/);
+  assert.match(lines[0], /체력 피해로 이어지지/);   // 표현은 돌아가도 이 사실은 남는다
   const charge = b.projectiles.find(p => p.kind === 'charge');
   target.shield = 30; r.projectileHit(b, charge, target);
   assert.equal(b.roundReport[a.pid].damage['skill:bow'], undefined);
@@ -372,4 +372,26 @@ test('짧은 쇠사슬 위치 교환도 리플레이에서 추와 공이 서로 
   const after=paintFrame(b), mid=playbackFrame(before,after,.5);
   assert.equal(mid.fighters[0].x,after.fighters[0].x);
   assert.deepEqual(mid.fighters[0].chainHeads,after.fighters[0].chainHeads);
+});
+
+/* 리캡도 같은 상황에서 표현이 돌아가야 한다. 사실을 그냥 더해 고르면
+ * 배수가 겹쳐 한 문형만 계속 나온다 — 실제로 그런 버그가 있었다. */
+test('전투 리캡과 이벤트 안내는 표현이 돌아가고 조사가 맞는다', () => {
+  const weapons = { bow: { name: '활', skillName: '차지 샷' } };
+  const shapes = new Set();
+  for (let round = 1; round <= 12; round++) for (const amount of [7, 13, 21, 34, 55]) {
+    const line = recapLines({ round, damage: { 'augment:shuriken': amount, 'weapon:bow': amount / 2 } }, weapons, {})[0];
+    shapes.add(line.replace(/[0-9.]+/g, 'N'));
+  }
+  assert.ok(shapes.size >= 3, `리캡 문형이 최소 3가지 (실제 ${shapes.size})`);
+  // 같은 입력이면 같은 출력 — 시계나 난수를 쓰지 않는다
+  const row = { round: 4, damage: { 'augment:shuriken': 21 } };
+  assert.deepEqual(recapLines(row, weapons, {}), recapLines(row, weapons, {}));
+  assert.deepEqual(eventIntro(3), eventIntro(3));
+  assert.ok(new Set([0,1,2,3,4,5].map(r => eventIntro(r)[0])).size >= 2, '이벤트 안내도 돌아간다');
+  // 조사: 받침 있는 말은 '으로', ㄹ 받침과 받침 없는 말은 '로'
+  const withJong = recapLines({ round:1, damage:{ 'augment:shuriken': 9 } }, weapons, {}).join(' ');
+  assert.doesNotMatch(withJong, /표창로/, '표창은 으로');
+  const noJong = recapLines({ round:1, damage:{ 'augment:missile': 9 } }, weapons, {}).join(' ');
+  assert.doesNotMatch(noJong, /미사일으로/, '미사일은 로');
 });

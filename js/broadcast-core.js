@@ -16,29 +16,97 @@
     return sourceNames[source] || (type === 'weapon' ? weapons[id]?.name
       : type === 'skill' ? weapons[id]?.skillName : type === 'char' ? characters[id]?.skillName : null);
   }
+  /* 같은 상황이라도 말이 돌아가게 한다. 난수를 쓰면 같은 화면을 다시 봤을
+   * 때 대사가 바뀌어 버리므로, 이미 확정된 수치에서 뽑은 정수로 고른다. */
+  const pick = (list, n) => list[((Math.trunc(Number(n) || 0) % list.length) + list.length) % list.length];
+  /* 사실을 그냥 더해 고르면 배수가 겹쳐 한 가지만 계속 나온다.
+   * (실제로 12n+11 꼴이 되어 14판 내내 같은 문장이 나왔다.) 해시로 흩는다. */
+  const spin = value => {
+    let h = 2166136261;
+    const text = String(value);
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 8;
+  };
+  const rowSpin = row => spin((row?.round || 0) + '|' + Object.entries(row?.damage || {})
+    .map(([k, v]) => k + ':' + Math.round(v || 0)).sort().join(','));
+  // 한국어 조사 — '표창으로' / '번개로' 를 가른다 (ㄹ 받침은 '로')
+  const ro = word => {
+    const text = String(word || '');
+    const code = text.charCodeAt(text.length - 1);
+    const jong = code >= 0xac00 && code <= 0xd7a3 ? (code - 0xac00) % 28 : 0;
+    return text + (jong === 0 || jong === 8 ? '로' : '으로');
+  };
+  const RECAP = {
+    // 기록이 없는 예외 경로다. 문구를 돌릴 근거가 없으니 한 줄로 둔다.
+    none: ['지난 전투 기록을 받지 못했네요. 이번 증강에서 다음 승부를 준비해 봅시다!'],
+    top: (what, amount) => [
+      `지난 전투, ${ro(what)} ${amount} 피해! 잘 들어갔어요.`,
+      `${what}, ${amount} 피해를 만들었습니다. 오늘의 주력이네요!`,
+      `${what}, ${amount} 피해! 이게 제 몫을 톡톡히 했습니다.`,
+      `지난 판 ${ro(what)}만 ${amount} 피해가 들어갔습니다!`,
+    ],
+    heal: amount => [
+      `흡혈로 실제 회복한 체력은 ${amount}! 버티는 데 도움이 됐네요.`,
+      `흡혈로 ${amount}을 되찾았습니다. 오래 버틴 이유죠!`,
+      `${amount}만큼 빨아들였습니다. 흡혈이 일했네요!`,
+    ],
+    /* '발사는 했는데 체력 피해가 없었다'가 이 문구의 사실이다.
+     * 차지를 걸다 죽은 것은 빗나감이 아니므로, 어느 표현을 쓰든
+     * '체력 피해로 이어지지'는 반드시 남는다. */
+    bowMiss: [
+      '차지 샷은 발사했지만 체력 피해로 이어지지 못했네요. 다음에는 제대로 꽂아 봅시다!',
+      '차지 샷을 쐈지만 체력 피해로 이어지지 못했습니다. 조준을 가다듬어 보죠!',
+      '차지 샷이 나갔는데 체력 피해로 이어지지 않았네요. 다음 한 발을 노려 봅시다!',
+    ],
+    bowHit: amount => [
+      `차지 샷으로 ${amount} 피해! 한 발의 존재감이 컸어요.`,
+      `차지 샷 ${amount} 피해! 한 방이 묵직했습니다.`,
+      `차지 샷이 ${amount}을 꽂았습니다. 이 맛에 당기는 거죠!`,
+    ],
+    empty: [
+      '이번 전투에서는 유효 피해가 기록되지 않았네요. 다음 증강으로 반격을 준비합시다!',
+      '유효 피해가 없었습니다. 증강으로 판을 다시 짜 보죠!',
+      '이번엔 한 대도 제대로 못 넣었네요. 다음 판에서 갚아 줍시다!',
+    ],
+  };
   function recapLines(row, weapons, characters) {
-    if (!row) return ['지난 전투 기록을 받지 못했네요. 이번 증강에서 다음 승부를 준비해 봅시다!'];
-    const lines = [], damage = row.damage || {};
+    if (!row) return [RECAP.none[0]];
+    const lines = [], damage = row.damage || {}, n = rowSpin(row);
     const sources = Object.entries(damage).filter(([s,v])=>v>0 && sourceName(s,weapons,characters))
       .sort((a,b)=>(Number(b[0].startsWith('augment:'))-Number(a[0].startsWith('augment:'))) || b[1]-a[1]);
-    for (const [source, amount] of sources.slice(0,2)) lines.push(`지난 전투, ${sourceName(source,weapons,characters)}으로 ${number(amount)} 피해! 잘 들어갔어요.`);
+    sources.slice(0,2).forEach(([source, amount], i) =>
+      lines.push(pick(RECAP.top(sourceName(source,weapons,characters), number(amount)), n + i)));
     const stolen = (row.healing?.lifesteal || 0) + (row.healing?.vampiric || 0);
-    if (stolen > 0) lines.push(`흡혈로 실제 회복한 체력은 ${number(stolen)}! 버티는 데 도움이 됐네요.`);
+    if (stolen > 0) lines.push(pick(RECAP.heal(number(stolen)), n));
     // Only a released shot with no effective hit is a miss. Starting a charge
     // and dying before release is NOT a miss; shields may also absorb the shot.
-    if (row.releases?.['skill:bow'] && !damage['skill:bow']) lines.unshift('차지 샷은 발사했지만 체력 피해로 이어지지 못했네요. 다음에는 제대로 꽂아 봅시다!');
+    if (row.releases?.['skill:bow'] && !damage['skill:bow']) lines.unshift(pick(RECAP.bowMiss, n));
     else if (damage['skill:bow'] > 0 && !lines.some(s=>s.includes(weapons?.bow?.skillName || '차지 샷')))
-      lines.push(`차지 샷으로 ${number(damage['skill:bow'])} 피해! 한 발의 존재감이 컸어요.`);
-    if (!lines.length) lines.push('이번 전투에서는 유효 피해가 기록되지 않았네요. 다음 증강으로 반격을 준비합시다!');
+      lines.push(pick(RECAP.bowHit(number(damage['skill:bow'])), n));
+    if (!lines.length) lines.push(pick(RECAP.empty, n));
     return lines.slice(0,4);
   }
-  function eventIntro() {
-    return ['게임의 판도를 바꿀 이벤트 투표 타임~! 세 선택지 중 마음에 드는 하나를 골라 주세요!',
-      '표를 던진 네 명 중 한 명을 뽑습니다! 당첨된 선수의 선택이 이번 게임의 이벤트가 돼요.'];
+  const EVENT_INTRO = [
+    ['게임의 판도를 바꿀 이벤트 투표 타임~! 세 선택지 중 마음에 드는 하나를 골라 주세요!',
+      '표를 던진 네 명 중 한 명을 뽑습니다! 당첨된 선수의 선택이 이번 게임의 이벤트가 돼요.'],
+    ['이벤트 투표입니다! 세 선택지 중 하나를 골라 주세요, 판이 통째로 바뀝니다!',
+      '네 명 중 한 명이 당첨됩니다! 그 선수의 선택이 이번 게임에 걸려요.'],
+    ['자, 세 선택지 중 하나! 이벤트 투표 들어갑니다!',
+      '뽑기는 네 명 중 한 명! 당첨된 선수의 표가 이번 게임의 규칙이 됩니다.'],
+  ];
+  // round를 받아 결정적으로 고른다. 같은 화면을 다시 봐도 같은 대사여야 한다.
+  function eventIntro(round = 0) {
+    return pick(EVENT_INTRO, round);
   }
+  const EVENT_WIN = (who, what, desc) => [
+    `${who}님의 선택, 「${what}」 당첨! ${desc}`,
+    `당첨은 ${who}님! 「${what}」으로 갑니다. ${desc}`,
+    `${who}님이 뽑혔습니다! 이번 게임은 「${what}」! ${desc}`,
+  ];
   function eventWinner(event, player) {
     if (!event) return [];
-    return [`${name(player?.name)}님의 선택, 「${event.name}」 당첨! ${event.desc || ''}`];
+    const who = name(player?.name);
+    return [pick(EVENT_WIN(who, event.name, event.desc || ''), spin(who + '|' + event.name))];
   }
   const json = value => value == null ? value : JSON.parse(JSON.stringify(value));
   const bodyFields = 'uid pid x y vx vy radius r hp maxHp shield dead mainDead flash gunFlash weaponAngle weaponId charId color name charging rocketActive spinRemaining flags timers st gun satellites flame gripT'.split(' ');

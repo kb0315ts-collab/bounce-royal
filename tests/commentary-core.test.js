@@ -58,9 +58,11 @@ test('utility skills can announce activation but never claim a hit', () => {
 test('three discrete hits against one opponent make a combo, not simultaneous triple shot', () => {
   const { d, b } = running();
   event(b, 'weapon:bow'); event(b, 'weapon:bow'); event(b, 'weapon:bow');
-  assert.equal(d.observe(b, 4000), null);
+  // 첫 유효타는 선제 타격으로 따로 알린다. 콤보로 세지 않는 것이 이 검사의 핵심.
+  const opening = d.observe(b, 4000);
+  assert.equal(opening && opening.kind, 'first-blood');
   b.simT = 4.2; event(b, 'weapon:bow'); assert.equal(d.observe(b, 4200), null);
-  b.simT = 4.4; event(b, 'weapon:bow'); assert.equal(d.observe(b, 4400).kind, 'combo');
+  b.simT = 4.4; event(b, 'weapon:bow'); assert.equal(d.observe(b, 8000).kind, 'combo');
 });
 
 test('DOT, summoned balls, zero damage and attacks on different opponents cannot manufacture combos', () => {
@@ -69,10 +71,12 @@ test('DOT, summoned balls, zero damage and attacks on different opponents cannot
     b.simT += .1;
     for (const source of ['dot:bleed', 'dot:flame', 'augment:miniBall']) event(b, source);
     event(b, 'weapon:bow', 'hit', { amount: 0 });
-    assert.equal(d.observe(b, 4000 + i * 100), null);
+    const line = d.observe(b, 4000 + i * 100);
+    assert.notEqual(line && line.kind, 'combo', '지속 피해와 0 피해는 콤보가 아니다');
   }
   for (let i = 0; i < 3; i++) { b.simT += .2; event(b, 'weapon:bow', 'hit', { target: i % 2 ? 3 : 2 }); }
-  assert.equal(d.observe(b, 6000), null);
+  const split = d.observe(b, 12000);
+  assert.notEqual(split && split.kind, 'combo', '상대가 갈리면 콤보가 아니다');
 });
 
 test('skills outrank combos and specials in the same snapshot; no stale queue follows', () => {
@@ -168,7 +172,7 @@ test('FFA deaths are silent and round results interrupt cooldown once without GG
   b.result = { winner: b.fighters[0], draw: false }; b.phase = 'ending';
   const line = d.observe(b, 4200);
   assert.equal(line.kind, 'round-end'); assert.equal(line.priority, 90); assert.equal(line.gg, false);
-  assert.match(line.text, /민수, 이번 라운드를 가져갑니다/); assert.doesNotMatch(line.text, /GG/);
+  assert.match(line.text, /민수/); assert.doesNotMatch(line.text, /GG/);
   assert.equal(d.observe(b, 9000), null);
 });
 
@@ -233,4 +237,72 @@ test('names remain bounded plain text, and title demos never produce commentary'
   assert.ok(Array.from(line.actor.name).length <= 9); assert.equal(typeof line.text, 'string');
   assert.match(line.text, /<img one…/); assert.equal(line.html, undefined);
   b.demo = true; b.result = { winner: b.fighters[0] }; assert.equal(d.observe(b, 10000), null);
+});
+
+/* 같은 상황이라도 표현이 돌아가야 한다. 다만 난수는 절대 쓸 수 없고
+ * (중계는 게임 RNG를 건드리지 않는다) 같은 경기를 다시 보면 같은 대사여야 한다. */
+test('the same situation cycles through several phrasings, deterministically', () => {
+  const say = seq => {
+    const d = makeDirector(), b = battle(seq);
+    d.observe(b, 0); b.phase = 'fight';
+    const intro = d.observe(b, 100);
+    b.simT = 4;
+    for (let i = 0; i < seq; i++) event(b, 'weapon:bow', 'hit', { amount: 0 });
+    event(b, 'skill:bow');
+    return { intro: intro.text, hit: d.observe(b, 9000).text };
+  };
+  const runs = [1,2,3,4,5,6].map(say);
+  assert.ok(new Set(runs.map(r => r.hit)).size >= 3, '스킬 적중 표현이 최소 3가지');
+  for (const r of runs) assert.match(r.hit, /차지 샷.*적중/, '표현이 달라도 사실은 같다');
+  // 같은 입력이면 같은 출력 — 난수가 아니라 사실에서 뽑는다
+  assert.deepEqual(say(3), say(3));
+  assert.deepEqual(say(5), say(5));
+});
+
+test('the caster calls first blood, danger, comebacks and overtime', () => {
+  // 선제 타격
+  {
+    const { d, b } = running();
+    event(b, 'weapon:bow');
+    const line = d.observe(b, 4000);
+    assert.equal(line.kind, 'first-blood');
+    assert.match(line.text, /민수/);
+    // 두 번째 유효타는 다시 선제 타격이 될 수 없다
+    b.simT = 6; event(b, 'weapon:bow');
+    const again = d.observe(b, 9000);
+    assert.notEqual(again && again.kind, 'first-blood');
+  }
+  // 위기 — 25% 아래로 떨어진 순간 한 번, 회복 전에는 다시 알리지 않는다
+  {
+    const { d, b } = running();
+    b.fighters[1].hp = 20;
+    const line = d.observe(b, 4000);
+    assert.equal(line.kind, 'low-hp');
+    assert.equal(line.actor.uid, 2);
+    b.fighters[1].hp = 18;
+    assert.equal(d.observe(b, 9000), null, '바닥권에서 계속 떠들지 않는다');
+    b.fighters[1].hp = 90;
+    d.observe(b, 13000);                       // 회복한 상태를 한 번 봐야 다시 무장된다
+    b.fighters[1].hp = 20;
+    assert.equal(d.observe(b, 18000).kind, 'low-hp', '회복했다 다시 떨어지면 알린다');
+  }
+  // 역전 — 앞서던 선수가 바뀐다
+  {
+    const { d, b } = running();
+    b.fighters[1].hp = 40;
+    d.observe(b, 4000);
+    b.fighters[0].hp = 20; b.fighters[1].hp = 80;
+    const line = d.observe(b, 9000);
+    assert.equal(line.kind, 'comeback');
+    assert.equal(line.actor.uid, 2);
+  }
+  // 연장전 — 한 번만
+  {
+    const { d, b } = running();
+    b.overtime = true;
+    const line = d.observe(b, 4000);
+    assert.equal(line.kind, 'overtime');
+    assert.match(line.text, /연장/);
+    assert.equal(d.observe(b, 9000), null, '연장 돌입은 한 번만 알린다');
+  }
 });

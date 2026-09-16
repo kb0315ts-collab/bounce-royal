@@ -55,10 +55,13 @@
 #scr-augment .selection-body{overflow-y:auto}
 #scr-augment #aug-cards{flex-shrink:0}
 #scr-augment #aug-meta{flex-shrink:0}
-/* Augment screen only: the caster takes the leftover room at the very bottom so
+/* Selection screens: the caster takes the leftover room at the very bottom so
    the cards sit exactly where they did before the caster existed. */
-#scr-augment .caster-dock{margin:auto 0 .5cqw}
-#scr-event .event-body{overflow-y:auto}
+#scr-augment .caster-dock,#scr-event .caster-dock{margin:auto 0 .5cqw}
+/* The event body was a plain block, so margin-top:auto could not push the dock
+   down. Make it a column like the augment screen; children keep their order. */
+#scr-event .event-body{overflow-y:auto;display:flex;flex-direction:column}
+#scr-event .event-body>*{flex-shrink:0}
 #scr-replay{background:transparent;pointer-events:none;z-index:40}
 .replay-head{height:14cqw;display:flex;align-items:center;justify-content:space-between;padding:2cqw 3cqw;background:#101a30;color:#ffd25a;font:3.1cqw 'Jua',sans-serif;pointer-events:auto}
 #replay-skip{border:.45cqw solid #243747;border-radius:2cqw;padding:2cqw 2.5cqw;background:#fff4d9;color:#243747;font-size:3cqw}

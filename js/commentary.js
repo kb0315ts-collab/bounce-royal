@@ -128,7 +128,7 @@
     if (id === 'scr-replay' && finale) return;
     if (id && id !== 'scr-over') hide();
     if (id === 'scr-augment') studioLines(root.BounceRoyalBroadcastCore.recapLines(report, WEAPONS, CHARACTERS), '지난 전투 돌아보기', 'augment-caster-dock');
-    if (id === 'scr-event') studioLines(root.BounceRoyalBroadcastCore.eventIntro(), '이벤트 투표 타임', 'event-caster-dock');
+    if (id === 'scr-event') studioLines(root.BounceRoyalBroadcastCore.eventIntro(root.Game?.round || 0), '이벤트 투표 타임', 'event-caster-dock');
   }
   function rememberReport(rows, playerId) {
     report = rows && Object.prototype.hasOwnProperty.call(rows, playerId) ? rows[playerId] : null;
