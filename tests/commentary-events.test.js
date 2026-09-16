@@ -197,3 +197,76 @@ test('이벤트가 스냅샷·보간·전투 뷰를 통과하며 구형 서버�
   assert.equal(r.netBattleView(current, [], 0).fighters[0].player.streak, 0,
     '구형 서버나 없는 선수 메타데이터에 연승을 만들어 넣지 않는다');
 });
+
+/* 해설이 쓰는 새 사실들: 막아냄 · 벽 활용 · 스쳐 간 투사체 · 생존 증강 발동 */
+const kinds = (b, type) => Array.from(b.commentaryEvents).filter(e => e.type === type);
+
+test('막아낸 직접 공격은 guard로 알리고, 지속 피해나 뚫고 들어간 공격은 막은 것이 아니다', () => {
+  const r = runtime(), b = r.battle(), [a, e] = b.fighters;
+  b.phase = 'fight';
+  e.timers.immune = 1;
+  r.weaponDamage(b, a, e, 12);
+  r.dealDamage(b, a, e, 3, { kind: 'auto', autoType: 'flame' });
+  assert.deepEqual(kinds(b, 'guard').map(g => [g.actor, g.target, g.source]), [[e.uid, a.uid, 'weapon:sword']]);
+  e.timers.immune = 0; e.shield = 50;
+  r.weaponDamage(b, a, e, 12);
+  assert.equal(kinds(b, 'guard').length, 2, '보호막이 통째로 막았다');
+  e.shield = 2; r.weaponDamage(b, a, e, 12);
+  assert.equal(kinds(b, 'guard').length, 2, '뚫고 들어간 공격은 막은 게 아니다');
+  assert.equal(hits(b).length, 1);
+});
+
+test('벽에 튕긴 직후의 공격과 벽에 튕긴 투사체의 적중만 벽 활용으로 알린다', () => {
+  const r = runtime(), b = r.battle({ weaponId: 'bow' }), [a, e] = b.fighters;
+  b.phase = 'fight'; b.simT = 5;
+  r.weaponDamage(b, a, e, 2);
+  assert.equal(kinds(b, 'wall-hit').length, 0, '벽과 상관없는 공격');
+  r.onWallBounce(b, a, 1);
+  b.simT = 5.4; r.weaponDamage(b, a, e, 2);
+  assert.equal(kinds(b, 'wall-hit').length, 1);
+  assert.equal(kinds(b, 'wall-hit')[0].actor, a.uid);
+  b.simT = 6.2; r.weaponDamage(b, a, e, 2);
+  assert.equal(kinds(b, 'wall-hit').length, 1, '0.6초가 지나면 벽 덕이 아니다');
+  // 투사체는 쏜 사람이 아니라 투사체가 벽에 튕겼는지를 본다
+  r.onWallBounce(b, a, 1);
+  const straight = r.spawnProj(b, a, { kind: 'arrow', x: 0, y: 0, ang: 0, r: 4, dmg: 2, spd: 600, weapon: true });
+  r.projectileHit(b, straight, e);
+  assert.equal(kinds(b, 'wall-hit').length, 1, '쏜 사람이 방금 튕겼어도 곧게 날아간 화살은 아니다');
+  const banked = r.spawnProj(b, a, { kind: 'arrow', x: 0, y: 0, ang: 0, r: 4, dmg: 2, spd: 600, weapon: true });
+  banked.reflected = true;
+  r.projectileHit(b, banked, e);
+  assert.equal(kinds(b, 'wall-hit').length, 2);
+  // 실제로 벽에 튕기면 표시가 붙는다
+  const bounce = r.spawnProj(b, a, { kind: 'arrow', x: b.arena.R - 3, y: 0, ang: 0, r: 4, dmg: 2, spd: 600, weapon: true, bounces: 1 });
+  a.x = -150; a.y = 0; e.x = -150; e.y = 120;
+  for (let i = 0; i < 6 && !bounce.reflected; i++) b.updateProjectiles(1 / 60);
+  assert.equal(bounce.reflected, true);
+});
+
+test('무기 투사체가 몸 가까이 왔다가 안 맞고 사라지면 dodge, 맞은 상대에게는 없다', () => {
+  const r = runtime(), b = r.battle({ weaponId: 'bow' }), [a, e] = b.fighters;
+  b.phase = 'fight';
+  a.x = -250; a.y = 0; e.x = 0; e.y = 0;
+  const shoot = y => r.spawnProj(b, a, { kind: 'arrow', x: -80, y, ang: 0, r: 4, dmg: 2, spd: 600, weapon: true, life: .3 });
+  const fly = p => { for (let i = 0; i < 120 && b.projectiles.includes(p); i++) b.updateProjectiles(1 / 60); };
+  const near = shoot(e.radius + 4 + 8); fly(near);
+  assert.equal(b.projectiles.includes(near), false);
+  assert.deepEqual(kinds(b, 'dodge').map(x => [x.actor, x.target, x.source]), [[e.uid, a.uid, 'weapon:bow']]);
+  fly(shoot(e.radius + 4 + 40));
+  assert.equal(kinds(b, 'dodge').length, 1, '멀리 지나간 화살은 피한 게 아니다');
+  const hp = e.hp; fly(shoot(0));
+  assert.ok(e.hp < hp, '곧게 쏜 화살은 맞았다');
+  assert.equal(kinds(b, 'dodge').length, 1, '맞은 상대에게는 피했다고 하지 않는다');
+});
+
+test('마지막 저항·최후의 3초·분열 발동을 해설에 알린다', () => {
+  const r = runtime();
+  for (const [flag, type, source] of [['lastResistance', 'last-stand', 'augment:lastResistance'],
+    ['lastStand', 'last-stand', 'augment:lastStand'], ['split', 'split', 'augment:split']]) {
+    const b = r.battle(), [a, e] = b.fighters;
+    b.phase = 'fight';
+    e.flags[flag] = 1;
+    r.dealDamage(b, a, e, e.hp + 50, { kind: 'weapon' });
+    assert.deepEqual(kinds(b, type).map(x => [x.actor, x.source]), [[e.uid, source]], flag);
+  }
+});

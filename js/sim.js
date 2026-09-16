@@ -43,6 +43,38 @@ function battleCommentary(b, type, actor, target, source, amount = 0) {
   pruneBattleCommentary(b);
 }
 
+/* 해설에 넘기는 사실 몇 가지. 판정이 필요한 것은 여기서 사실로 정한다.
+ *  guard     직접 공격을 면역·보호막으로 통째로 막았다 (actor=막은 쪽, target=때린 쪽)
+ *  wall-hit  벽에 튕긴 직후(몸은 0.6초 안, 투사체·방패는 튕긴 뒤)에 맞혔다
+ *  dodge     무기 투사체가 몸 가장자리 NEAR_MISS 안까지 왔다가 안 맞고 사라졌다
+ *  last-stand 마지막 저항 · 최후의 3초 발동
+ *  split     분열 발동 */
+const WALL_ASSIST_T = 0.6;
+const NEAR_MISS = 16;
+const DIRECT_SOURCE = /^(weapon|skill):|^char:(bomb|bball)$/;
+
+function commentaryGuard(b, defender, attacker, source, amount) {
+  if (!attacker || !DIRECT_SOURCE.test(source) || teamOwner(attacker) === teamOwner(defender)) return;
+  battleCommentary(b, 'guard', defender, attacker, source, amount);
+}
+
+function projectileSource(p) {
+  const owner = p.owner;
+  return p.kind === 'charge' ? 'skill:bow' : p.kind === 'beam' ? 'augment:swordBeam'
+    : p.kind === 'orb' && !owner.dead && owner.timers.rampage > 0 ? 'skill:staff'
+      : p.commentarySource || (p.weapon ? 'weapon:' + ({ arrow: 'bow', bullet: 'pistol', orb: 'staff' }[p.kind] || owner.weaponId) : 'augment:' + p.kind);
+}
+
+// 스쳐 간 투사체 — 끝까지 안 맞은 상대에게만 '비켜 갔다'고 알린다
+function reportNearMisses(b, p) {
+  if (!p.near) return;
+  const source = projectileSource(p);
+  for (const body of p.near.values()) {
+    if (!body.dead && !body.mainDead && body.hp > 0) battleCommentary(b, 'dodge', body, p.owner, source, 0);
+  }
+  p.near = null;
+}
+
 // Cumulative presentation facts survive event pruning and missed snapshots.
 // Amounts are effective HP damage/healing, never attempted damage or overheal.
 function recordRoundFact(b, owner, type, source, amount = 0) {
@@ -1093,7 +1125,7 @@ class Battle {
     for (let i = projs.length - 1; i >= 0; i--) {
       const p = projs[i];
       p.life -= dt;
-      if (p.life <= 0) { projs.splice(i, 1); continue; }
+      if (p.life <= 0) { reportNearMisses(this, p); projs.splice(i, 1); continue; }
       if (p.homing) {
         const tgt = this.nearestEnemyBody(p.owner);
         if (tgt && tgt !== p.owner) {
@@ -1118,15 +1150,18 @@ class Battle {
       p.x += p.vx * projSpd * dt; p.y += p.vy * projSpd * dt;
       // 벽
       if (this.arena.reflectProj(p)) {
-        if (p.bounces > 0) { p.bounces--; sparks(this, p.x, p.y, 3, '#c9d6ff', 90); battleSound(this, 'augment.reflect', p.owner, 0.12); }
-        else { sparks(this, p.x, p.y, 4, '#8a93b8', 80); projs.splice(i, 1); continue; }
+        if (p.bounces > 0) { p.bounces--; p.reflected = true; sparks(this, p.x, p.y, 3, '#c9d6ff', 90); battleSound(this, 'augment.reflect', p.owner, 0.12); }
+        else { sparks(this, p.x, p.y, 4, '#8a93b8', 80); reportNearMisses(this, p); projs.splice(i, 1); continue; }
       }
       // 본체 적중
       let dead = false;
       for (const e of this.enemiesOf(p.owner)) {
         for (const body of this.bodiesOf(e)) {
           if (p.hitSet && p.hitSet.has(body.uid)) continue;
-          if (dist(p.x, p.y, body.x, body.y) < p.r + bodyRadius(body)) {
+          const gap = dist(p.x, p.y, body.x, body.y) - (p.r + bodyRadius(body));
+          if (gap >= 0 && gap < NEAR_MISS && p.weapon && isFighterBody(body)) (p.near = p.near || new Map()).set(body.uid, body);
+          if (gap < 0) {
+            if (p.near) p.near.delete(body.uid);
             projectileHit(this, p, body);
             if (p.pierce) { (p.hitSet = p.hitSet || new Set()).add(body.uid); }
             else { dead = true; }
@@ -1135,7 +1170,7 @@ class Battle {
         }
         if (dead) break;
       }
-      if (dead) projs.splice(i, 1);
+      if (dead) { reportNearMisses(this, p); projs.splice(i, 1); }
     }
   }
 
@@ -1508,6 +1543,7 @@ function resolveFighterCollision(b, a, c) {
 
 function onWallBounce(b, f, n) {
   f.bounceTotal += n;
+  f._wallT = b.simT;
   if (f.steer) f.steer.lock = Math.max(f.steer.lock || 0, STEER_BOUNCE_LOCK);
   battleSound(b, 'battle.bounce', f, 0.055);
   if (f.flags.elastic) f.timers.elastic = 1;
@@ -1807,7 +1843,7 @@ function updateDisc(b, f, dt) {
         if (gap > d.r + br) continue;
         contact.add(body.uid);
         if (!d.contact.has(body.uid)) {
-          if (weaponDamage(b, f, body, wp.throwDmg * mult) > 0) {
+          if (weaponDamage(b, f, body, wp.throwDmg * mult, undefined, { projectile: true, wallAssist: d.bounces > 0 }) > 0) {
             battleSound(b, 'weapon.shield.hit', body, 0.05);
           }
         }
@@ -2488,12 +2524,11 @@ function spawnProj(b, owner, o) {
 
 function projectileHit(b, p, body) {
   const owner = p.owner;
-  const source = p.kind === 'charge' ? 'skill:bow' : p.kind === 'beam' ? 'augment:swordBeam'
-    : p.kind === 'orb' && !owner.dead && owner.timers.rampage > 0 ? 'skill:staff'
-      : p.commentarySource || (p.weapon ? 'weapon:' + ({ arrow: 'bow', bullet: 'pistol', orb: 'staff' }[p.kind] || owner.weaponId) : 'augment:' + p.kind);
+  const source = projectileSource(p);
+  const via = { projectile: true, wallAssist: !!p.reflected };
   const dealt = p.weapon
-    ? weaponDamage(b, owner, body, p.dmg, source)
-    : dealDamage(b, owner, body, p.dmg * owner.st.dmg, { kind: 'auto', autoType: p.kind });
+    ? weaponDamage(b, owner, body, p.dmg, source, via)
+    : dealDamage(b, owner, body, p.dmg * owner.st.dmg, { kind: 'auto', autoType: p.kind, ...via });
   if (dealt <= 0) return;
   // 화살 넉백
   if (p.kind === 'arrow' && owner.flags.kbArrow && isFighterBody(body)) {
@@ -2506,7 +2541,7 @@ function projectileHit(b, p, body) {
   }
 }
 
-function weaponDamage(b, f, body, baseDmg, commentarySource) {
+function weaponDamage(b, f, body, baseDmg, commentarySource, via) {
   let mult = 1;
   if (f.charged) { f.charged = false; f.bounceRun = 0; mult *= 1.3; addFx(b, { type: 'ring', x: body.x, y: body.y, r0: 8, r1: 50, color: '#ffe08a', dur: 0.25 }); }
   if (f.counterReady) { f.counterReady = false; mult *= 1.3; }
@@ -2516,7 +2551,7 @@ function weaponDamage(b, f, body, baseDmg, commentarySource) {
     if (n >= 5) { mult *= 1.5; popup(b, body.x, body.y - bodyRadius(body) - 40, '표식 발동!', '#ffd24d'); }
   }
   const raw = baseDmg * f.st.atk * f.st.dmg * mult;
-  const dealt = dealDamage(b, f, body, raw, { kind: 'weapon', commentarySource: commentarySource || 'weapon:' + f.weaponId });
+  const dealt = dealDamage(b, f, body, raw, { kind: 'weapon', commentarySource: commentarySource || 'weapon:' + f.weaponId, ...via });
   if (dealt > 0) {
     onWeaponHitEffects(b, f, body);
   }
@@ -2696,6 +2731,7 @@ function resolveHealthThresholds(b, f) {
     f.hp = 1;
     battleSound(b, 'augment.last-stand', f);
     popup(b, f.x, f.y - f.radius - 30, '마지막 저항!', '#ffd24d', true);
+    battleCommentary(b, 'last-stand', f, null, 'augment:lastResistance');
     addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 8, r1: 65, color: '#ffd24d', dur: 0.35 });
   }
   if (!f.survivalInstinctUsed && f.flags.survivalInstinct && f.hp / f.maxHp <= 0.3) {
@@ -2710,8 +2746,14 @@ function dealDamage(b, src, body, raw, opts = {}) {
   const t = actorBody ? body : body.owner;
   const br = bodyRadius(body);
   if (body.hp <= 0) return 0;
+  // 면역·보호막·과잉 피해를 제외한 실제 체력 피해만 기록한다. 생존 증강의
+  // 후속 회복은 공격 적중 사실을 취소하지 않으며 지속 피해는 별도 출처다.
+  const commentarySource = opts.commentarySource || (opts.autoType
+    ? (opts.autoType === 'bleed' || opts.autoType === 'flame' ? 'dot:' : 'augment:') + opts.autoType
+    : opts.kind === 'weapon' && src ? 'weapon:' + src.weaponId : 'damage:other');
   if (t.timers.immune > 0 || t.timers.untouchable > 0) {
     if (Math.random() < 0.3) popup(b, body.x, body.y - br - 10, '면역', '#7fd8ff');
+    if (actorBody && raw > 0) commentaryGuard(b, t, src, commentarySource, raw);
     return 0;
   }
   let dmg = raw;
@@ -2722,17 +2764,18 @@ function dealDamage(b, src, body, raw, opts = {}) {
     const ab = Math.min(t.shield, dmg);
     t.shield -= ab; dmg -= ab;
     if (ab > 0) popup(b, body.x + rand(-8, 8), body.y - br - 6, '보호막', '#7fd8ff');
+    if (ab > 0 && dmg <= 0) commentaryGuard(b, t, src, commentarySource, ab);
   }
   const hpBefore = body.hp;
   body.hp -= dmg;
   const commentaryDamage = Math.min(Math.max(0, hpBefore), Math.max(0, dmg));
   if (actorBody) resolveHealthThresholds(b, t);
-  // 면역·보호막·과잉 피해를 제외한 실제 체력 피해만 기록한다. 생존 증강의
-  // 후속 회복은 공격 적중 사실을 취소하지 않으며 지속 피해는 별도 출처다.
-  const commentarySource = opts.commentarySource || (opts.autoType
-    ? (opts.autoType === 'bleed' || opts.autoType === 'flame' ? 'dot:' : 'augment:') + opts.autoType
-    : opts.kind === 'weapon' && src ? 'weapon:' + src.weaponId : 'damage:other');
   battleCommentary(b, 'hit', src, body, commentarySource, commentaryDamage);
+  // 벽 활용 — 투사체·방패는 벽에 튕긴 뒤 맞혔을 때, 몸으로 휘두른 공격은 튕긴 직후에
+  if (commentaryDamage > 0 && src && DIRECT_SOURCE.test(commentarySource)
+    && (opts.projectile ? opts.wallAssist : src._wallT != null && b.simT - src._wallT <= WALL_ASSIST_T)) {
+    battleCommentary(b, 'wall-hit', src, body, commentarySource, commentaryDamage);
+  }
   if (src && src.player) src.player.totalDmg = (src.player.totalDmg || 0) + dmg;
   const val = Math.max(1, Math.round(dmg));
   popup(b, body.x + rand(-10, 10), body.y - br - 4, val, opts.kind === 'auto' ? '#c9d6ff' : '#ffffff');
@@ -2780,6 +2823,7 @@ function killBody(b, body, src) {
       body.timers.actingDead = 3;
       battleSound(b, 'augment.last-stand', body);
       popup(b, body.x, body.y - 40, '최후의 3초!', '#ff8f8f', true);
+      battleCommentary(b, 'last-stand', body, null, 'augment:lastStand');
       return;
     }
     finalDeath(b, body);
@@ -2792,6 +2836,7 @@ function killBody(b, body, src) {
     f.splitUsed = true; f.mainDead = true;
     b.spawnSplits(f);
     popup(b, f.x, f.y - 40, '분열!', '#ffd24d', true);
+    battleCommentary(b, 'split', f, null, 'augment:split');
     explodeFx(b, f.x, f.y, 70, f.color, 'augment.split');
     b.checkEnd();
     return;
@@ -2801,6 +2846,7 @@ function killBody(b, body, src) {
     f.timers.actingDead = 3;
     battleSound(b, 'augment.last-stand', f);
     popup(b, f.x, f.y - 40, '최후의 3초!', '#ff8f8f', true);
+    battleCommentary(b, 'last-stand', f, null, 'augment:lastStand');
     return;
   }
   finalDeath(b, f);

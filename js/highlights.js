@@ -21,11 +21,11 @@
     showScreen('scr-over');
   }
   function caption(c){
-    if(c.kind==='skill')return `${c.actor}의 ${core.sourceName(c.source,WEAPONS,CHARACTERS)||'무기 스킬'}! 그 장면 다시 보시죠!`;
-    if(c.kind==='burst')return `${c.actor}, ${c.target}에게 짧은 순간 ${c.amount} 피해! 흐름을 잡아낸 공격이었어요.`;
-    if(c.draw)return '끝까지 팽팽했던 승부! 이번 라운드는 무승부로 마무리됐습니다.';
-    return c.reason==='체력 비율 판정' ? '마지막까지 버텼습니다! 체력 비율로 승부가 결정된 순간입니다.'
-      : `${c.actor}, 승부를 가른 마지막 공격! 다시 한 번 보시죠!`;
+    if(c.kind==='skill')return `${c.actor}의 ${core.sourceName(c.source,WEAPONS,CHARACTERS)||'무기 스킬'}. 이 장면 다시 보시죠.`;
+    if(c.kind==='burst')return `${c.actor}, ${c.target}에게 짧은 순간 ${c.amount} 피해. 흐름을 잡은 장면이에요.`;
+    if(c.draw)return '끝까지 팽팽했던 승부. 무승부로 끝났습니다.';
+    return c.reason==='체력 비율 판정' ? '마지막까지 버텼습니다. 체력 비율로 갈린 순간이에요.'
+      : `${c.actor}, 승부를 가른 마지막 공격. 다시 보시죠.`;
   }
   function next(){
     if(index>=clips.length){finish();return;}

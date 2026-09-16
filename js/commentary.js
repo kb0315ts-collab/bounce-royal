@@ -7,7 +7,8 @@
   const button = el('caster-toggle'), bubble = el('caster-bubble');
   const copy = el('caster-copy'), label = el('caster-label'), badge = el('caster-badge');
   const storeKey = 'bounce-royal-caster-muted-v1';
-  const director = new root.BounceRoyalCommentaryCore.Director({ weapons: WEAPONS, characters: CHARACTERS });
+  const director = new root.BounceRoyalCommentaryCore.Director({ weapons: WEAPONS, characters: CHARACTERS,
+    battleTime: typeof BATTLE_TIME !== 'undefined' ? BATTLE_TIME : 40 });
   let muted = false, until = 0, murmurUntil = 0, nextMurmur = 0, lastKey = null;
   let gg = false, finale = false, finalized = false, matchSerial = 0;
   let frame = 0, voiceUntil = 0, nextSyllable = 0, mouthUntil = 0, syllable = 0, script = [];
@@ -82,18 +83,22 @@
     copy.replaceChildren();
     const text = gg ? String(line.text || '').replace(/^GG~~!\s*/, '') : String(line.text || '');
     const name = line.actor && String(line.actor.name || ''), at = name ? text.indexOf(name) : -1;
+    const mark = document.createElement('strong'); mark.textContent = name;
+    if (name && /^#[0-9a-f]{6}$/i.test(line.actor.color || '')) mark.style.setProperty('--player-color', line.actor.color);
     if (at >= 0) {
       copy.append(document.createTextNode(text.slice(0, at)));
-      const mark = document.createElement('strong'); mark.textContent = name;
-      if (/^#[0-9a-f]{6}$/i.test(line.actor.color || '')) mark.style.setProperty('--player-color', line.actor.color);
       copy.append(mark, document.createTextNode(text.slice(at + name.length)));
+    } else if (name && !gg) {
+      // 이름이 없는 짧은 대사('정확히 들어갔어요.')도 누구 이야기인지 보이게 이름표를 단다
+      mark.className = 'caster-who';
+      copy.append(mark, document.createTextNode(text));
     } else copy.textContent = text;
     bubble.hidden = false;
     host.classList.add('is-talking');
     host.classList.toggle('is-gg', gg);
     host.classList.toggle('is-burst', gg && muted);
     host.classList.remove('is-murmuring');
-    until = now + (gg ? 2500 : Math.min(3300, Math.max(2500, text.length * 65)));
+    until = now + root.BounceRoyalCommentaryCore.displayMs(text, gg);
     // The cloth splits before the final voice starts.
     nextSyllable = now + (gg && muted ? 220 : 0);
     script = root.BounceRoyalBroadcastCore.voiceScript(text);

@@ -87,37 +87,51 @@
     const jong = code >= 0xac00 && code <= 0xd7a3 ? (code - 0xac00) % 28 : 0;
     return text + (jong === 0 || jong === 8 ? '로' : '으로');
   };
+  // '이었습니다/였습니다'
+  const ieot = word => { const code = String(word).charCodeAt(String(word).length - 1);
+    return word + (code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0 ? '이었' : '였'); };
   const RECAP = {
     // 기록이 없는 예외 경로다. 문구를 돌릴 근거가 없으니 한 줄로 둔다.
-    none: ['지난 전투 기록을 받지 못했네요. 이번 증강에서 다음 승부를 준비해 봅시다!'],
+    none: ['지난 전투 기록을 받지 못했네요. 이번 증강으로 다음 판을 준비해 보죠.'],
+    // 가장 많이 준 피해 — 첫 줄만 '가장·핵심'이라고 말할 수 있다
     top: (what, amount) => [
-      `지난 전투, ${ro(what)} ${amount} 피해! 잘 들어갔어요.`,
-      `${what}, ${amount} 피해를 만들었습니다. 오늘의 주력이네요!`,
-      `${what}, ${amount} 피해! 이게 제 몫을 톡톡히 했습니다.`,
-      `지난 판 ${ro(what)}만 ${amount} 피해가 들어갔습니다!`,
+      `지난 전투, ${ro(what)} ${amount} 피해를 넣었습니다.`,
+      `가장 많이 일한 건 ${what}, 총 ${amount} 피해예요.`,
+      `이번 전투 핵심은 ${ieot(what)}습니다. ${amount} 피해 기록했어요.`,
+      `${what}, 꾸준히 누적됐네요. 총 ${amount} 피해입니다.`,
+      `${ro(what)} ${amount} 피해. 제 몫을 했어요.`,
+    ],
+    next: (what, amount) => [
+      `${what}도 ${amount} 피해를 보탰습니다.`,
+      `${ro(what)}도 ${amount} 피해를 넣었어요.`,
+      `그다음은 ${what}, ${amount} 피해입니다.`,
     ],
     heal: amount => [
-      `흡혈로 실제 회복한 체력은 ${amount}! 버티는 데 도움이 됐네요.`,
-      `흡혈로 ${amount}을 되찾았습니다. 오래 버틴 이유죠!`,
-      `${amount}만큼 빨아들였습니다. 흡혈이 일했네요!`,
+      `흡혈로 ${amount} 회복했습니다. 꽤 쏠쏠했어요.`,
+      `이번 전투 흡혈 회복량은 ${amount}입니다.`,
+      `흡혈로 ${amount}만큼 회복하면서 버텼어요.`,
+      `흡혈 회복량도 무시 못 하겠네요. ${amount}입니다.`,
     ],
     /* '발사는 했는데 체력 피해가 없었다'가 이 문구의 사실이다.
      * 차지를 걸다 죽은 것은 빗나감이 아니므로, 어느 표현을 쓰든
      * '체력 피해로 이어지지'는 반드시 남는다. */
     bowMiss: [
-      '차지 샷은 발사했지만 체력 피해로 이어지지 못했네요. 다음에는 제대로 꽂아 봅시다!',
-      '차지 샷을 쐈지만 체력 피해로 이어지지 못했습니다. 조준을 가다듬어 보죠!',
-      '차지 샷이 나갔는데 체력 피해로 이어지지 않았네요. 다음 한 발을 노려 봅시다!',
+      '차지 샷은 나갔지만 체력 피해로 이어지지 못했습니다.',
+      '한 방을 노렸는데, 차지 샷이 체력 피해로 이어지지 않았어요.',
+      '좋은 시도였는데 차지 샷이 체력 피해로 이어지지는 않았습니다.',
+      '그림은 있었는데, 차지 샷이 체력 피해로 이어지지 못했네요.',
     ],
     bowHit: amount => [
-      `차지 샷으로 ${amount} 피해! 한 발의 존재감이 컸어요.`,
-      `차지 샷 ${amount} 피해! 한 방이 묵직했습니다.`,
-      `차지 샷이 ${amount}을 꽂았습니다. 이 맛에 당기는 거죠!`,
+      `차지 샷으로 ${amount} 피해. 한 방이 묵직했어요.`,
+      `차지 샷 ${amount} 피해. 노린 보람이 있었네요.`,
+      `차지 샷이 ${amount} 피해를 냈습니다.`,
     ],
     empty: [
-      '이번 전투에서는 유효 피해가 기록되지 않았네요. 다음 증강으로 반격을 준비합시다!',
-      '유효 피해가 없었습니다. 증강으로 판을 다시 짜 보죠!',
-      '이번엔 한 대도 제대로 못 넣었네요. 다음 판에서 갚아 줍시다!',
+      '이번 전투는 유효타가 많지 않았습니다.',
+      '서로 조심해서 큰 피해가 잘 안 났어요.',
+      '생각보다 단단한 경기였네요.',
+      '의외로 조용하게 흘러간 전투였습니다.',
+      '다음 라운드에서는 화력이 더 필요해 보입니다.',
     ],
   };
   function recapLines(row, weapons, characters) {
@@ -126,7 +140,7 @@
     const sources = Object.entries(damage).filter(([s,v])=>v>0 && sourceName(s,weapons,characters))
       .sort((a,b)=>(Number(b[0].startsWith('augment:'))-Number(a[0].startsWith('augment:'))) || b[1]-a[1]);
     sources.slice(0,2).forEach(([source, amount], i) =>
-      lines.push(pick(RECAP.top(sourceName(source,weapons,characters), number(amount)), n + i)));
+      lines.push(pick((i === 0 ? RECAP.top : RECAP.next)(sourceName(source,weapons,characters), number(amount)), n + i)));
     const stolen = (row.healing?.lifesteal || 0) + (row.healing?.vampiric || 0);
     if (stolen > 0) lines.push(pick(RECAP.heal(number(stolen)), n));
     // Only a released shot with no effective hit is a miss. Starting a charge
@@ -137,22 +151,27 @@
     if (!lines.length) lines.push(pick(RECAP.empty, n));
     return lines.slice(0,4);
   }
+  // 두 줄이 한 세트다. 어느 세트든 '세 선택지'와 '네 명 중 한 명'은 사실로 남긴다.
   const EVENT_INTRO = [
-    ['게임의 판도를 바꿀 이벤트 투표 타임~! 세 선택지 중 마음에 드는 하나를 골라 주세요!',
-      '표를 던진 네 명 중 한 명을 뽑습니다! 당첨된 선수의 선택이 이번 게임의 이벤트가 돼요.'],
-    ['이벤트 투표입니다! 세 선택지 중 하나를 골라 주세요, 판이 통째로 바뀝니다!',
-      '네 명 중 한 명이 당첨됩니다! 그 선수의 선택이 이번 게임에 걸려요.'],
-    ['자, 세 선택지 중 하나! 이벤트 투표 들어갑니다!',
-      '뽑기는 네 명 중 한 명! 당첨된 선수의 표가 이번 게임의 규칙이 됩니다.'],
+    ['게임의 판도를 바꿀 이벤트 투표 타임! 세 선택지 중 하나를 골라 주세요.',
+      '네 명 중 한 명의 선택만 뽑혀서, 이번 게임에 적용됩니다.'],
+    ['잠깐 쉬어 가고, 이벤트 투표 갑니다. 세 선택지 중 하나를 고르세요.',
+      '표는 네 명 중 한 명만 당첨돼요. 누구 선택일지 봅시다.'],
+    ['이제 판을 흔들 시간입니다. 세 선택지가 준비됐어요.',
+      '네 명 중 한 명의 표가 이번 게임 규칙이 됩니다. 이번엔 운도 한몫하겠네요.'],
+    ['어떤 이벤트가 들어올지 직접 정해봅시다. 세 선택지 중 하나!',
+      '뽑히는 건 네 명 중 한 명. 선택 하나로 흐름이 달라질 수 있어요.'],
   ];
   // round를 받아 결정적으로 고른다. 같은 화면을 다시 봐도 같은 대사여야 한다.
   function eventIntro(round = 0) {
     return pick(EVENT_INTRO, round);
   }
   const EVENT_WIN = (who, what, desc) => [
-    `${who}님의 선택, 「${what}」 당첨! ${desc}`,
-    `당첨은 ${who}님! 「${what}」으로 갑니다. ${desc}`,
-    `${who}님이 뽑혔습니다! 이번 게임은 「${what}」! ${desc}`,
+    `${who}님의 선택, 「${what}」 적용! ${desc}`,
+    `뽑혔습니다. ${who}님의 「${what}」. ${desc}`,
+    `이번 게임은 ${who}님이 고른 「${what}」. ${desc}`,
+    `당첨된 선택은 ${who}님의 「${what}」입니다. ${desc}`,
+    `「${what}」 확정. ${who}님의 선택이에요. ${desc}`,
   ];
   function eventWinner(event, player) {
     if (!event) return [];
