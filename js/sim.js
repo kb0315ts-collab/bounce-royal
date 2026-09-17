@@ -3140,12 +3140,12 @@ function aiChooseStartDir(b, f) {
  * 가로지르는 데 2초 남짓이라 0.5초에 한 번 봐서는 이미 늦는다.
  * 차지 샷 조준이 같은 이유로 따로 도는 것과 같은 자리다.
  *
- * 완벽하게 피하면 상대하기 싫어진다. 일정 확률로 못 본 척하게 두어
- * 빈틈을 남긴다. */
+ * 완벽하게 피하면 상대하기 싫어진다. 투사체마다 한 번, 볼지·언제 반응할지·
+ * 얼마나 정확히 비킬지를 정한다 (aiDodgeDecision). 예전에는 '못 본 척' 25%를
+ * 0.1초마다 새로 굴려서, 0.8초 동안 여덟 번 굴리면 끝까지 못 볼 확률이 사실상 0이었다. */
 const AI_DODGE_TICK = 0.1;    // 위협을 다시 살피는 주기
-const AI_DODGE_LOOK = 0.8;    // 이 시간 안에 닿을 것만 본다
+const AI_DODGE_LOOK = 1.1;    // 이 시간 안에 닿을 것만 본다 (반응이 늦은 만큼 멀리서부터 본다)
 const AI_DODGE_PAD = 12;      // 스칠 것도 피한다
-const AI_DODGE_MISS = 0.25;   // 이 확률로는 못 본 척한다
 
 /* 가장 급한 위협 하나를 찾는다. 나와 투사체의 상대속도로 최접근 시각을
  * 구하고, 그때 거리가 몸통+투사체 반지름 안이면 맞을 것으로 본다. */
@@ -3177,7 +3177,78 @@ function aiIncomingThreat(b, f) {
   let side;
   if (Math.abs(cross) > 1) side = cross > 0 ? 1 : -1;
   else side = angleDelta(Math.atan2(f.vy, f.vx), pAng + Math.PI / 2) > 0 ? 1 : -1;
-  return { angle: pAng + side * Math.PI / 2, t: best.t };
+  return { angle: pAng + side * Math.PI / 2, t: best.t, p };
+}
+
+/* ---- 사람처럼 ----
+ * 봇이 기계처럼 보이던 까닭은 셋이었다.
+ *  1) 날아오는 것을 거의 다 보고 곧바로 정확히 비켰다.
+ *  2) 차지 샷은 매 프레임 완벽한 예측으로 겨눠 80%가 맞았고, 방패는 어디를 보든 던졌다.
+ *  3) 스킬이 돌아오면 조건만 맞으면 바로 썼다 (활은 중앙값 0.23초).
+ * 봇마다 솜씨(skill, 0 서툼 ~ 1 능숙)를 하나 정하고 반응 시간·못 볼 확률·조준 오차를
+ * 거기서 뽑는다. 한 판에 잘하는 봇과 서툰 봇이 섞인다. */
+const AI_SKILL_MIN = 0.25, AI_SKILL_MAX = 0.85;
+/* 무기 스킬이 돌아온 뒤 '쓸까' 하고 보기 시작할 때까지 뜸 들이는 시간(초, 최소~최대).
+ * 아껴 두는 무기(활·단검)는 길게, 조건이 순간적인 무기(지팡이·지뢰)는 짧게. */
+const AI_SKILL_WAIT = {
+  sword: [0.4, 2.2], dagger: [0.6, 2.8], bow: [0.8, 3.5], pistol: [0.4, 2.2],
+  staff: [0.2, 1.2], mine: [0.2, 1.0], chain: [0.3, 1.8], shield: [0.3, 1.6],
+};
+// 조건이 안 맞아도 '일단 써 보는' 확률 (판단 한 번에). 사람도 가끔 헛쓴다.
+const AI_SKILL_FUMBLE = 0.02;
+const AI_FUMBLE_WEAPONS = new Set(['sword', 'dagger', 'pistol', 'chain', 'bow']);
+
+function aiProfile(f) {
+  const owner = f.kind === 'split' && f.owner && f.owner.ai ? f.owner.ai : null;
+  return {
+    skill: owner ? owner.skill : rand(AI_SKILL_MIN, AI_SKILL_MAX),
+    seen: new Map(),      // 투사체 uid -> 그 투사체에 대한 반응
+    skillAt: null,        // 무기 스킬을 쓸까 보기 시작하는 시각
+    charAt: 0,            // 캐릭터 스킬 조건이 이만큼 이어져야 쓴다
+    aimErr: null,         // 차지 샷·방패 투척 한 번의 조준 오차와 예측 배율
+    aimLead: 1, aimSince: 0, aimPatience: 0,
+    flameOnAt: 0, flameUntil: 0,
+    fumble: AI_SKILL_FUMBLE,
+  };
+}
+
+/* 날아오는 투사체 하나에 대해 한 번만 정한다. 서툰 봇은 절반 넘게 못 보고,
+ * 보더라도 늦게, 엉뚱한 각도로, 가끔은 반대쪽으로 비킨다. */
+function aiDodgeDecision(b, f, ai, threat) {
+  let k = ai.seen.get(threat.p.uid);
+  if (!k) {
+    const s = ai.skill;
+    k = {
+      miss: chance(0.55 - 0.35 * s),
+      at: b.simT + rand(0.12, 0.28) * (1.4 - 0.6 * s),
+      err: rand(-1, 1) * (0.6 - 0.45 * s),
+      wrong: chance(0.2 - 0.15 * s),
+      mag: rand(0.6, 1),
+    };
+    ai.seen.set(threat.p.uid, k);
+    if (ai.seen.size > 48) ai.seen.delete(ai.seen.keys().next().value);
+  }
+  if (k.miss || b.simT < k.at) return null;
+  return { angle: threat.angle + (k.wrong ? Math.PI : 0) + k.err, magnitude: k.mag };
+}
+
+/* 차지 샷과 방패 투척의 조준. 한 번 겨눌 때마다 오차와 예측 배율을 새로 뽑고,
+ * 오래 못 맞추면 조급해져 대충 맞으면 놓는다. 맞으면 true. */
+function aiAimRelease(b, f, ai, tgt, projSpd, tol, errScale = 1) {
+  const s = ai.skill;
+  if (ai.aimErr == null) {
+    ai.aimErr = rand(-1, 1) * (0.3 - 0.22 * s) * errScale;
+    ai.aimLead = rand(0.35, 1.15);
+    ai.aimSince = b.simT;
+    ai.aimPatience = rand(1.2, 3.2) * (0.6 + 0.6 * s);
+  }
+  const flight = dist(f.x, f.y, tgt.x, tgt.y) / projSpd;
+  const spd = (tgt.st ? tgt.st.move : 170) * ai.aimLead;
+  const aimAng = Math.atan2(tgt.y + tgt.vy * spd * flight - f.y, tgt.x + tgt.vx * spd * flight - f.x) + ai.aimErr;
+  const off = Math.abs(angleDelta(f.weaponAngle, aimAng));
+  const impatient = b.simT - ai.aimSince > ai.aimPatience;
+  if (off < tol || (impatient && off < tol * 4)) { ai.aimErr = null; return true; }
+  return false;
 }
 
 function aiChooseSteer(b, f, e) {
@@ -3220,6 +3291,7 @@ function aiChooseSteer(b, f, e) {
 
 function aiUpdate(b, f, dt) {
   if (b.phase !== 'fight' || f.dead || f.mainDead || f.timers.stun > 0) return;
+  const ai = f.ai || (f.ai = aiProfile(f));
   f.aiSteerT -= dt;
   if (f.aiSteerT <= 0) {
     f.aiSteerT = rand(0.4, 0.7);
@@ -3230,33 +3302,49 @@ function aiUpdate(b, f, dt) {
     } else clearSteerInput(f);
   }
 
-  // 날아오는 것 피하기. 위 판단 주기와 따로 보고, 잡히면 그쪽을 덮어쓴다.
+  // 날아오는 것 피하기. 위 판단 주기와 따로 보고, 비키기로 했으면 그쪽을 덮어쓴다.
   f.aiDodgeT = (f.aiDodgeT || 0) - dt;
   if (f.aiDodgeT <= 0) {
     f.aiDodgeT = AI_DODGE_TICK;
     if (!steeringBlocked(f)) {
-      const dodge = aiIncomingThreat(b, f);
-      if (dodge && !chance(AI_DODGE_MISS)) {
-        setSteerInput(f, dodge.angle, 1);
+      const threat = aiIncomingThreat(b, f);
+      const dodge = threat && aiDodgeDecision(b, f, ai, threat);
+      if (dodge) {
+        setSteerInput(f, dodge.angle, dodge.magnitude);
         f.aiSteerT = Math.max(f.aiSteerT, 0.2);   // 비키는 동안은 원래 판단을 미룬다
       }
     }
   }
-  // 차지 샷 조준만은 판단 주기와 따로, 매 프레임 본다.
-  // 활은 두 바퀴 도는 동안 상대와 겹치는 순간이 0.1초 남짓이라
-  // 0.2~0.4초마다 보는 일반 판단으로는 절반 넘게 그냥 지나쳐 버린다.
+
+  /* 무기 스킬이 돌아와도 바로 쓰지 않는다. 돌아온 순간 무기마다 정한 범위에서 뜸을
+   * 뽑고, 그 뒤부터 쓸지 본다. 방패는 손에 있어야(자기 방패면 불러올 수 있어야) 돌아온 것이다. */
+  const readyNow = f.skillUses.cd <= 0 && !(f.weaponId === 'shield' && f.disc && !f.flags.discMagnet);
+  if (!readyNow) ai.skillAt = null;
+  else if (ai.skillAt == null) {
+    const w = AI_SKILL_WAIT[f.weaponId] || [0.3, 1.5];
+    ai.skillAt = b.simT + rand(w[0], w[1]);
+  }
+  const weaponReady = readyNow && b.simT >= ai.skillAt;
+  // 분열체는 주인을 거쳐 쓴다 — 사람이 조종할 때처럼 살아 있는 분열체가 함께 쓴다
+  const use = slot => useSkill(b, f.kind === 'split' && f.owner && f.owner.mainDead ? f.owner : f, slot);
+
+  // 차지 샷 조준과 방패 투척은 판단 주기와 따로, 매 프레임 본다.
+  // 겹치는 순간이 0.1초 남짓이라 0.2~0.4초마다 보는 일반 판단으로는 그냥 지나친다.
+  if (!f.charging && f.weaponId === 'bow') ai.aimErr = null;
   if (f.charging && f.charging.t >= 0.2) {
     const tgt = b.nearestEnemyMain(f);
-    if (tgt) {
-      // 화살이 날아가는 동안 상대가 움직이는 만큼 앞을 겨눈다
-      const flight = dist(f.x, f.y, tgt.x, tgt.y) / 580;
-      const spd = tgt.st ? tgt.st.move : 170;
-      const aimAng = Math.atan2(tgt.y + tgt.vy * spd * flight - f.y, tgt.x + tgt.vx * spd * flight - f.x);
-      let off = f.weaponAngle - aimAng;
-      while (off > Math.PI) off -= TAU; while (off < -Math.PI) off += TAU;
-      if (Math.abs(off) < 0.1) { useSkill(b, f, 'weapon'); return; }
-    }
+    if (tgt && aiAimRelease(b, f, ai, tgt, 580, 0.1)) { use('weapon'); return; }
   }
+  if (f.weaponId === 'shield' && !f.disc) {
+    const tgt = b.nearestEnemyMain(f);
+    const d = tgt ? dist(f.x, f.y, tgt.x, tgt.y) : Infinity;
+    // 방패는 맞을 만한 거리에서, 방패가 상대 쪽을 볼 때 던진다. 빗나가면 주우러 가는 동안 무방비다.
+    if (weaponReady && d > 90 && d < 320) {
+      // 원반이 커서(반지름 15) 같은 오차로는 거의 다 맞는다. 오차를 세 배로 둔다.
+      if (aiAimRelease(b, f, ai, tgt, WEAPONS.shield.throwSpd, 0.09, 3)) { use('weapon'); ai.skillAt = null; }
+    } else ai.aimErr = null;
+  }
+
   f.aiT -= dt;
   if (f.aiT > 0) return;
   f.aiT = rand(0.2, 0.4);
@@ -3266,69 +3354,70 @@ function aiUpdate(b, f, dt) {
   const hpP = f.hp / f.maxHp;
   const eHpP = e.hp / e.maxHp;
   const wp = WEAPONS[f.weaponId];
-  // 분열체는 주인을 거쳐 쓴다 — 사람이 조종할 때처럼 살아 있는 분열체가 함께 쓴다
-  const use = slot => useSkill(b, f.kind === 'split' && f.owner && f.owner.mainDead ? f.owner : f, slot);
-  // 캐릭터 스킬 (카피 스킬도 동일 휴리스틱)
+  // 캐릭터 스킬 (카피 스킬도 동일 휴리스틱). 조건이 잠깐 이어져야 누른다 — 보고 나서 손이 간다.
   const charHeur = id => {
     switch (id) {
       case 'cat': return hpP < 0.45 && d < 170;
       case 'wak': return (eHpP < 0.5 || b.simT > 14) && hpP > 0.45;
       case 'soft': return hpP < 0.55 && d < 140;
       case 'bomb': return d < 135;
-      case 'bball': return b.simT < 5 && d > 190;
+      case 'bball': return b.simT < 6 && d > 190;
       case 'balloon': return b.simT > 3;
       default: return false;
     }
   };
-  if (f.skillUses.char > 0 && charHeur(f.charId)) use('char');
-  // 무기 스킬
-  if (f.skillUses.cd <= 0) {
-    const angToE = Math.atan2(e.y - f.y, e.x - f.x);
-    let diff = f.weaponAngle - angToE;
-    while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
-    switch (f.weaponId) {
-      // 위치 교환은 상대가 붙었을 때가 값어치가 가장 크다 — 그 자리에 추가 남는다.
-      // 방패는 맞을 만한 거리에서만 던진다. 빗나가면 주우러 가는 동안 무방비다.
-      case 'shield':
-        if (!f.disc) { if (d > 90 && d < 300) use('weapon'); }
-        // 자기 방패 — 쿨타임이 끝났는데 방패가 멀리 있으면 불러온다
-        else if (f.flags.discMagnet && !f.disc.returning && dist(f.x, f.y, f.disc.x, f.disc.y) > 140) use('weapon');
-        break;
-      case 'chain': if (d < f.radius + 70) use('weapon'); break;
-      // 화염방사기는 사거리 안일 때만 뿜고, 벗어나면 끈다. 연료가 바닥이면 쉰다.
-      case 'flame': {
-        const inRange = d < f.radius + WEAPONS.flame.range * weaponScale(f) * 0.95;
-        setFlameInput(f, inRange && f.flame.fuel > 12);
-        break;
-      }
-      case 'sword': if (d < f.radius + wp.reach * weaponScale(f) + 55) use('weapon'); break;
-      // 돌진은 780 x 0.35초라 270px 남짓 간다. 430px에서 걸면 닿지 못하고
-      // 빈 곳으로 뛰어들어 오히려 맞기만 한다.
-      case 'dagger': if (d > 120 && d < 300) use('weapon'); break;
-      case 'bow':
-        // 발사는 위쪽 매 프레임 조준 검사가 맡는다. 여기서는 충전 시작만 판단한다.
-        if (!f.charging && d < 520) use('weapon');
-        break;
-      // 회전 난사는 켜는 순간 자동 조준을 버리고 사방으로 뿌린다.
-      // 430px에서 켜면 대부분 빗나가고, 그동안 조준 사격을 통째로 잃는다.
-      // 뿌리는 각도가 360도라 조준 여부는 상관없고 거리만 본다.
-      case 'pistol': if (d < 200) use('weapon'); break;
-      // 마력 폭주는 '날아가는 마법'을 3초간 키우는 스킬이다. 화면에 마법이
-      // 없으면 통째로 버리는 셈인데, 전에는 7초만 지나면 그냥 썼다.
-      case 'staff':
-        // 날아가는 마법이 상대 근처까지 갔을 때 키워야 실제로 맞는다.
-        // 그냥 '마법이 있으면'으로 잡으면 쏘자마자 써 버려 3초가 헛돈다.
-        if (b.projectiles.some(p => p.owner === f && p.kind === 'orb'
-          && dist(p.x, p.y, e.x, e.y) < 220)) use('weapon');
-        break;
-      case 'mine': {
-        // 터뜨려 봐야 폭발 반경(기본 62) 안에 있어야 맞는다. 150px로 잡아
-        // 두어 두 배 넘게 먼 지뢰를 그냥 날리고 있었다.
-        const near = b.mines.some(m => m.owner === f && dist(m.x, m.y, e.x, e.y) < m.blast * 0.9);
-        if (near) use('weapon');
-        break;
+  if (f.skillUses.char > 0 && charHeur(f.charId)) {
+    if (!ai.charAt) ai.charAt = b.simT + rand(0.15, 0.8) * (1.3 - 0.5 * ai.skill);
+    if (b.simT >= ai.charAt) { use('char'); ai.charAt = 0; }
+  } else ai.charAt = 0;
+
+  // 화염방사기는 쿨타임이 없는 기본 공격이라 뜸과 상관없이 따로 본다.
+  if (f.weaponId === 'flame') {
+    /* 사거리에 들어오면 조금 늦게 켜고, 벗어나도 조금 더 뿜다가 뗀다.
+     * 가끔은 닿지 않는 거리에서도 일단 뿜어 본다. 연료가 바닥이면 쉰다. */
+    const reach = f.radius + WEAPONS.flame.range * weaponScale(f);
+    const fuelOk = f.flame.fuel > 12;
+    let on;
+    if (d < reach * 0.95 && fuelOk) {
+      if (!ai.flameOnAt) ai.flameOnAt = b.simT + rand(0.05, 0.3);
+      on = b.simT >= ai.flameOnAt;
+      ai.flameUntil = Math.max(ai.flameUntil, b.simT + rand(0.1, 0.3));
+    } else {
+      ai.flameOnAt = 0;
+      on = b.simT < ai.flameUntil && f.flame.fuel > 0;
+      if (!on && fuelOk && d < reach * 1.7 && chance(0.03)) {
+        ai.flameUntil = b.simT + rand(0.3, 0.7);
+        on = true;
       }
     }
+    setFlameInput(f, on);
+    return;
   }
-  // 차지 완료 후 각도 맞춰 발사 (무기 스킬 사용으로 처리됨)
+
+  if (!weaponReady) return;
+  const heading = Math.atan2(f.vy, f.vx), toward = Math.atan2(e.y - f.y, e.x - f.x);
+  let want = false;
+  switch (f.weaponId) {
+    // 자기 방패 — 불러올 수 있는데 방패가 멀리 있으면 불러온다 (던지기는 위에서 매 프레임 본다)
+    case 'shield': want = !!(f.disc && f.flags.discMagnet && !f.disc.returning && dist(f.x, f.y, f.disc.x, f.disc.y) > 140); break;
+    // 위치 교환은 상대가 붙었을 때가 값어치가 가장 크다 — 그 자리에 추가 남는다.
+    case 'chain': want = d < f.radius + 70; break;
+    case 'sword': want = d < f.radius + wp.reach * weaponScale(f) + 55; break;
+    // 돌진은 가던 방향으로 270px 남짓 간다. 상대가 그 앞에 있을 때만 건다 —
+    // 예전에는 거리만 보고 걸어 엉뚱한 쪽으로 뛰어들었다.
+    case 'dagger': want = d > 120 && d < 300 && Math.abs(angleDelta(heading, toward)) < 0.45; break;
+    // 발사는 위쪽 매 프레임 조준이 맡는다. 여기서는 충전 시작만 판단한다.
+    case 'bow': want = !f.charging && d < 520; break;
+    // 회전 난사는 사방으로 뿌린다. 조준은 상관없고 거리만 본다.
+    case 'pistol': want = d < 200; break;
+    // 마력 폭주는 날아가는 마법이 상대 근처까지 갔을 때 키워야 맞는다.
+    case 'staff':
+      want = b.projectiles.some(p => p.owner === f && p.kind === 'orb' && dist(p.x, p.y, e.x, e.y) < 220);
+      break;
+    // 폭발 반경 안에 상대가 있는 지뢰가 있을 때만 터뜨린다.
+    case 'mine': want = b.mines.some(m => m.owner === f && dist(m.x, m.y, e.x, e.y) < m.blast * 0.9); break;
+  }
+  // 사람도 가끔 헛쓴다
+  if (!want && AI_FUMBLE_WEAPONS.has(f.weaponId) && !f.charging && chance(ai.fumble)) want = true;
+  if (want && use('weapon')) ai.skillAt = null;
 }

@@ -1309,6 +1309,156 @@ test('AI도 순간 방향전환 없이 0.4~0.7초마다 불완전한 조향 목�
     'AI 조향 판단 간격은 0.4~0.7초여야 한다');
 });
 
+/* ---- AI를 사람처럼 ----
+ * 투사체를 거의 다 피하고, 차지 샷은 80%를 맞히고, 방패는 아무 데나 던지고,
+ * 스킬은 돌아오자마자 쓰던 봇을 사람 같은 실수와 뜸이 있게 바꿨다. */
+function aiDuel(mine, theirs) {
+  const b = makeBattle({ weaponId: mine, isAI: true }, { weaponId: theirs, isAI: true });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.ai = aiProfile(f);
+  return { b, f, e, ai: f.ai };
+}
+
+test('AI는 날아오는 투사체마다 한 번만 정한다 — 못 보기로 한 것은 끝까지 안 피하고, 보더라도 늦게 반응한다', () => {
+  const { b, f, ai } = aiDuel('sword', 'bow');
+  const real = Math.random;
+  try {
+    const missed = { p: { uid: 900001 }, angle: 1, t: 0.5 };
+    Math.random = () => 0;                 // 첫 결정: 못 본다
+    assert.equal(aiDodgeDecision(b, f, ai, missed), null);
+    Math.random = () => 0.999;             // 뒤로는 무엇을 굴려도
+    for (let i = 0; i < 30; i++) {
+      b.simT += 0.1;
+      assert.equal(aiDodgeDecision(b, f, ai, missed), null, '다시 굴려서 결국 보게 되는 일이 없다');
+    }
+    const seen = { p: { uid: 900002 }, angle: 1, t: 0.5 };
+    b.simT = 10;
+    assert.equal(aiDodgeDecision(b, f, ai, seen), null, '보자마자 비키지는 않는다');
+    b.simT = 10.1;
+    assert.equal(aiDodgeDecision(b, f, ai, seen), null, '반응 시간 안이다');
+    b.simT = 11;
+    const d = aiDodgeDecision(b, f, ai, seen);
+    assert.ok(d && Number.isFinite(d.angle) && d.magnitude > 0, '반응 시간이 지나면 비킨다');
+  } finally { Math.random = real; }
+  // 솜씨가 낮을수록 더 많이 못 본다
+  const missRate = skill => {
+    const x = aiDuel('sword', 'bow');
+    x.ai.skill = skill;
+    let miss = 0;
+    for (let i = 0; i < 3000; i++) {
+      aiDodgeDecision(x.b, x.f, x.ai, { p: { uid: 5e6 + i }, angle: 0, t: 0.5 });
+      if (x.ai.seen.get(5e6 + i).miss) miss++;
+    }
+    return miss / 3000;
+  };
+  const clumsy = missRate(AI_SKILL_MIN), sharp = missRate(AI_SKILL_MAX);
+  assert.ok(clumsy > 0.4 && clumsy < 0.53, '서툰 봇은 절반쯤 못 본다 (' + clumsy.toFixed(2) + ')');
+  assert.ok(sharp > 0.2 && sharp < 0.32, '능숙한 봇도 넷에 하나는 못 본다 (' + sharp.toFixed(2) + ')');
+});
+
+test('AI는 무기 스킬이 돌아와도 바로 쓰지 않고 무기마다 뜸을 들인다', () => {
+  const times = [];
+  for (let k = 0; k < 24; k++) {
+    const { b, f, e, ai } = aiDuel('sword', 'bow');
+    ai.fumble = 0;
+    f.skillUses.cd = 0; f.aiT = 0;
+    let usedAt = null;
+    for (let i = 0; i < 60 * 5 && usedAt === null; i++) {
+      f.x = 0; f.y = 0; e.x = 60; e.y = 0;     // 믹서기를 쓸 만한 거리
+      aiUpdate(b, f, 1 / 60);
+      if (f.spinRemaining > 0) usedAt = b.simT;
+      b.simT += 1 / 60;
+    }
+    assert.ok(usedAt !== null, '조건이 맞으면 결국 쓴다');
+    times.push(usedAt);
+  }
+  const [lo, hi] = AI_SKILL_WAIT.sword;
+  assert.ok(Math.min(...times) >= lo - 1e-9, '돌아오자마자 쓰지 않는다 (가장 빨리 ' + Math.min(...times).toFixed(2) + '초)');
+  assert.ok(Math.max(...times) <= hi + 0.45, '뜸이 끝나면 곧 쓴다 (가장 늦게 ' + Math.max(...times).toFixed(2) + '초)');
+  assert.ok(Math.max(...times) - Math.min(...times) > 0.5, '뜸은 매번 다르다');
+});
+
+test('AI 방패는 방패가 상대 쪽을 볼 때 던진다', () => {
+  const offs = [];
+  for (let k = 0; k < 24; k++) {
+    const { b, f, e, ai } = aiDuel('shield', 'bow');
+    ai.skillAt = -1;                          // 뜸은 끝났다고 친다
+    f.weaponAngle = rand(-Math.PI, Math.PI);
+    for (let i = 0; i < 60 * 8 && !f.disc; i++) {
+      f.x = 0; f.y = 0; e.x = 200; e.y = 0; e.vx = 0; e.vy = 0;
+      const facing = f.weaponAngle;
+      aiUpdate(b, f, 1 / 60);
+      if (f.disc) offs.push(Math.abs(angleDelta(facing, 0)));
+      f.weaponAngle += 0.02;                  // 방패가 돈다
+      b.simT += 1 / 60;
+    }
+  }
+  assert.ok(offs.length >= 20, '대부분 결국 던진다 (' + offs.length + ')');
+  offs.sort((a, c) => a - c);
+  assert.ok(offs[offs.length >> 1] < 0.6, '대체로 상대 쪽으로 던진다 (중앙 ' + offs[offs.length >> 1].toFixed(2) + 'rad)');
+  assert.ok(offs[offs.length - 1] < 1.2, '엉뚱한 쪽으로는 던지지 않는다 (최대 ' + offs[offs.length - 1].toFixed(2) + 'rad)');
+});
+
+test('AI 차지 샷은 매번 조금씩 다르게 겨눠 완벽하지 않다', () => {
+  const offs = [];
+  for (let k = 0; k < 40; k++) {
+    const { b, f, e, ai } = aiDuel('bow', 'sword');
+    f.x = 0; f.y = 0; e.x = 300; e.y = 0; e.vx = 0; e.vy = 0;
+    // 상대 가까이에서 돌리기 시작한다 — 멀리서 돌리면 겨누기 전에 조급해져 놓아 버려
+    // 오차가 아니라 조급함을 재게 된다.
+    f.weaponAngle = -0.4;
+    for (let i = 0; i < 60 * 8; i++) {
+      if (aiAimRelease(b, f, ai, e, 580, 0.1)) { offs.push(Math.abs(angleDelta(f.weaponAngle, 0))); break; }
+      f.weaponAngle += 0.01; b.simT += 1 / 60;
+    }
+  }
+  assert.equal(offs.length, 40);
+  // 300px 앞 상대는 몸통+화살 반지름이 약 0.1rad다
+  assert.ok(offs.filter(o => o > 0.1).length >= 10, '여럿은 몸통을 벗어나게 겨눈다 (' + offs.filter(o => o > 0.1).length + '/40)');
+  offs.sort((a, c) => a - c);
+  assert.ok(offs[offs.length >> 1] < 0.35, '그래도 대체로 상대 쪽이다');
+});
+
+test('AI 화염방사기는 사거리 안에서 뿜고, 가끔은 닿지 않는 거리에서도 일단 뿜어 본다', () => {
+  const run = gap => {
+    const { b, f, e } = aiDuel('flame', 'sword');
+    const reach = f.radius + WEAPONS.flame.range * weaponScale(f);
+    let on = 0, ticks = 0;
+    // 일단 뿜어 보기는 판단 한 번에 3%라 40초로는 한 번도 안 나올 확률이 2%쯤 된다. 120초 본다.
+    for (let i = 0; i < 60 * 120; i++) {
+      f.x = 0; f.y = 0; e.x = reach * gap; e.y = 0; f.flame.fuel = 100;
+      aiUpdate(b, f, 1 / 60);
+      if (f.flame.on) on++;
+      ticks++;
+      b.simT += 1 / 60;
+    }
+    return on / ticks;
+  };
+  assert.ok(run(0.6) > 0.85, '사거리 안이면 거의 내내 뿜는다');
+  const far = run(1.4);
+  assert.ok(far > 0.01 && far < 0.25, '닿지 않는 거리에서도 가끔 뿜어 본다 (' + far.toFixed(3) + ')');
+  assert.equal(run(2.2), 0, '너무 멀면 뿜지 않는다');
+});
+
+test('AI 단검은 가던 방향 앞에 상대가 있을 때만 돌진한다', () => {
+  const dashed = heading => {
+    const { b, f, e, ai } = aiDuel('dagger', 'sword');
+    ai.fumble = 0; ai.skillAt = -1; f.skillUses.cd = 0; f.aiT = 0;
+    for (let i = 0; i < 60 * 3; i++) {
+      f.x = 0; f.y = 0; f.vx = Math.cos(heading); f.vy = Math.sin(heading);
+      e.x = 200; e.y = 0;
+      aiUpdate(b, f, 1 / 60);
+      if (f.timers.dashPrep > 0) return true;
+      b.simT += 1 / 60;
+    }
+    return false;
+  };
+  assert.equal(dashed(0), true, '상대 쪽으로 가는 중이면 돌진한다');
+  assert.equal(dashed(Math.PI / 2), false, '옆으로 가는 중이면 돌진하지 않는다');
+  assert.equal(dashed(Math.PI), false, '등지고 가면 돌진하지 않는다');
+});
+
 /* 카피 계열과 사용 횟수 증강을 통째로 걷어냈다.
  * 칸은 캐릭터·무기 둘뿐이다. 캐릭터는 라운드당 1회, 무기는 쿨타임으로 돈다. */
 test('스킬 칸은 캐릭터·무기 둘뿐이고 무기는 쿨타임으로 돈다', () => {
