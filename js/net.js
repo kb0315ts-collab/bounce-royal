@@ -428,6 +428,23 @@ function lerpAngle(a, b, k) {
 }
 function lerp(a, b, k) { return a + (b - a) * k; }
 
+/* 내 화염방사기 노즐은 서버를 기다리지 않고 내 조이스틱으로 바로 돌린다.
+ * 서버 조준은 입력이 왕복하고 스냅샷이 100ms 과거로 그려진 뒤에야 보여서,
+ * 스틱을 천천히 돌리면 노즐이 한동안 가만있다가 한꺼번에 따라붙었다
+ * (배포 서버 실측: 스틱이 움직이고 0.3초 뒤에야 노즐이 움직임).
+ * 서버와 같은 속도 상한(초당 360도)으로 스틱 쪽으로 돌리고, 스틱을 놓으면
+ * 서버 조준으로 돌아간다. 실제 피해는 여전히 서버의 조준으로 판정한다. */
+const FLAME_AIM_RATE_NET = Math.PI * 2;
+function predictFlameAim(prev, serverAim, stickAngle, dt) {
+  if (!Number.isFinite(prev)) return serverAim;
+  const target = Number.isFinite(stickAngle) ? stickAngle : serverAim;
+  if (!Number.isFinite(target)) return prev;
+  const d = Math.atan2(Math.sin(target - prev), Math.cos(target - prev));
+  const max = FLAME_AIM_RATE_NET * Math.max(0, dt || 0);
+  const next = prev + (Math.abs(d) <= max ? d : Math.sign(d) * max);
+  return Math.atan2(Math.sin(next), Math.cos(next));
+}
+
 // World-space weapons must move at the same render rate as their owner.
 // Shape/count changes and teleports use the latest geometry without blending.
 function lerpWeaponGeometry(a, b, k, jump) {
@@ -439,7 +456,8 @@ function lerpWeaponGeometry(a, b, k, jump) {
   }
   if (b.dc) {
     const canMix = a.dc && Math.hypot(b.dc[0] - a.dc[0], b.dc[1] - a.dc[1]) <= jump;
-    out.dc = canMix ? [lerp(a.dc[0], b.dc[0], k), lerp(a.dc[1], b.dc[1], k), b.dc[2], b.dc[3]] : b.dc;
+    // 위치만 섞고 나머지(크기·멈춤·날아옴)는 새 값 그대로 — 구형 서버의 짧은 배열도 모양을 지킨다
+    out.dc = canMix ? [lerp(a.dc[0], b.dc[0], k), lerp(a.dc[1], b.dc[1], k), ...b.dc.slice(2)] : b.dc;
   }
   return out;
 }
@@ -632,7 +650,7 @@ function netFighter(view, meta, seat) {
       weaponAngle: s.a || 0,
       charging: s.ch ? { t: s.ch } : null,
       gun: { reloadT: s.rl ? 1 : 0, focus: false },
-      disc: s.dc ? { x: s.dc[0], y: s.dc[1], r: s.dc[2], resting: !!s.dc[3] } : null,
+      disc: s.dc ? { x: s.dc[0], y: s.dc[1], r: s.dc[2], resting: !!s.dc[3], returning: !!s.dc[4] } : null,
       gripT: s.gt || 0,
       flame: { on: !!s.fo, fuel: s.fu == null ? 100 : s.fu, idle: 0 },
       chainHeads: s.cn ? chainHeadsOf(s.cn, s.ca) : null,
@@ -641,7 +659,7 @@ function netFighter(view, meta, seat) {
     // 위성 증강(satellite / satellitePlus)이 화면에 나온다.
     satellites: (view.sa || NET_EMPTY).map(s => ({ ang: s.a })),
     // 던져 둔 방패. 그리기에만 쓴다.
-    disc: view.dc ? { x: view.dc[0], y: view.dc[1], r: view.dc[2], resting: !!view.dc[3] } : null,
+    disc: view.dc ? { x: view.dc[0], y: view.dc[1], r: view.dc[2], resting: !!view.dc[3], returning: !!view.dc[4] } : null,
     gripT: view.gt || 0,
     // 화염방사기 — 불길을 그리고 연료 게이지를 채운다.
     flame: { on: !!view.fo, fuel: view.fu == null ? 100 : view.fu, idle: 0 },
@@ -693,4 +711,4 @@ function netBattleView(snap, players, seat) {
 
 if (typeof window !== 'undefined') window.netBattleView = netBattleView;
 // Node 테스트에서 순수 함수만 꺼내 쓸 수 있게 한다 (브라우저에는 영향 없음)
-if (typeof module === 'object' && module.exports) module.exports = { Net, lerpSnapshot, netBattleView };
+if (typeof module === 'object' && module.exports) module.exports = { Net, lerpSnapshot, netBattleView, predictFlameAim };

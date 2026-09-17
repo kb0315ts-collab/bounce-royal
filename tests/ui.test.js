@@ -283,6 +283,29 @@ test('무기 스킬 쿨타임은 시계 방향 게이지와 남은 초(정수)�
   assert.ok(!btn.classList.contains('cooling'), '쿨타임이 끝나면 게이지를 끈다');
 });
 
+test('방패를 던져 두면 주울 때까지 버튼이 어둡고, 자기 방패는 8초 게이지가 돈 뒤 불러오기로 밝아진다', () => {
+  const shield = ({ disc = null, cd = 0, magnet = false } = {}) => ({
+    dead:false, mainDead:false, splitBalls:[], charId:'cat', weaponId:'shield',
+    timers:{ stun:0, bind:0, dashPrep:0, dashT:0 }, flags:{ discMagnet: magnet }, player:{},
+    skillUses:{ char:1, weapon: cd > 0 ? 0 : 1, cd }, disc,
+  });
+  const btn = $('sk-weapon'), show = f => updateSkillbar({ phase:'fight', result:null, human:() => f });
+  show(shield());
+  assert.ok(btn.classList.contains('ready') && !btn.classList.contains('used'), '들고 있으면 던질 수 있다');
+  show(shield({ disc: { x: 50, y: 0, resting: true } }));
+  assert.ok(btn.classList.contains('used') && !btn.classList.contains('ready'), '던져 두면 어둡다');
+  assert.ok(!btn.classList.contains('cooling'), '자기 방패가 없으면 게이지는 없다');
+  // 자기 방패 — 던진 순간부터 8초 게이지
+  show(shield({ disc: { x: 50, y: 0 }, cd: 5, magnet: true }));
+  assert.ok(btn.classList.contains('cooling') && !btn.classList.contains('ready'), '쿨타임 게이지가 돈다');
+  assert.equal(btn.style.getPropertyValue('--cd-done'), (3 / 8).toFixed(4), '8초 기준으로 걷힌다');
+  assert.equal(btn.querySelector('.cdnum').textContent, '5');
+  show(shield({ disc: { x: 50, y: 0 }, cd: 0, magnet: true }));
+  assert.ok(btn.classList.contains('ready'), '쿨타임이 끝나면 불러올 수 있어 밝아진다');
+  show(shield({ disc: { x: 50, y: 0, returning: true }, cd: 0, magnet: true }));
+  assert.ok(btn.classList.contains('used') && !btn.classList.contains('ready'), '날아오는 동안에는 어둡다');
+});
+
 test('관전·강제 이동 상태에서는 조이스틱을 숨기거나 비활성화한다', () => {
   updateSkillbar(null);
   assert.equal($('steer-control').style.display, 'none', '내 전투가 없으면 조이스틱을 숨겨야 한다');

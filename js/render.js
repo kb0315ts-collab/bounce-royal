@@ -1371,7 +1371,10 @@ function drawStatPanel(g, b, sc) {
     ['공격력', '×' + num(me.st.atk, 1).toFixed(2)],
     ['체력', Math.max(0, Math.round(num(me.hp, 0))) + ' / ' + Math.round(num(me.maxHp, 0))],
     ['공격속도', '×' + num(me.st.aspd, 1).toFixed(2)],
-    ['회전력', num(me.st.rot, 0) > 0 ? num(me.st.rot, 0).toFixed(2) + ' rad/s' : '—'],
+    // 철퇴는 돌지 않는다 — 같은 값이 조이스틱으로 휘두르는 힘의 배율이다
+    me.weaponId === 'chain'
+      ? ['휘두르는 힘', '×' + (num(me.st.rot, WEAPONS.chain.rot) / WEAPONS.chain.rot).toFixed(2)]
+      : ['회전력', num(me.st.rot, 0) > 0 ? num(me.st.rot, 0).toFixed(2) + ' rad/s' : '—'],
     ['피해 증폭', '×' + num(me.st.dmg, 1).toFixed(2)],
   ];
   g.fillStyle(CASUAL_INK, 0.18);

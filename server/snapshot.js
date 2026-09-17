@@ -76,7 +76,7 @@ function fighterView(f) {
       a: r2(s.weaponAngle), ch: s.charging ? Math.max(0.05, Math.min(1, r1(s.charging.t))) : 0,
       fg: visualFlags(s),
       rl: s.gun && s.gun.reloadT > 0 ? 1 : 0,
-      ...(s.disc ? { dc: [r1(s.disc.x), r1(s.disc.y), r1(s.disc.r), s.disc.resting ? 1 : 0] } : {}),
+      ...(s.disc ? { dc: [r1(s.disc.x), r1(s.disc.y), r1(s.disc.r), s.disc.resting ? 1 : 0, s.disc.returning ? 1 : 0] } : {}),
       ...(s.gripT > 0 ? { gt: Math.max(0.1, r1(s.gripT)) } : {}),
       ...(s.flame && f.weaponId === 'flame'
         ? { fo: flameFiring(s) ? 1 : 0, fu: Math.round(s.flame.fuel) } : {}),
@@ -85,7 +85,8 @@ function fighterView(f) {
     })),
     sa: f.satellites.map(s => ({ a: Math.round(s.ang * 100) / 100 })),
     // 던져 둔 방패. 모두에게 보여야 한다. [x, y, 반지름, 멈췄나]
-    ...(f.disc ? { dc: [r1(f.disc.x), r1(f.disc.y), r1(f.disc.r), f.disc.resting ? 1 : 0] } : {}),
+    // 마지막 칸은 자기 방패로 불러와 날아오는 중인지 — 버튼이 그동안 어둡다
+    ...(f.disc ? { dc: [r1(f.disc.x), r1(f.disc.y), r1(f.disc.r), f.disc.resting ? 1 : 0, f.disc.returning ? 1 : 0] } : {}),
     ...(f.gripT > 0 ? { gt: Math.max(0.1, r1(f.gripT)) } : {}),
     // 화염방사기. fo는 분사 중인지, fu는 남은 연료(0~100)다.
     // 불길은 모두에게 보여야 하고 연료 게이지는 자기 버튼에 쓴다.

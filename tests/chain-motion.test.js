@@ -12,7 +12,7 @@ function runtime() {
   context.window = context;
   vm.runInContext(['js/data.js', 'js/sim.js'].map(file =>
     fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n')
-    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN, ropeLen, chainAttach, CHAIN_MAX_STRETCH, CHAIN_WALL_BOUNCE, CHAIN_MAX_SPD, springChainRope };', context);
+    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN, ropeLen, chainAttach, CHAIN_MAX_STRETCH, CHAIN_WALL_BOUNCE, CHAIN_MAX_SPD, springChainRope, setSteerInput };', context);
   return context.testCore;
 }
 const T = runtime();
@@ -81,7 +81,7 @@ test('chain combat numbers and augmentation damage/range contracts remain unchan
   assert.equal(T.chainLen(f), 130 * 1.6);
 });
 
-test('a sharp turn still throws the spinning head with inertia, independent of frame rate', () => {
+test('a sharp turn still throws the head with inertia, independent of frame rate', () => {
   /* 회전이 붙어도 물리 느낌은 남아야 한다. 선회 한 번이 추를 얼마나 가속하는지는
    * 그 순간 추가 회전의 어느 위상에 있었느냐에 따라 뒤집히므로, 선회 시점을
    * 여러 번 바꿔 평균으로 본다. 한 시점만 재면 같은 코드에서도 1.0 ~ 2.1이 나왔다. */
@@ -114,9 +114,12 @@ test('a sharp turn still throws the spinning head with inertia, independent of f
     `same turn must not depend on frame rate: ${runs.map(x => x.toFixed(3)).join(', ')}`);
 });
 
-test('a collapsed rope on a still ball opens and spins on its own, never toward an enemy', () => {
-  /* 가만히 있어도 천천히 돈다. 연결부 회전이 만드는 것이지 상대를 노리는 게 아니다 —
-   * 적이 어디 있든 같은 궤적이어야 한다. */
+const spinFor = aspd => T.WEAPONS.chain.rot * (aspd > 1 ? 1 + (aspd - 1) * T.MELEE_ASPD_GAIN : aspd);
+const wrapAngle = d => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+// 공은 제자리, 조이스틱만 돌린다 (초당 w 라디안)
+const circleStick = (f, i, dt, w) => T.setSteerInput(f, w * i * dt, 1);
+
+test('without the stick a collapsed rope just opens and settles: no spin of its own, never toward an enemy', () => {
   const trace = enemyAt => {
     const { b, f, e } = fixture({ enemies: !!enemyAt });
     if (enemyAt) { e.x = enemyAt.x; e.y = enemyAt.y; e.hp = e.maxHp = 1e9; }
@@ -132,99 +135,83 @@ test('a collapsed rope on a still ball opens and spins on its own, never toward 
   const alone = trace(null);
   const h = alone.f.chainHeads[0], L = T.chainLen(alone.f);
   assert.ok(Math.hypot(h.x, h.y) > L * 0.95, '접힌 줄이 제 길이를 되찾는다');
-  assert.ok(Math.hypot(h.vx, h.vy) < 400, '폭주하지 않고 일정하게 돈다');
-  // 추가 이제 몸에 튕기므로, 끌림만 보려면 적을 추가 닿지 않는 거리에 둔다
+  assert.ok(Math.hypot(h.vx, h.vy) * T.GAME_SPEED < 5, '조이스틱을 안 대면 저절로 돌지 않고 가라앉는다');
   const withEnemy = trace({ x: -170, y: 0 });
   const drift = alone.out.reduce((mx, v, i) => Math.max(mx, Math.abs(v - withEnemy.out[i])), 0);
-  assert.ok(drift < 1e-9, `적 위치가 회전을 끌어당기지 않는다 (최대 차이 ${drift})`);
+  assert.ok(drift < 1e-9, `적 위치가 추를 끌어당기지 않는다 (최대 차이 ${drift})`);
 });
 
-test('the spin runs at the weapon rotation speed, in the same direction as melee weapons', () => {
-  const { b, f } = fixture();
-  const dt = 1 / 60;
-  let prev = null, turned = 0, time = 0;
-  for (let i = 0; i < 60 * 12; i++) {
-    b.simT += dt; T.updateChain(b, f, dt);
-    const hh = f.chainHeads[0], ang = Math.atan2(hh.y - f.y, hh.x - f.x);
-    if (i * dt >= 4 && prev !== null) {
-      let d = ang - prev; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-      turned += d; time += dt;
-    }
-    prev = ang;
-  }
-  const rate = turned / time, target = f.st.rot * T.GAME_SPEED;
-  assert.ok(rate > 0, '근접 무기와 같은 방향(각도 증가)으로 돈다');
-  // 공기 저항만큼 목표를 올려 잡아 두었다. 줄 구속에서 조금 더 잃는 몫만 남는다.
-  assert.ok(Math.abs(rate / target - 1) < 0.08,
-    `화면 회전속도가 설정값과 맞는다 (${rate.toFixed(3)} / ${target.toFixed(3)})`);
-});
-
-test('attack speed now means spin: faster rotation and a harder-hitting head', () => {
-  const spinAt = aspd => {
-    const { b, f } = fixture();
-    f.st.rot = T.WEAPONS.chain.rot * (aspd > 1 ? 1 + (aspd - 1) * T.MELEE_ASPD_GAIN : aspd);
-    const dt = 1 / 60;
-    let prev = null, turned = 0, time = 0, speed = 0, n = 0;
-    for (let i = 0; i < 60 * 12; i++) {
+test('turning the stick in a circle drags the weight around at the stick rate, either way', () => {
+  for (const w of [2, 3, -2.5]) {
+    const { b, f } = fixture(), dt = 1 / 60;
+    let prev = null, turned = 0, time = 0;
+    for (let i = 0; i < 600; i++) {
+      circleStick(f, i, dt, w);
       b.simT += dt; T.updateChain(b, f, dt);
       const hh = f.chainHeads[0], ang = Math.atan2(hh.y - f.y, hh.x - f.x);
-      if (i * dt >= 4) {
-        if (prev !== null) {
-          let d = ang - prev; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-          turned += d; time += dt;
-        }
-        speed += Math.hypot(hh.sx, hh.sy); n++;
-      }
+      if (i >= 180 && prev !== null) { turned += wrapAngle(ang - prev); time += dt; }
       prev = ang;
     }
-    return { rate: turned / time, speed: speed / n };
-  };
-  const slow = spinAt(1), fast = spinAt(1.5);
-  assert.ok(fast.rate > slow.rate * 1.5,
-    `공격속도 +50%면 회전이 확실히 빨라진다 (${slow.rate.toFixed(2)} -> ${fast.rate.toFixed(2)})`);
-  assert.ok(slow.speed > T.WEAPONS.chain.gate,
-    `기본 회전만으로 관문을 넘는다 (추 ${slow.speed.toFixed(0)} > 관문 ${T.WEAPONS.chain.gate})`);
-  assert.ok(fast.speed > slow.speed, '빨리 돌수록 추가 더 세게 지나간다');
+    const rate = turned / time;
+    assert.ok(Math.abs(rate / w - 1) < 0.1, `스틱을 초당 ${w}라디안 돌리면 추도 그만큼 돈다 (${rate.toFixed(2)})`);
+  }
+  // 돌리는 동안 추는 피해 관문을 넉넉히 넘는 속도로 지나간다
+  const { b, f } = fixture(), dt = 1 / 60;
+  let speed = 0, n = 0;
+  for (let i = 0; i < 600; i++) {
+    circleStick(f, i, dt, 3);
+    b.simT += dt; T.updateChain(b, f, dt);
+    if (i >= 180) { speed += Math.hypot(f.chainHeads[0].vx, f.chainHeads[0].vy) * T.GAME_SPEED; n++; }
+  }
+  assert.ok(speed / n > T.WEAPONS.chain.gate * 2, `스틱을 돌리면 세게 휘두른다 (${(speed / n).toFixed(0)})`);
 });
 
-const spinFor = aspd => T.WEAPONS.chain.rot * (aspd > 1 ? 1 + (aspd - 1) * T.MELEE_ASPD_GAIN : aspd);
-const wrapAngle = d => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
+test('the stick pushes the weight sideways, harder with attack speed and a fuller stick, and not while stunned', () => {
+  // 줄이 오른쪽으로 곧게 뻗은 멈춘 추를 위(+y)로 민다. 첫 0.1초의 옆 속도를 잰다.
+  const push = ({ aspd = 1, mag = 1, stun = false, angle = Math.PI / 2 } = {}) => {
+    const { b, f } = fixture(), dt = 1 / 120;
+    f.st.rot = spinFor(aspd);
+    if (stun) f.timers.stun = 5;
+    const h = setHead(f, f.radius + T.ropeLen(f), 0, 0, 0);
+    for (let i = 0; i < 12; i++) {
+      T.setSteerInput(f, angle, mag);
+      b.simT += dt; T.updateChain(b, f, dt);
+    }
+    return { side: h.vy, out: h.vx };
+  };
+  const base = push();
+  assert.ok(base.side > 20, `스틱 쪽으로 밀린다 (${base.side.toFixed(1)})`);
+  const fast = push({ aspd: 1.5 });
+  assert.ok(Math.abs(fast.side / base.side - spinFor(1.5) / spinFor(1)) < 0.15,
+    `공격속도만큼 세게 민다 (${(fast.side / base.side).toFixed(2)}배)`);
+  const half = push({ mag: .5 });
+  assert.ok(Math.abs(half.side / base.side - .5) < 0.08, `스틱을 반만 당기면 절반 (${(half.side / base.side).toFixed(2)}배)`);
+  assert.ok(Math.abs(push({ stun: true }).side) < 1e-9, '기절하면 조이스틱이 추를 밀지 못한다');
+  // 줄 방향(바깥)으로 당기는 몫은 줄을 늘리기만 하므로 버린다
+  const outward = push({ angle: 0 });
+  assert.ok(outward.out < 1, `줄 방향으로는 밀지 않는다 (${outward.out.toFixed(2)})`);
+});
 
-test('the rope is tied to the ball surface and the tie point travels around it at the spin rate', () => {
+test('the rope is tied to the ball surface and the tie slides to where the rope leaves', () => {
   const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0];
-  const start = h.attach;
-  let turned = 0, prev = start;
-  for (let i = 0; i < 180; i++) {
+  let worst = 0;
+  for (let i = 0; i < 360; i++) {
+    circleStick(f, i, dt, 3);
     b.simT += dt; T.updateChain(b, f, dt);
     assert.ok(Math.abs(Math.hypot(h._anchor.x - f.x, h._anchor.y - f.y) - f.radius) < 1e-6,
       '매인 자리는 공 가운데가 아니라 표면에 있다');
-    turned += wrapAngle(h.attach - prev); prev = h.attach;
+    if (i > 60) worst = Math.max(worst, Math.abs(wrapAngle(h.attach - Math.atan2(h.nodes[0].y - f.y, h.nodes[0].x - f.x))));
   }
-  const expected = f.st.rot * T.GAME_SPEED * 3;
-  assert.ok(Math.abs(turned / expected - 1) < 0.01, `매인 자리가 회전속도로 돈다 (${turned.toFixed(3)} / ${expected.toFixed(3)})`);
+  assert.ok(worst < 0.1, `줄이 나가는 쪽 표면에 매여 있다 (최대 어긋남 ${worst.toFixed(3)}rad)`);
 });
 
-test('a surface tie hands spin to the chain far faster than a center tie did', () => {
-  // 가운데에 매였을 때는 멈춘 추가 목표 회전의 90%에 닿기까지 1.8초였다.
-  const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0];
-  h.vx = h.vy = 0; for (const n of h.nodes) { n.vx = n.vy = 0; }
-  const target = f.st.rot * T.GAME_SPEED;
-  let prev = Math.atan2(h.y - f.y, h.x - f.x), reached = null;
-  for (let i = 0; i < 360 && reached === null; i++) {
-    b.simT += dt; T.updateChain(b, f, dt);
-    const a = Math.atan2(h.y - f.y, h.x - f.x);
-    if (wrapAngle(a - prev) / dt >= target * 0.9) reached = i * dt;
-    prev = a;
-  }
-  assert.ok(reached !== null && reached < 1.2, `표면에 매면 회전이 빨리 실린다 (${reached}초)`);
-});
-
-test('the rope stretches with spin and springs back after a turn, but keeps its reach and limit', () => {
-  const settle = aspd => {
+test('the rope keeps its length under a steady stick, stretches only when swung fast, and springs back after a turn', () => {
+  const settle = (w, aspd = 1) => {
     const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0];
     f.st.rot = spinFor(aspd);
     let stretch = 0, reach = 0, n = 0;
     for (let i = 0; i < 720; i++) {
+      T.setSteerInput(f, w * i * dt + 1, 1);
       b.simT += dt; T.updateChain(b, f, dt);
       if (i >= 300) {
         stretch += Math.hypot(h.x - h._anchor.x, h.y - h._anchor.y) / T.ropeLen(f);
@@ -233,15 +220,13 @@ test('the rope stretches with spin and springs back after a turn, but keeps its 
     }
     return { stretch: stretch / n, reach: reach / n, L: T.chainLen(f) };
   };
-  const base = settle(1), fast = settle(2);
-  assert.ok(base.stretch > 1.01 && base.stretch < 1.08, `기본 회전에서 살짝 늘어난다 (${base.stretch.toFixed(3)})`);
-  assert.ok(fast.stretch > base.stretch + 0.03, '빨리 돌수록 더 팽팽하게 늘어난다');
-  assert.ok(fast.stretch < T.CHAIN_MAX_STRETCH - 0.02, `공속 2배에서도 한계에 붙지 않는다 (${fast.stretch.toFixed(3)})`);
-  // 표면에 매도 가운데에서 잰 사거리는 그대로다 — 늘어난 몫만 조금 더해진다
-  assert.ok(base.reach > base.L * 0.98 && base.reach < base.L * 1.08,
-    `사거리 유지 (${base.reach.toFixed(1)} / ${base.L})`);
+  const still = settle(0), slow = settle(2), fast = settle(4, 2);
+  assert.ok(still.stretch < 1.03, `스틱을 대고만 있으면 줄이 늘어나지 않는다 (${still.stretch.toFixed(3)})`);
+  assert.ok(fast.stretch > slow.stretch + 0.03, `빨리 휘두를수록 원심력으로 늘어난다 (${slow.stretch.toFixed(3)} -> ${fast.stretch.toFixed(3)})`);
+  assert.ok(fast.stretch < T.CHAIN_MAX_STRETCH - 0.02, `세게 휘둘러도 한계에 붙지 않는다 (${fast.stretch.toFixed(3)})`);
+  assert.ok(slow.reach > slow.L * 0.98 && slow.reach < slow.L * 1.1, `사거리 유지 (${slow.reach.toFixed(1)} / ${slow.L})`);
 
-  // 급선회 뒤 줄이 늘었다 줄었다를 여러 번 반복한다 — 탄력
+  // 급선회 뒤 줄이 늘었다 줄었다를 되풀이한다 — 탄력
   const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0], series = [];
   for (let i = 0; i < 480; i++) {
     const t = i * dt, ang = t >= 4 ? Math.PI : 0;
@@ -256,7 +241,27 @@ test('the rope stretches with spin and springs back after a turn, but keeps its 
   }
   let peaks = 0;
   for (let i = 1; i < series.length - 1; i++) if (series[i] > series[i - 1] && series[i] > series[i + 1] && series[i] > 1.03) peaks++;
-  assert.ok(peaks >= 3, `선회 뒤 여러 번 튕긴다 (늘어남 봉우리 ${peaks}개)`);
+  assert.ok(peaks >= 2, `선회 뒤 늘었다 줄었다 한다 (늘어남 봉우리 ${peaks}개)`);
+});
+
+test('while the ball runs and turns under the stick, the rope stays spread instead of folding into the ball', () => {
+  /* 공이 앞서 달려 뒤에 끌려오던 추를 덮치면 줄이 느슨해진다. 스틱 힘의 바깥 몫이
+   * 느슨한 줄을 다시 편다. 이게 없으면 추가 공 한가운데까지 접혀 들어왔다. */
+  const { b, f } = fixture({ arena: true });
+  b.update = b.update.bind(b);
+  const dt = 1 / 60, L = T.chainLen(f), reach = [];
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0;
+  for (let i = 0; i < 60 * 16; i++) {
+    T.setSteerInput(f, Math.sin(i * dt * 0.7) * 2.5, 1);
+    f.hp = f.maxHp;
+    b.update(dt);
+    const h = f.chainHeads[0];
+    if (i > 120) reach.push(Math.hypot(h.x - f.x, h.y - f.y) / L);
+  }
+  reach.sort((a, c) => a - c);
+  const p10 = reach[Math.floor(reach.length * .1)], mid = reach[reach.length >> 1];
+  assert.ok(mid > 0.9, `대부분 제 길이로 펼쳐져 있다 (중앙 ${mid.toFixed(2)})`);
+  assert.ok(p10 > 0.5, `접혀 들어오는 순간이 드물다 (하위 10% ${p10.toFixed(2)})`);
 });
 
 test('the flail head bounces off a body instead of passing through, and still hits once', () => {
@@ -266,6 +271,7 @@ test('the flail head bounces off a body instead of passing through, and still hi
   let deepest = 0, hits = 0, hp = e.hp, reversed = false, prevToward = 0;
   for (let i = 0; i < 360; i++) {
     e._motionX = e.x; e._motionY = e.y;
+    circleStick(f, i, dt, 3);                  // 조이스틱을 돌려 추를 휘두른다
     b.simT += dt; T.updateChain(b, f, dt);
     deepest = Math.max(deepest, headR + e.radius - Math.hypot(h.x - e.x, h.y - e.y));
     if (e.hp < hp - 1e-9) { hits++; hp = e.hp; }

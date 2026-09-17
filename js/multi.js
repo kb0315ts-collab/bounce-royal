@@ -278,6 +278,22 @@ const Multi = {
   },
   clearSteer() { return BounceRoyalNet.clearSteer(); },
   sendSkill(slot) { BounceRoyalNet.skill(slot); },
+  /* 내 화염방사기 노즐만 내 조이스틱으로 바로 돌린다 (predictFlameAim 설명 참고).
+   * 분열하면 살아 있는 분열체가 모두 같은 스틱을 따른다. */
+  predictOwnFlame(dt) {
+    const me = this.view && !this.spectating ? this.view.human() : null;
+    if (!me || me.weaponId !== 'flame' || this.view.phase !== 'fight') { this.flameAims = null; return; }
+    const net = BounceRoyalNet, stick = net.steerActive ? (net.steerPending || net.steerLast) : null;
+    const angle = stick && stick.active ? stick.angle : null;
+    const bodies = me.mainDead && me.splitBalls && me.splitBalls.length ? me.splitBalls.filter(s => !s.dead) : [me];
+    const next = new Map();
+    for (const body of bodies) {
+      const aim = predictFlameAim(this.flameAims ? this.flameAims.get(body.uid) : undefined, body.weaponAngle, angle, dt);
+      body.weaponAngle = aim;
+      next.set(body.uid, aim);
+    }
+    this.flameAims = next;
+  },
   sendSkillUp(slot) { BounceRoyalNet.skillUp(slot); },
 
   /* ---------------- 매 프레임 ---------------- */
@@ -289,6 +305,7 @@ const Multi = {
     const snap = BounceRoyalNet.viewState();
     if (!snap) { renderBattle(null); return; }
     this.view = netBattleView(snap, BounceRoyalNet.players, BounceRoyalNet.seat);
+    this.predictOwnFlame(dt || 1 / 60);
     renderBattle(this.view);
     if (Game.state === 'battle') this.updateHUD();
   },

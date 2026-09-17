@@ -2074,9 +2074,10 @@ const CHAIN_SHOVE_MAX = 3;
 const CHAIN_ITERS = 8;
 // 줄이 당긴 힘 중 추가 운동량으로 쌓는 몫. 1이면 채찍, 작을수록 묵직하다.
 const CHAIN_INHERIT = 1;
-// 추가 목표 회전속도를 따라잡는 세기(1/s). 클수록 검처럼 정확히 돌고,
-// 작을수록 공의 움직임에 휘둘린다. 물리 느낌과 조작감 사이의 손잡이다.
-const CHAIN_SPIN_GRIP = 2.5;
+/* 조이스틱이 추에 주는 힘(px/s², GAME_SPEED 곱하기 전). 조이스틱은 공을 조향하는
+ * 동시에 추를 당긴 쪽으로 민다 — 스틱을 돌리면 추가 따라 돌고, 반대로 꺾으면 크게
+ * 휘둘린다. 공격속도가 오르면 이 힘이 같은 배율로 세진다(연결부 회전 대신). */
+const CHAIN_STEER_ACCEL = 900;
 const CHAIN_STEP = 1 / 120;
 
 /* 사슬은 공 가운데가 아니라 공 표면에 매여 있다. 매인 자리(attach)는 사슬
@@ -2223,11 +2224,15 @@ function updateChain(b, f, dt) {
   const wp = WEAPONS.chain;
   ensureChainHeads(f);
   const L = chainLen(f), rope = ropeLen(f), ws = weaponScale(f), headR = wp.headR * ws;
-  /* 접힌 줄을 펴는 힘. 예전에는 공격속도를 곱해 '추가 빨리 따라오는 것'이
-   * 곧 공격속도였다. 이제 공격속도는 회전속도로만 들어간다 — 펴는 힘은 고정이다. */
+  // 접힌 줄을 펴는 힘. 고정이다.
   const resp = wp.response;
-  // 연결부가 도는 속도(rad/s). computeStats가 공격속도까지 반영해 둔다.
-  const spin = (f.st && f.st.rot) || 0;
+  /* 조이스틱이 추를 미는 힘. 연결부가 저절로 돌지 않는다 — 추는 공의 움직임과
+   * 조이스틱이 준 힘, 줄과 벽과 몸이 만드는 관성으로만 움직인다.
+   * 공격속도(computeStats가 st.rot에 반영)는 이 힘의 배율이다. */
+  const steer = f.steer && f.steer.active && !steeringBlocked(f) ? f.steer : null;
+  const swing = ((f.st && f.st.rot) || wp.rot) / wp.rot;
+  const pullX = steer ? Math.cos(steer.angle) * CHAIN_STEER_ACCEL * steer.magnitude * swing : 0;
+  const pullY = steer ? Math.sin(steer.angle) * CHAIN_STEER_ACCEL * steer.magnitude * swing : 0;
   const base = wp.dmg, seg = rope / CHAIN_SEGS;
   const origin = f._chainAnchor || { x: f._motionX ?? f.x, y: f._motionY ?? f.y };
   const dxAnchor = f.x - origin.x, dyAnchor = f.y - origin.y;
@@ -2268,11 +2273,24 @@ function updateChain(b, f, dt) {
       const rim = f.radius || 0;
       for (const run of runs) {
         const h = run.h, pts = run.pts;
-        // 매인 자리가 표면을 따라 돈다. 그 자리의 실제 속도 = 공의 이동 + 표면의 회전.
-        h.attach = wrapChainAngle((h.attach || 0) + spin * travelDt);
+        /* 매인 자리는 줄이 나가는 쪽 표면으로 미끄러진다(고리처럼). 공이 돌지 않으니
+         * 그 자리의 속도는 공의 이동뿐이다. 기준은 공 밖으로 처음 나온 마디다 —
+         * 첫 마디만 보면 공을 가로질러 접힌 줄이 반대편에 매인 채 영영 안 펴졌다. */
+        const out = pts.find(q => Math.hypot(q.x - center.x, q.y - center.y) > rim);
+        if (out) h.attach = wrapChainAngle(Math.atan2(out.y - center.y, out.x - center.x));
         const anchor = chainAttach(f, h, center.x, center.y);
-        const rimV = { x: anchorV.x - Math.sin(h.attach) * spin * rim,
-          y: anchorV.y + Math.cos(h.attach) * spin * rim };
+        const rimV = anchorV;
+        if (steer) {
+          /* 줄 바깥쪽으로 미는 몫은 줄이 느슨할 때만 준다. 느슨한 줄은 이 힘으로 펴지고
+           * (공이 앞서 달려 추를 덮쳐도 다시 펼쳐진다), 이미 팽팽한 줄은 더 늘리지 않는다
+           * — 늘 주면 스틱을 대고만 있어도 줄이 한계 가까이 늘어나 있었다.
+           * 옆으로·안쪽으로 미는 몫은 그대로 둔다. 휘두름은 거기서 나온다. */
+          const rx = h.x - center.x, ry = h.y - center.y, rl = Math.hypot(rx, ry);
+          let px = pullX, py = pullY;
+          const along = rl > 1e-6 ? (px * rx + py * ry) / rl : 0;
+          if (along > 0 && Math.hypot(h.x - anchor.x, h.y - anchor.y) >= rope) { px -= rx / rl * along; py -= ry / rl * along; }
+          h.vx += px * subDt; h.vy += py * subDt;
+        }
         const dx = h.x - anchor.x, dy = h.y - anchor.y, d = Math.hypot(dx, dy);
         if (d < rope) {
           // A fully folded rope opens in its own last direction, never toward an
@@ -2340,22 +2358,6 @@ function updateChain(b, f, dt) {
           const push = Math.min(min - dist + 0.3, CHAIN_SHOVE_MAX);
           shoveChainHead(run, nx * push, ny * push);
           keepChainHeadInArena(b.arena, run);
-        }
-        /* 연결부 회전. 검처럼 일정한 속도로 돌되, 강제로 각도를 박지 않는다.
-         * 추의 '공 기준' 접선 속도를 목표(회전속도 x 반지름)로 서서히 끌어당길
-         * 뿐이라 공이 움직이면 추는 관성으로 늦거나 앞서고, 줄은 원심력으로 펴진다.
-         * 회전 목표는 공 가운데를 기준으로 잰다 — 매인 자리가 도는 것과 별개로,
-         * 추가 공 둘레를 st.rot 속도로 도는 것이 이 무기의 약속이다. */
-        const tx = h.x - center.x, ty = h.y - center.y, td = Math.hypot(tx, ty);
-        if (td > L * 0.35) {
-          const ux = tx / td, uy = ty / td;
-          const tangent = -uy * (h.vx - anchorV.x) + ux * (h.vy - anchorV.y);
-          /* 공기 저항(drag)이 매 순간 회전을 깎아서, 목표를 그대로 두면 정상
-           * 상태가 목표의 k/(k+drag) 배에 머문다 (실측 84%). 알려진 손실만큼 목표를
-           * 올려 잡아 st.rot이 곧 화면에서 도는 속도가 되게 한다 — 검과 같은 뜻이다. */
-          const aim = spin * td * (CHAIN_SPIN_GRIP + wp.drag) / CHAIN_SPIN_GRIP;
-          const cut = (tangent - aim) * (1 - Math.exp(-CHAIN_SPIN_GRIP * subDt));
-          h.vx += uy * cut; h.vy -= ux * cut;
         }
       }
       for (const run of runs) run.h._sweep.push({ x: run.h.x, y: run.h.y, px: run.pushX, py: run.pushY });

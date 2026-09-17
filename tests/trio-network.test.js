@@ -157,3 +157,17 @@ test('the rope tie angle crosses the network so the rope draws from the right sp
   const mid = lerpSnapshot(wire, later, 0.5, 50);
   near(mid.f[0].ca, wire.f[0].ca + 0.2);
 });
+
+test('a recalled shield crosses the network as flying back, so the button can stay dark', () => {
+  const { b, f, players } = fixture('shield');
+  f.disc = { x: 40, y: 10, r: 15, resting: false, returning: true };
+  const wire = snapshot(b);
+  assert.equal(wire.f[0].dc[4], 1);
+  const view = netBattleView(wire, players, 0).fighters[0];
+  assert.equal(view.disc.returning, true);
+  const later = snapshot(b); later.f[0].dc = [60, 10, 15, 0, 1];
+  const mid = lerpSnapshot(wire, later, 0.5, 50);
+  assert.deepEqual(mid.f[0].dc, [50, 10, 15, 0, 1]);
+  f.disc.returning = false;
+  assert.equal(netBattleView(snapshot(b), players, 0).fighters[0].disc.returning, false);
+});

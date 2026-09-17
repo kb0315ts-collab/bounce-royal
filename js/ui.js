@@ -957,7 +957,7 @@ function showViewOtherBattle(visible, onClick, label = '👁 다른 전투 보�
 function skillSlotInfo(fighter, slot) {
   if (!fighter) return null;
   const weapon = WEAPONS[fighter.weaponId];
-  const uses = fighter.skillUses?.[slot] || 0;
+  let uses = fighter.skillUses?.[slot] || 0;
   // 무기 칸은 횟수가 아니라 쿨타임이다. 남은 초를 함께 넘겨 두면
   // 버튼에 원형 게이지를 그릴 때 쓸 수 있다.
   // 멀티 뷰는 skillCd로 받고 로컬 전투원은 skillUses.cd에 들고 있다.
@@ -967,6 +967,11 @@ function skillSlotInfo(fighter, slot) {
   const cdMax = slot !== 'weapon' ? 0 : fighter.weaponId === 'shield'
     ? (fighter.flags?.discMagnet ? WEAPONS.shield.recallCd : 0)
     : (WEAPON_SKILL_CD?.[fighter.weaponId] || 0);
+  /* 방패는 던져 두면 주울 때까지 다시 못 던진다 — 버튼을 어둡게 둔다. 자기 방패는
+   * 던지는 순간부터 쿨타임 게이지가 돌고, 끝나면 불러올 수 있어 다시 밝아진다.
+   * 불러와 날아오는 동안에는 누를 수 없다. */
+  const disc = slot === 'weapon' && fighter.weaponId === 'shield' ? fighter.disc : null;
+  if (disc && !(fighter.flags?.discMagnet && cd <= 0 && !disc.returning)) uses = 0;
   const name = slot === 'char'
     ? (CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬')
     : (weapon?.skillName || '무기 스킬');

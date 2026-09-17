@@ -5,7 +5,7 @@
  * 테스트로 잡기 어려운 종류라 여기에 못박아 둔다.
  * ============================================================ */
 const assert = require('node:assert/strict');
-const { lerpSnapshot, netBattleView, Net } = require('../js/net.js');
+const { lerpSnapshot, netBattleView, Net, predictFlameAim } = require('../js/net.js');
 
 let passed = 0;
 function test(name, fn) {
@@ -344,6 +344,34 @@ test('sim.js의 Arena가 있으면 그것을 그대로 쓴다', () => {
   } finally {
     if (before === undefined) delete globalThis.Arena; else globalThis.Arena = before;
   }
+});
+
+/* 내 화염방사기 노즐은 서버 왕복을 기다리지 않고 내 스틱으로 바로 돈다.
+ * 배포 서버에서는 스틱이 움직이고 0.3초 뒤에야 노즐이 움직였다. */
+test('내 화염방사기 노즐은 스틱 쪽으로 바로, 서버와 같은 속도 상한으로 돈다', () => {
+  const dt = 1 / 60, rate = Math.PI * 2;
+  assert.equal(predictFlameAim(undefined, 0.3, 1, dt), 0.3, '처음에는 서버 조준에서 시작한다');
+  // 스틱이 서버보다 앞서 있으면 서버를 기다리지 않고 스틱 쪽으로 간다
+  const step = predictFlameAim(0, 0, Math.PI / 2, dt);
+  assert.ok(Math.abs(step - rate * dt) < 1e-9, '한 프레임에 속도 상한만큼 스틱 쪽으로');
+  let aim = 0;
+  for (let i = 0; i < 20; i++) aim = predictFlameAim(aim, 0, 0.4, dt);
+  assert.ok(Math.abs(aim - 0.4) < 1e-9, '스틱에 닿으면 멈춘다');
+  // 천천히 돌리는 스틱을 매 프레임 그대로 따라간다 (가만있다가 한꺼번에 따라붙지 않는다)
+  aim = 0;
+  for (let i = 1; i <= 120; i++) {
+    const stick = i * 0.0131;          // 초당 45도
+    const next = predictFlameAim(aim, 0, stick, dt);
+    assert.ok(next > aim, '매 프레임 움직인다');
+    aim = next;
+  }
+  assert.ok(Math.abs(aim - 120 * 0.0131) < 1e-6);
+  // 스틱을 놓으면 서버 조준으로 돌아간다
+  aim = predictFlameAim(1, 0.2, null, dt);
+  assert.ok(aim < 1 && aim > 0.2);
+  // -π/π 경계를 짧은 쪽으로 넘어간다
+  const wrap = predictFlameAim(3.1, 3.1, -3.1, dt);
+  assert.ok(wrap > 3.1 || wrap < -3.0, '짧은 쪽으로 돈다 (' + wrap + ')');
 });
 
 console.log('\n' + passed + '개 스냅샷 보간 테스트 통과');

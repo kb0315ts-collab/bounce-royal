@@ -61,14 +61,15 @@ const WEAPONS = {
     desc:'버튼을 누르는 동안 조향 방향으로 불을 뿜는다. 피할 수 없지만 연료가 있다.', stat:{atk:.75,spd:.6,rng:.35,mob:.6},
     skillName:'분사', skillDesc:'누르고 있는 동안 조향 방향으로 불을 뿜는다. 연료를 다 쓰면 잠시 못 쏜다.' },
   /* 공에 매달린 추가 관성으로 따라온다. 휘두르지 않으면 아프지 않은 것이
-   * 이 무기의 전부다 — 벽 튕김과 조향이 곧 공격 준비 동작이 된다.
+   * 이 무기의 전부다 — 조이스틱이 공을 조향하는 동시에 추를 민다.
    *   chainLen 사슬 길이 · headR 추 반지름 · gate 피해가 들어가는 최소 상대속도
-   *   response 추가 공을 따라오는 빠르기 (공격속도가 여기 곱해진다) · drag 감쇠 */
+   *   response 접힌 줄을 펴는 힘 · drag 감쇠
+   *   rot 조이스틱 힘의 기준값 (공격속도가 오르면 st.rot이 커지고 그 비율만큼 세게 민다) */
   chain:  { name:'철퇴', ico:'⛓️', type:'chain', dmg:24, rot:2.3, moveMult:1.05,
     chainLen:85, headR:10, gate:80, hitLock:0.35, response:3, drag:0.35,
     // 벽 강타(c_quake): 추가 벽에 세게 부딪힌 자리의 충격파 피해·반경·같은 추 재발동 간격
     quakeDmg:12, quakeR:75, quakeCd:0.5,
-    desc:'공에 매달린 추를 휘둘러 맞힌다. 천천히 닿으면 피해가 없다.', stat:{atk:.7,spd:.5,rng:.55,mob:.8},
+    desc:'조이스틱으로 공을 조향하면 매달린 추도 그쪽으로 휘둘린다. 천천히 닿으면 피해가 없다.', stat:{atk:.7,spd:.5,rng:.55,mob:.8},
     skillName:'위치 교환', skillDesc:'공과 추의 위치·속도를 즉시 맞바꾼다. 상대가 붙었을 때 쓰면 그 자리에 추가 남는다.' },
   // maxMines를 없앴다. 이제 제한 없이 깔아 둘 수 있다.
   mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:9, interval:3.5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
