@@ -524,6 +524,24 @@ test('fast whip sweep hits between render frames and honors the shared 0.35s tar
   T.updateChain(b, f, 0.1); assert.equal(e.hp, hp - dmg * 2);
 });
 
+test('a shield-holder with the hard grip blocks the flail head that comes at its shield side', () => {
+  const hitFrom = facing => {
+    const { b, f, e } = fixture({ enemies: true });
+    e.weaponId = 'shield'; e.flags.discGrip = 1; e.disc = null; e.weaponAngle = facing;
+    e.x = 40; e.y = 0; e.vx = e.vy = 0; e.st.move = 0; e.hp = e.maxHp = 1e6;
+    setHead(f, 40, -40, 0, 1800);                  // 추가 위(-y)에서 내려온다
+    const hp = e.hp;
+    for (let i = 0; i < 20 && e.hp === hp; i++) {
+      e._motionX = e.x; e._motionY = e.y;
+      b.simT += 1 / 60; T.updateChain(b, f, 1 / 60);
+      e.x = 40; e.y = 0;
+    }
+    return hp - e.hp;
+  };
+  assert.equal(hitFrom(-Math.PI / 2), 0, '추가 오는 쪽을 방패가 보면 막는다');
+  assert.equal(hitFrom(Math.PI / 2), T.WEAPONS.chain.dmg, '방패가 반대쪽이면 맞는다');
+});
+
 test('a stunned stationary victim does not fake attack speed from its nominal movement stat', () => {
   const { b, f, e } = fixture({ enemies: true });
   e.x = 70; e.y = 0; e.st.move = 600; e.vx = 1; e.vy = 0; e.timers.stun = 1;

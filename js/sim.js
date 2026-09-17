@@ -496,7 +496,7 @@ function buildFighter(player, battle) {
     hist: [], histT: 0,
     // 방패. disc가 있으면 던져져 있는 상태이고 그동안은 무기가 없다.
     disc: null,
-    gripT: 0,          // 주운 직후 피해 감소가 남은 시간 (단단한 손)
+    gripT: 0,          // 단단한 손: 방금 막아냈다는 표시가 남은 시간
     // 화염방사기. on은 버튼을 누르고 있는지, fuel은 남은 연료다.
     flame: { on: false, fuel: WEAPONS.flame ? WEAPONS.flame.fuelMax : 100, idle: 0, aim: null },
     // 쇠사슬의 추. 공과 별개의 물체라 자기 위치·속도를 갖는다.
@@ -1500,9 +1500,10 @@ function moveFighter(b, f, dt) {
       if (f.dashHit.has(e.uid)) continue;
       if (segDist(e.x, e.y, px, py, f.x, f.y) < e.radius + f.radius) {
         f.dashHit.add(e.uid);
+        const from = { x: px, y: py };
         if (f.dash.kind === 'dash') {
-          weaponDamage(b, f, e, WEAPONS.dagger.dashDmg, 'skill:dagger');
-        } else {
+          weaponDamage(b, f, e, WEAPONS.dagger.dashDmg, 'skill:dagger', { from });
+        } else if (!shieldGuards(b, f, e, from, 'char:bball', 26)) {
           dealDamage(b, f, e, 26 * f.st.dmg, { kind: 'auto', commentarySource: 'char:bball' });
         }
         addFx(b, { type: 'ring', x: e.x, y: e.y, r0: 10, r1: 80, color: '#ffd24d', dur: 0.3 });
@@ -1625,8 +1626,9 @@ function registerBodyCollision(b, a, c) {
 
 function tryDashHit(b, a, c) {
   if (a.timers.dashT <= 0 || !a.dashHit || a.dashHit.has(c.uid)) return;
-  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, WEAPONS.dagger.dashDmg, 'skill:dagger'); }
-  else dealDamage(b, a, c, 26 * a.st.dmg, { kind: 'auto', commentarySource: 'char:bball' });
+  const from = { x: a.x, y: a.y };
+  if (a.dash.kind === 'dash') { weaponDamage(b, a, c, WEAPONS.dagger.dashDmg, 'skill:dagger', { from }); }
+  else if (!shieldGuards(b, a, c, from, 'char:bball', 26)) dealDamage(b, a, c, 26 * a.st.dmg, { kind: 'auto', commentarySource: 'char:bball' });
   a.dashHit.add(c.uid);
   b.shake = Math.min(16, b.shake + 10);
 }
@@ -1760,7 +1762,7 @@ function updateWeapon(b, f, dt) {
     } else if (g.reloadT > 0) {
       g.reloadT -= dt * fr;
       if (g.reloadT <= 0) { g.burst = g.mag; g.shotT = 0.35; }
-      if (f.flags.bayonet) meleeHits(b, f, dt, { reach: 30, tip: 9, dmg: 15 });
+      if (f.flags.bayonet) meleeHits(b, f, dt, { reach: 30, tip: 9, dmg: 10 });
     } else if (g.shotT > 0) {
       g.shotT -= dt * fr;
       if (g.shotT <= 0) {
@@ -1843,8 +1845,11 @@ function recallDisc(b, f) {
 }
 
 function catchDisc(b, f) {
+  /* 주운 방패는 방패가 있던 쪽을 보며 손에 들어오고, 거기서부터 돈다. 공과 방패를 잇는
+   * 선 위에 상대가 있으면 줍자마자 던져 맞힐 수 있다. */
+  const d = f.disc;
+  if (d && Math.hypot(d.x - f.x, d.y - f.y) > 1e-6) f.weaponAngle = Math.atan2(d.y - f.y, d.x - f.x);
   f.disc = null;
-  if (f.flags.discGrip) f.gripT = 5;
   // 자기 방패 — 손에 들어오면 쿨타임이 바로 풀려 곧장 다시 던질 수 있다
   if (f.flags.discMagnet) { f.skillUses.cd = 0; f.skillUses.weapon = 1; }
   battleSound(b, 'weapon.shield.catch', f);
@@ -1868,7 +1873,7 @@ function updateDisc(b, f, dt) {
       for (const body of b.bodiesOf(e)) {
         if (d.hitSet.has(body.uid) || dist(d.x, d.y, body.x, body.y) > d.r + bodyRadius(body)) continue;
         d.hitSet.add(body.uid);
-        if (weaponDamage(b, f, body, wp.throwDmg * mult, undefined, { projectile: true, wallAssist: false }) > 0) {
+        if (weaponDamage(b, f, body, wp.throwDmg * mult, undefined, { projectile: true, wallAssist: false, from: { x: d.x, y: d.y } }) > 0) {
           battleSound(b, 'weapon.shield.hit', body, 0.05);
           sparks(b, d.x, d.y, 4, '#b7ffe9', 110);
         }
@@ -1902,7 +1907,7 @@ function updateDisc(b, f, dt) {
         if (gap > d.r + br) continue;
         contact.add(body.uid);
         if (!d.contact.has(body.uid)) {
-          if (weaponDamage(b, f, body, wp.throwDmg * mult, undefined, { projectile: true, wallAssist: d.bounces > 0 }) > 0) {
+          if (weaponDamage(b, f, body, wp.throwDmg * mult, undefined, { projectile: true, wallAssist: d.bounces > 0, from: { x: d.x, y: d.y } }) > 0) {
             battleSound(b, 'weapon.shield.hit', body, 0.05);
           }
         }
@@ -2014,6 +2019,7 @@ function updateFlame(b, f, dt) {
         if (Math.abs(angleDelta(aim, to)) > halfArc) continue;
         if (b.simT + 1e-6 < (f.flameHits.get(body.uid) || 0)) continue;   // 프레임 합의 부동소수 오차로 한 프레임 밀리지 않게
         f.flameHits.set(body.uid, b.simT + wp.tickT);
+        if (shieldGuards(b, f, body, { x: f.x, y: f.y }, 'weapon:flame', wp.tickDmg)) continue;
         dealDamage(b, f, body, wp.tickDmg * f.st.atk * f.st.dmg, { kind: 'weapon' });
       }
     }
@@ -2438,7 +2444,8 @@ function updateChain(b, f, dt) {
       if (f.flags.chainBarbed && relative >= wp.gate && ropeDist(f, h, body.x, body.y) < br + 4 * ws)
         hitDmg = Math.max(hitDmg, base * 0.4);
     }
-    if (hitDmg > 0 && weaponDamage(b, f, body, hitDmg) > 0) {
+    const nearHead = heads.reduce((best, h) => !best || Math.hypot(h.x - body.x, h.y - body.y) < Math.hypot(best.x - body.x, best.y - body.y) ? h : best, null);
+    if (hitDmg > 0 && weaponDamage(b, f, body, hitDmg, undefined, { from: { x: nearHead.x, y: nearHead.y } }) > 0) {
       f.chainHits.set(body.uid, b.simT + wp.hitLock);
       held.add(body.uid);
       battleSound(b, 'weapon.chain.hit', body, 0.05);
@@ -2510,7 +2517,10 @@ function meleeHits(b, f, dt, override, commentarySource) {
         const key = blade + ':' + body.uid;
         if (f.meleeContact.has(key)) { contact.add(key); continue; }
         // 무적 등으로 피해가 들어가지 않았다면 접촉으로 치지 않고 다음 프레임에 다시 시도한다
-        if (weaponDamage(b, f, body, def.dmg, commentarySource || (override ? 'augment:bayonet' : undefined)) > 0) {
+        const len2 = (bx - ax) ** 2 + (by - ay) ** 2;
+        const u = len2 > 0 ? clamp(((body.x - ax) * (bx - ax) + (body.y - ay) * (by - ay)) / len2, 0, 1) : 0;
+        const from = { x: ax + (bx - ax) * u, y: ay + (by - ay) * u };
+        if (weaponDamage(b, f, body, def.dmg, commentarySource || (override ? 'augment:bayonet' : undefined), { from }) > 0) {
           contact.add(key);
           f.sfxSlash++;
           battleSound(b, f.weaponId === 'shield' ? 'weapon.shield.hit' : f.weaponId === 'sword' ? 'weapon.sword.hit' : 'weapon.dagger.hit', body, 0.045);
@@ -2598,10 +2608,40 @@ function spawnProj(b, owner, o) {
   return o;
 }
 
+/* 단단한 손(sh_grip) — 방패를 손에 들고 있으면 방패가 향한 정면(좌우 SHIELD_GUARD_ARC)에서 오는
+ * 공격을 막는다. 방패는 돌고 있으니 등 뒤는 못 지킨다. from은 공격이 닿은 자리다
+ * (투사체 위치, 칼날에서 가장 가까운 점, 추, 던진 방패, 돌진하는 공, 화염을 뿜는 공).
+ * 폭발·번개·지속 피해처럼 방향이 없는 피해는 from이 없어 막지 않는다. 막으면 true. */
+const SHIELD_GUARD_ARC = Math.PI / 4;
+const SHIELD_GUARD_FLASH = 0.35;   // 막았다는 표시(민트색 괄호)가 남는 시간
+function shieldGuards(b, src, body, from, source, amount) {
+  if (!from || !isFighterBody(body) || body.dead || body.weaponId !== 'shield' || body.disc) return false;
+  if (!body.flags || !body.flags.discGrip) return false;
+  if (src && teamOwner(src) === teamOwner(body)) return false;
+  const incoming = Math.atan2(from.y - body.y, from.x - body.x);
+  if (Math.abs(angleDelta(body.weaponAngle, incoming)) > SHIELD_GUARD_ARC) return false;
+  // 칼날은 닿아 있는 동안 매 프레임 막는다. 알림은 같은 공격자에게 0.3초에 한 번만.
+  const next = body._guardNext || (body._guardNext = new Map());
+  const key = src ? src.uid : 0;
+  if (b.simT >= (next.get(key) || 0)) {
+    if (next.size > 16) next.clear();
+    next.set(key, b.simT + 0.3);
+    body.gripT = SHIELD_GUARD_FLASH;
+    const r = bodyRadius(body) + 8;
+    const sx = body.x + Math.cos(body.weaponAngle) * r, sy = body.y + Math.sin(body.weaponAngle) * r;
+    popup(b, body.x, body.y - bodyRadius(body) - 12, '막음!', '#8fe3d0');
+    sparks(b, sx, sy, 6, '#dff7ef', 140);
+    battleSound(b, 'weapon.shield.hit', { x: sx, y: sy }, 0.06);
+    if (amount > 0) commentaryGuard(b, teamOwner(body), src, source, amount);
+  }
+  return true;
+}
+
 function projectileHit(b, p, body) {
   const owner = p.owner;
   const source = projectileSource(p);
-  const via = { projectile: true, wallAssist: !!p.reflected };
+  const via = { projectile: true, wallAssist: !!p.reflected, from: { x: p.x, y: p.y } };
+  if (!p.weapon && shieldGuards(b, owner, body, via.from, source, p.dmg)) return;
   const dealt = p.weapon
     ? weaponDamage(b, owner, body, p.dmg, source, via)
     : dealDamage(b, owner, body, p.dmg * owner.st.dmg, { kind: 'auto', autoType: p.kind, ...via });
@@ -2618,6 +2658,8 @@ function projectileHit(b, p, body) {
 }
 
 function weaponDamage(b, f, body, baseDmg, commentarySource, via) {
+  // 방패에 막히면 반사 충전·반격·표식 같은 한 번짜리 강화도 쓰지 않는다
+  if (via && via.from && shieldGuards(b, f, body, via.from, commentarySource || 'weapon:' + f.weaponId, baseDmg)) return 0;
   let mult = 1;
   if (f.charged) { f.charged = false; f.bounceRun = 0; mult *= 1.3; addFx(b, { type: 'ring', x: body.x, y: body.y, r0: 8, r1: 50, color: '#ffe08a', dur: 0.25 }); }
   if (f.counterReady) { f.counterReady = false; mult *= 1.3; }
@@ -2846,7 +2888,6 @@ function dealDamage(b, src, body, raw, opts = {}) {
   let dmg = raw;
   if (t.flags.ironDefense && b.simT < 5) dmg *= 0.6;
   dmg *= (t.perm.dmgTaken || 1);
-  if (t.gripT > 0) dmg *= 0.7;   // 단단한 손 — 주운 직후 5초간
   if (actorBody && t.shield > 0) {
     const ab = Math.min(t.shield, dmg);
     t.shield -= ab; dmg -= ab;

@@ -985,7 +985,7 @@ function drawFighterAura(g, f, x, y, r) {
   const T = f.timers || {}, now = performance.now() / 1000;
   const dx = Number.isFinite(f.vx) ? f.vx : 0, dy = Number.isFinite(f.vy) ? f.vy : 0;
   if (f.gripT > 0) {
-    // Mint brackets distinguish the temporary catch guard from white immunity.
+    // 단단한 손: 방패가 방금 막아냈다. 민트색 괄호로 흰색 면역과 구분한다.
     const alpha = Math.min(0.9, f.gripT * 1.8);
     for (let i = 0; i < 2; i++) {
       const a = i * Math.PI - 0.64;

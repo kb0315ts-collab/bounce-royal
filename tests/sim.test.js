@@ -292,7 +292,7 @@ test('무기 스킬과 전용 증강의 지정 피해·크기 수치가 적용�
   bayonetTarget.x = 45; bayonetTarget.y = 0;
   const beforeBayonet = bayonetTarget.hp;
   updateWeapon(bayonetBattle, gunner, 1 / 60);
-  assert.equal(beforeBayonet - bayonetTarget.hp, 15);
+  assert.equal(beforeBayonet - bayonetTarget.hp, 10);
 
   const mineBattle = makeBattle({ weaponId: 'mine' });
   const [miner, mineTarget] = mineBattle.fighters;
@@ -1836,6 +1836,113 @@ test('위성체는 공 중심에서 반지름+41(기본 63)을 돌고, 그 자�
   assert.equal(probe(62, -1), false, '1px 더 안쪽에 선 상대는 닿지 않는다 — 판정이 넉넉해서 통과한 게 아니다');
   f.radius = 30;
   assert.equal(satelliteOrbit(f), 71, '공이 커지면 같이 멀어진다');
+});
+
+/* 단단한 손 — 방패를 들고 있으면 방패가 향한 정면에서 오는 공격을 막는다. */
+function guardDuel({ grip = true, attacker = 'bow', facing = 0 } = {}) {
+  const b = makeBattle({ weaponId: 'shield', augments: grip ? ['sh_grip'] : [] }, { weaponId: attacker });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = facing;   // 0이면 방패가 +x를 본다
+  f.maxHp = f.hp = 1000;
+  return { b, f, e };
+}
+// f에서 본 방향 ang 쪽에서 날아와 f에 닿은 화살
+function arrowFrom(d, ang) {
+  const { b, f, e } = d;
+  const p = spawnProj(b, e, { kind: 'arrow', x: f.x + Math.cos(ang) * 24, y: f.y + Math.sin(ang) * 24,
+    ang: ang + Math.PI, spd: 300, dmg: 8, r: 4, weapon: true });
+  const hp = f.hp;
+  projectileHit(b, p, f);
+  return hp - f.hp;
+}
+
+test('단단한 손: 방패가 향한 정면(좌우 45°)에서 오는 투사체는 막고, 옆·뒤에서 오면 맞는다', () => {
+  const d = guardDuel();
+  assert.equal(arrowFrom(d, 0), 0, '정면에서 온 화살을 막는다');
+  assert.ok(d.f.gripT > 0, '막으면 막았다는 표시가 뜬다');
+  assert.equal(arrowFrom(d, 0.7), 0, '40° 옆에서 온 것도 막는다');
+  assert.ok(arrowFrom(d, 0.87) > 0, '50° 옆에서 온 것은 못 막는다');
+  assert.ok(arrowFrom(d, Math.PI) > 0, '등 뒤는 못 지킨다');
+  assert.ok(arrowFrom(guardDuel({ grip: false }), 0) > 0, '증강이 없으면 막지 않는다');
+  const thrown = guardDuel();
+  thrown.f.disc = { x: 300, y: 0, r: 15 };
+  assert.ok(arrowFrom(thrown, 0) > 0, '방패를 던져 두었으면 막지 못한다');
+  // 증강 투사체(표창)도 막는다
+  const star = guardDuel();
+  const shuriken = spawnProj(star.b, star.e, { kind: 'shuriken', x: 24, y: 0, ang: Math.PI, spd: 260, dmg: 6, r: 6 });
+  const starHp = star.f.hp;
+  projectileHit(star.b, shuriken, star.f);
+  assert.equal(star.f.hp, starHp, '정면에서 온 표창도 막는다');
+  // 날아오는 상대 방패도 막는다
+  const disc = facing => {
+    const d = guardDuel({ attacker: 'shield', facing });
+    d.e.x = 200; d.e.y = 0; d.e.weaponAngle = Math.PI;
+    throwDisc(d.b, d.e);
+    Object.assign(d.e.disc, { x: 40, y: 0, vx: -1, vy: 0, armed: true });
+    const hp = d.f.hp;
+    updateDisc(d.b, d.e, 1 / 60);
+    return hp - d.f.hp;
+  };
+  assert.equal(disc(0), 0, '정면으로 날아온 방패를 막는다');
+  assert.ok(disc(Math.PI) > 0, '등 뒤로 날아온 방패는 맞는다');
+  // 방향이 없는 폭발은 막지 않는다
+  const boom = guardDuel();
+  const hp = boom.f.hp;
+  explodeAt(boom.b, boom.e, 30, 0, 60, 10, 'auto', true);
+  assert.ok(boom.f.hp < hp, '폭발은 막지 않는다');
+});
+
+test('단단한 손: 검 칼날·단검 돌진·농구공 돌진·화염도 방패 쪽에서 오면 막는다', () => {
+  const sword = facing => {
+    const { b, f, e } = guardDuel({ attacker: 'sword', facing });
+    e.x = 95; e.y = 0; e.weaponAngle = Math.PI; e.meleeContact = new Set();   // 칼끝이 오른쪽에서 들어온다
+    const hp = f.hp;
+    meleeHits(b, e, 1 / 60);
+    return hp - f.hp;
+  };
+  assert.equal(sword(0), 0, '칼날이 들어오는 쪽을 방패가 보면 막는다');
+  assert.ok(sword(Math.PI) > 0, '방패가 반대쪽이면 맞는다');
+  const dash = (facing, kind) => {
+    const { b, f, e } = guardDuel({ attacker: 'dagger', facing });
+    e.x = 40; e.y = 0; e.dash = { kind, dx: -1, dy: 0, spd: 690 }; e.timers.dashT = 0.5; e.dashHit = new Set();
+    const hp = f.hp;
+    tryDashHit(b, e, f);
+    return hp - f.hp;
+  };
+  assert.equal(dash(0, 'dash'), 0, '단검 돌진');
+  assert.ok(dash(Math.PI, 'dash') > 0);
+  assert.equal(dash(0, 'rush'), 0, '농구공 3바운드 돌진');
+  assert.ok(dash(Math.PI, 'rush') > 0);
+  const flame = facing => {
+    const { b, f, e } = guardDuel({ attacker: 'flame', facing });
+    e.x = 80; e.y = 0; e.steer = { active: true, angle: Math.PI, magnitude: 1 }; e.flame.aim = Math.PI; e.flame.fuel = 100;
+    setFlameInput(e, true);
+    const hp = f.hp;
+    updateFlame(b, e, 1 / 60);
+    return hp - f.hp;
+  };
+  assert.equal(flame(0), 0, '화염을 뿜는 쪽을 방패가 보면 막는다');
+  assert.ok(flame(Math.PI) > 0);
+});
+
+test('방패를 주우면 방패가 있던 쪽을 보고 손에 들어와, 그 선 위의 상대에게 바로 던져 맞힐 수 있다', () => {
+  const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 2.5;
+  assert.equal(throwDisc(b, f), true);
+  // 방패가 아래쪽(+y)에 멈춰 있고, 그 너머에 상대가 서 있다
+  Object.assign(f.disc, { x: 0, y: f.radius + 20, spd: 0, resting: true, armed: true });
+  e.x = 0; e.y = 220; e.vx = e.vy = 0; e.st.move = 0; e.maxHp = e.hp = 1e6;
+  updateDisc(b, f, 1 / 60);
+  assert.equal(f.disc, null, '주웠다');
+  assert.ok(Math.abs(angleDelta(f.weaponAngle, Math.PI / 2)) < 1e-9, '방패가 있던 쪽(아래)을 보며 손에 들어온다 (' + f.weaponAngle.toFixed(3) + ')');
+  assert.equal(useSkill(b, f, 'weapon'), true, '곧바로 다시 던진다');
+  assert.ok(Math.abs(f.disc.vx) < 1e-9 && Math.abs(f.disc.vy - 1) < 1e-9, '상대 쪽으로 날아간다');
+  const hp = e.hp;
+  for (let i = 0; i < 120 && e.hp === hp && f.disc; i++) { e.x = 0; e.y = 220; updateDisc(b, f, 1 / 60); }
+  assert.ok(e.hp < hp, '줍자마자 던진 방패가 상대를 맞힌다');
 });
 
 test('자기 방패: 던지면 8초 쿨타임이 돌고, 그 전에 주우면 바로 초기화된다', () => {
