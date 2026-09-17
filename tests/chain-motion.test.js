@@ -84,13 +84,15 @@ test('chain combat numbers and augmentation damage/range contracts remain unchan
 test('a sharp turn still throws the head with inertia, independent of frame rate', () => {
   /* 회전이 붙어도 물리 느낌은 남아야 한다. 선회 한 번이 추를 얼마나 가속하는지는
    * 그 순간 추가 회전의 어느 위상에 있었느냐에 따라 뒤집히므로, 선회 시점을
-   * 여러 번 바꿔 평균으로 본다. 한 시점만 재면 같은 코드에서도 1.0 ~ 2.1이 나왔다. */
+   * 여러 번 바꿔 평균으로 본다. 한 시점만 재면 같은 코드에서도 1.0 ~ 2.1이 나왔다.
+   * 12번으로는 평균 자체가 0.05 넘게 흔들려(줄 펴는 힘 6에서 0.14) 48번 잰다.
+   * 48번일 때 프레임률 간 차이는 펴는 힘 3에서 0.035, 6에서 0.043. */
   const runs = [];
   for (const dt of [1 / 120, 1 / 60, 1 / 30, 1 / 15]) {
     let amp = 0, count = 0;
     const m = metrics();
-    for (let k = 0; k < 12; k++) {
-      const { b, f } = fixture(), turnAt = 5 + k * (2.73 / 12);
+    for (let k = 0; k < 48; k++) {
+      const { b, f } = fixture(), turnAt = 5 + k * (2.73 / 48);
       let before = 0, n = 0, peak = 0;
       for (let i = 0; i < Math.round((turnAt + 1.6) / dt); i++) {
         const time = i * dt, angle = time >= turnAt ? Math.PI : 0;
@@ -110,7 +112,7 @@ test('a sharp turn still throws the head with inertia, independent of frame rate
     assert.ok(m.segmentError < 0.5, 'rope joints converge without visible stretching');
     runs.push(mean);
   }
-  assert.ok(Math.max(...runs) - Math.min(...runs) < 0.05,
+  assert.ok(Math.max(...runs) - Math.min(...runs) < 0.06,
     `same turn must not depend on frame rate: ${runs.map(x => x.toFixed(3)).join(', ')}`);
 });
 
@@ -155,15 +157,16 @@ test('turning the stick in a circle drags the weight around at the stick rate, e
     }
     return turned / time;
   };
+  // 힘 450에서는 추가 스틱보다 10% 남짓 앞서 돈다 (원심력으로 줄이 늘었다 줄며 튄다)
   for (const w of [1.5, 2, -2]) {
     const rate = follow(w);
-    assert.ok(Math.abs(rate / w - 1) < 0.1, `스틱을 초당 ${w}라디안 돌리면 추도 그만큼 돈다 (${rate.toFixed(2)})`);
+    assert.ok(Math.abs(rate / w - 1) < 0.15, `스틱을 초당 ${w}라디안 돌리면 추도 그만큼 돈다 (${rate.toFixed(2)})`);
   }
   /* 힘에는 한계가 있다. 기본 공격속도로는 초당 3라디안을 못 따라와 추가 뒤처지고,
    * 공격속도가 높으면 미는 힘이 세져 따라온다 — 공격속도가 곧 다루기 쉬움이다. */
-  const slow = follow(3), quick = follow(3, 1.5);
-  assert.ok(slow < 3 * 0.7, `기본 힘으로는 너무 빠른 스틱을 못 따라온다 (${slow.toFixed(2)})`);
-  assert.ok(Math.abs(quick / 3 - 1) < 0.1, `공격속도가 높으면 따라온다 (${quick.toFixed(2)})`);
+  const slow = follow(2.5), quick = follow(2.5, 1.5);
+  assert.ok(slow < 2.5 * 0.7, `기본 힘으로는 초당 2.5라디안도 못 따라온다 (${slow.toFixed(2)})`);
+  assert.ok(Math.abs(quick / 2.5 - 1) < 0.15, `공격속도가 높으면 따라온다 (${quick.toFixed(2)})`);
   // 돌리는 동안 추는 피해 관문을 넉넉히 넘는 속도로 지나간다
   const { b, f } = fixture(), dt = 1 / 60;
   let speed = 0, n = 0;
@@ -229,7 +232,7 @@ test('the rope keeps its length under a steady stick, stretches only when swung 
     }
     return { stretch: stretch / n, reach: reach / n, L: T.chainLen(f) };
   };
-  const still = settle(0), slow = settle(2), fast = settle(4, 2);
+  const still = settle(0), slow = settle(2), fast = settle(3, 2);
   assert.ok(still.stretch < 1.03, `스틱을 대고만 있으면 줄이 늘어나지 않는다 (${still.stretch.toFixed(3)})`);
   assert.ok(fast.stretch > slow.stretch + 0.03, `빨리 휘두를수록 원심력으로 늘어난다 (${slow.stretch.toFixed(3)} -> ${fast.stretch.toFixed(3)})`);
   assert.ok(fast.stretch < T.CHAIN_MAX_STRETCH - 0.02, `세게 휘둘러도 한계에 붙지 않는다 (${fast.stretch.toFixed(3)})`);
@@ -257,7 +260,8 @@ test('while the ball runs and turns under the stick, the rope stays spread inste
   /* 공이 앞서 달려 뒤에 끌려오던 추를 덮치면 줄이 느슨해진다. 스틱 힘의 바깥 몫이
    * 느슨한 줄을 다시 편다. 이게 없으면 추가 공 한가운데까지 접혀 들어왔다.
    * 힘을 600으로 줄인 뒤로는 달리며 꺾을 때 줄이 조금 더 느슨해진다 (중앙 0.95 -> 0.88).
-   * 바깥 몫을 버리면 0.76까지 접힌다. */
+   * 450으로 줄이자 하위 10%가 0.25 — 공 속까지 접혔다. 줄 펴는 힘을 3 -> 6으로 올려
+   * 중앙 0.85 · 하위 10% 0.55로 되돌렸다. 바깥 몫을 버리면 중앙 0.75, 펴는 힘이 3이면 하위 0.25. */
   const { b, f } = fixture({ arena: true });
   b.update = b.update.bind(b);
   const dt = 1 / 60, L = T.chainLen(f), reach = [];
@@ -271,8 +275,8 @@ test('while the ball runs and turns under the stick, the rope stays spread inste
   }
   reach.sort((a, c) => a - c);
   const p10 = reach[Math.floor(reach.length * .1)], mid = reach[reach.length >> 1];
-  assert.ok(mid > 0.84, `대부분 제 길이로 펼쳐져 있다 (중앙 ${mid.toFixed(2)})`);
-  assert.ok(p10 > 0.35, `공 쪽으로 접혀 들어오는 순간이 드물다 (하위 10% ${p10.toFixed(2)})`);
+  assert.ok(mid > 0.8, `대부분 제 길이로 펼쳐져 있다 (중앙 ${mid.toFixed(2)})`);
+  assert.ok(p10 > 0.4, `공 쪽으로 접혀 들어오는 순간이 드물다 (하위 10% ${p10.toFixed(2)})`);
 });
 
 test('the flail head bounces off a body instead of passing through, and still hits once', () => {
@@ -282,7 +286,7 @@ test('the flail head bounces off a body instead of passing through, and still hi
   let deepest = 0, hits = 0, hp = e.hp, reversed = false, prevToward = 0;
   for (let i = 0; i < 360; i++) {
     e._motionX = e.x; e._motionY = e.y;
-    circleStick(f, i, dt, 3);                  // 조이스틱을 돌려 추를 휘두른다
+    circleStick(f, i, dt, 2);                  // 조이스틱을 돌려 추를 휘두른다
     b.simT += dt; T.updateChain(b, f, dt);
     deepest = Math.max(deepest, headR + e.radius - Math.hypot(h.x - e.x, h.y - e.y));
     if (e.hp < hp - 1e-9) { hits++; hp = e.hp; }

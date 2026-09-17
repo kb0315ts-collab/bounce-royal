@@ -405,20 +405,6 @@
     "sourceSha256": "ea7c3dd82a6e5397a2c558286565c7ddfbe8a9fc9fe82739be8eb6aca695b4e0",
     "sha256": "1c6603b0574445807d5b338422ca724fd4b575cebdd351b3fdaf97acbb8b763e"
   },
-  "fallenPower": {
-    "file": "assets/icons/augments/fallenPower.svg",
-    "source": "lorc/crown-coin",
-    "sourceUrl": "https://game-icons.net/1x1/lorc/crown-coin.html",
-    "author": "Lorc",
-    "authorUrl": "http://lorcblog.blogspot.com",
-    "license": "CC BY 3.0",
-    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
-    "tone": "curse",
-    "reason": "코인을 잃은 강자의 왕관",
-    "modifications": "Casual color gradient; charcoal outline; scaled",
-    "sourceSha256": "355660a1397fe377e3689beae318e2ff9f31e149f2517c517271e235e70203a3",
-    "sha256": "58121a639c7f3bad5ff85d8963eb09d97d6e397df7169cb7344938b80ed2839b"
-  },
   "brink": {
     "file": "assets/icons/augments/brink.svg",
     "source": "delapouite/cliff-crossing",

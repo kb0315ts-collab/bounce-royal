@@ -9,7 +9,7 @@ const art = require('../js/augment-art.js');
 const data = {};
 vm.runInNewContext(read('js/data.js')+'\nglobalThis.ids=AUGMENTS.map(a=>a.id);',data);
 
-test('all 102 augments have original native SVG with a compact, safe vocabulary',()=>{
+test('all 101 augments have original native SVG with a compact, safe vocabulary',()=>{
   assert.deepEqual([...art.keys].sort(),Array.from(data.ids,id=>'aug-'+id).sort());
   const unique = new Set();
   for(const key of art.keys){
@@ -23,7 +23,7 @@ test('all 102 augments have original native SVG with a compact, safe vocabulary'
     assert.ok(s.length<2600,key+' keeps mobile geometry bounded');
     unique.add(s);
   }
-  assert.equal(unique.size,102,'Family members have meaningful visual differences');
+  assert.equal(unique.size,101,'Family members have meaningful visual differences');
   assert.equal(art.markup('__proto__'),'');assert.equal(art.markup('constructor'),'');assert.equal(art.markup('unknown'),'');
   assert.doesNotMatch(art.markup('aug-atk15','bad" onload="evil()'),/onload=|evil\(/);
 });

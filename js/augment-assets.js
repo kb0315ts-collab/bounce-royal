@@ -31,7 +31,6 @@
   "aug-survivor": "assets/icons/augments/survivor.svg?v=40ae515e42b0",
   "aug-battleExp": "assets/icons/augments/battleExp.svg?v=7c85a265eed9",
   "aug-seasonedExp": "assets/icons/augments/seasonedExp.svg?v=1c6603b05744",
-  "aug-fallenPower": "assets/icons/augments/fallenPower.svg?v=58121a639c7f",
   "aug-brink": "assets/icons/augments/brink.svg?v=c40529fb4f9e",
   "aug-trollCondition": "assets/icons/augments/trollCondition.svg?v=e18a360cb502",
   "aug-devilDeal": "assets/icons/augments/devilDeal.svg?v=93d3b7064f88",

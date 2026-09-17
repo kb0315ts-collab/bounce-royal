@@ -209,7 +209,6 @@
     'aug-survivor':augmentIcon(AUG_SHAPES.heart,'<circle cx="15" cy="15" r="6"/><circle cx="32" cy="9" r="6"/><circle cx="49" cy="15" r="6"/>','',AUG_BADGES.heal),
     'aug-battleExp':augmentIcon(AUG_SHAPES.medal,AUG_SHAPES.rotor,'',AUG_BADGES.up),
     'aug-seasonedExp':augmentIcon(AUG_SHAPES.medal,AUG_SHAPES.sword,'',AUG_BADGES.up),
-    'aug-fallenPower':augmentIcon(AUG_SHAPES.coin,AUG_SHAPES.burst,'<path d="m27 12 6 11-7 8 8 9-5 10"/>',AUG_BADGES.down),
     'aug-brink':augmentIcon('<path d="M5 46h28l7-14h19v27H5V46Z"/>','<circle cx="31" cy="34" r="10"/>','',AUG_BADGES.one),
 
     'aug-trollCondition':augmentIcon(AUG_SHAPES.mask,'<circle cx="33" cy="31" r="12"/>','',AUG_BADGES.swap),

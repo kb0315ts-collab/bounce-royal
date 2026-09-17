@@ -62,7 +62,7 @@ const AUGMENT_COLOR_GROUPS = Object.freeze([
   ['#62d9f2', 'rot15 move15 elastic accelRot speedster rocketStart escapeInstinct battleExp reflectCharge staticFast rotMomentum chase autoExpert speedPower'],
   ['#5edca9', 'meditate marathoner learnLoss survivor wallClimb m_heal'],
   ['#73aef4', 'giant tiny ironDefense shockwave hitCharge'],
-  ['#f3cb5c', 'fallenPower brink trollCondition devilDeal gamble'],
+  ['#f3cb5c', 'brink trollCondition devilDeal gamble'],
   ['#f4dc54', 'staticShock staticUp lightning chainBolt'],
   ['#8fd8ff', 'frost m_freeze'],
   ['#b18bf4', 'sleepGas gravityWell split lastStand'],

@@ -62,8 +62,8 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
 });
 
 test('기획 증강 96종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
-  assert.equal(AUGMENTS.length, 102, '신규 무기 3종의 전용 증강 9개가 더해져 102다');
-  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 102);
+  assert.equal(AUGMENTS.length, 101, '신규 무기 3종의 전용 증강 9개가 더해져 102, 몰락한 강자를 빼 101이다');
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 101);
   // 새로 들어온 것과 이름이 바뀐 것
   for (const id of ['p_shotgun', 's_double']) assert.ok(AUG_BY_ID[id], id);
   for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas',
@@ -75,7 +75,8 @@ test('기획 증강 96종이 중복 ID 없이 등록되고 삭제 항목은 풀�
     'p_dual', 's_triple', 'pinball', 'winAccel',
     'crit', 'lateFocus', 'slowStart', 'bloodThirst', 'coinHeal', 'phoenix', 'hastePact',
     'equalTrade', 'rotFreak', 'tank', 'berserkEngine', 'collisionGuard', 'cycler', 'pushAug', 'stickyTrail',
-    'sacrifice', 'deathBoom', 'revengeSpeed', 'multiSystem', 'overHeal', 'rotPower', 'w_guard', 'powerReward']) {
+    'sacrifice', 'deathBoom', 'revengeSpeed', 'multiSystem', 'overHeal', 'rotPower', 'w_guard', 'powerReward',
+    'fallenPower']) {
     assert.equal(AUG_BY_ID[id], undefined, id + '는 삭제되어야 한다');
   }
 });
@@ -341,19 +342,16 @@ test('연승 증강만 진행 중인 연승을 받고 나머지 누적형은 집
   applyAugmentPick(p, AUG_BY_ID.bloodRush);     // 연승마다 +6% — 소급
   applyAugmentPick(p, AUG_BY_ID.winMomentum);   // 승리마다 +4% — 집은 뒤부터
   applyAugmentPick(p, AUG_BY_ID.seasonedExp);   // 라운드마다 +3% — 집은 뒤부터
-  applyAugmentPick(p, AUG_BY_ID.fallenPower);   // 코인을 잃을 때마다 +5% — 집은 뒤부터
   let b = new Battle('square', [p, makePlayer({ isAI: true })]);
   let f = b.fighters[0];
   assert.ok(Math.abs(f.perm.atk - 1.18) < 1e-9,
     '진행 중인 3연승만 즉시 반영된다 (실제 ' + f.perm.atk + ')');
-  assert.equal(f.perm.dmg, 1, '집기 전에 잃은 코인 2개는 세지 않는다');
 
   p.wins++; p.streak++; p.rounds++; p.coinsLost++;
   b = new Battle('square', [p, makePlayer({ isAI: true })]);
   f = b.fighters[0];
   assert.ok(Math.abs(f.perm.atk - 1.24 * 1.04 * 1.03) < 1e-9,
     '연승은 4연승 전체, 나머지는 집은 뒤로 1씩 (실제 ' + f.perm.atk + ')');
-  assert.ok(Math.abs(f.perm.dmg - 1.05) < 1e-9);
 
   // 패배하면 연승은 끊기고, 집은 뒤로 쌓은 승수는 남는다
   p.losses++; p.streak = 0;
@@ -792,8 +790,8 @@ test('조준 예측선은 이벤트로 생긴 기둥을 실제 반사와 동일�
   assert.ok(Math.hypot(body.vx - rx, body.vy - ry) < 1e-6, '예측 반사 방향이 실제와 일치해야 한다');
 });
 
-test('전투는 연장전 없이 실시간 40초 동안 1배속으로 진행되고 끝나면 체력 비율로 판정한다', () => {
-  assert.equal(BATTLE_TIME, 40, '전투는 40초여야 한다');
+test('전투는 연장전 없이 실시간 45초 동안 1배속으로 진행되고 끝나면 체력 비율로 판정한다', () => {
+  assert.equal(BATTLE_TIME, 45, '전투는 45초여야 한다');
   const b = makeBattle({ isAI: true }, { isAI: true });
   // 판정 전에 KO로 끝나지 않도록 체력만 크게 잡는다
   for (const f of b.fighters) { f.maxHp = 1e9; f.hp = 1e9; }
@@ -809,7 +807,7 @@ test('전투는 연장전 없이 실시간 40초 동안 1배속으로 진행되�
   }
   assert.ok(b.result, '시간이 다 되면 전투가 끝나야 한다');
   assert.equal(b.result.reason, '체력 비율 판정');
-  assert.ok(Math.abs(fightTicks * RDT - BATTLE_TIME) < 0.1, '전투는 실시간 40초여야 한다 (' + (fightTicks * RDT).toFixed(2) + ')');
+  assert.ok(Math.abs(fightTicks * RDT - BATTLE_TIME) < 0.1, '전투는 실시간 45초여야 한다 (' + (fightTicks * RDT).toFixed(2) + ')');
   assert.ok(clockOk, '끝날 때까지 시계가 가속 없이 1배속으로 흐른다');
   assert.equal(b.overtime, undefined, '연장전 상태가 없다');
 });
@@ -1169,6 +1167,80 @@ test('조향은 0.25초 램프업 후 초당 50도 이하로 방향만 휘고 �
   applySteering(f, 1);
   assert.ok(Math.abs(angleDelta(released, Math.atan2(f.vy, f.vx))) < 1e-12,
     '손을 놓으면 마지막 진행 방향을 그대로 유지해야 한다');
+});
+
+test('이동속도가 오른 만큼 조향도 1:1로 오르고, 느려지거나 원래 빠른 무기는 그대로다', () => {
+  // 1초 동안 스틱을 90도 쪽으로 끝까지 당겼을 때 꺾인 각도(도)
+  const turned = (setup, simT = 0) => {
+    const b = makeBattle(setup);
+    b.simT = simT;
+    const f = b.fighters[0];
+    computeStats(f);
+    f.vx = 1; f.vy = 0;
+    setSteerInput(f, Math.PI / 2, 1);
+    f.steer.power = 1;
+    applySteering(f, 1);
+    return { deg: Math.atan2(f.vy, f.vx) * 180 / Math.PI, f };
+  };
+  assert.ok(Math.abs(turned({}).deg - 50) < 1e-9, '기본은 초당 50도');
+  assert.ok(Math.abs(turned({ augments: ['move15'] }).deg - 57.5) < 1e-9, '가벼운 몸(+15%)이면 57.5도');
+  assert.ok(Math.abs(turned({ augments: ['move15', 'move15'] }).deg - 50 * 1.15 * 1.15) < 1e-9, '두 번 먹으면 곱으로');
+  assert.ok(Math.abs(turned({ augments: ['speedster'] }, 10).deg - 55) < 1e-9, '속도광 10초(+10%)면 55도');
+  assert.ok(Math.abs(turned({ weaponId: 'dagger' }).deg - 50) < 1e-9, '원래 빠른 무기(단검)는 더 돌지 않는다');
+  const frozen = makeBattle({ augments: ['move15'] }).fighters[0];
+  frozen.timers.freeze = 1; computeStats(frozen);
+  frozen.vx = 1; frozen.vy = 0; setSteerInput(frozen, Math.PI / 2, 1); frozen.steer.power = 1;
+  applySteering(frozen, 1);
+  assert.ok(Math.abs(Math.atan2(frozen.vy, frozen.vx) * 180 / Math.PI - 50) < 1e-9, '느려져도 조향은 줄지 않는다');
+});
+
+test('전투 흡수 25%, 예열·가속 5초마다 +3%, 속도광 5초마다 +5%', () => {
+  const b = makeBattle({ augments: ['lifesteal'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  e.maxHp = e.hp = 1e6; f.hp = f.maxHp - 50;
+  const before = f.hp, eBefore = e.hp;
+  dealDamage(b, f, e, 20, { kind: 'weapon' });
+  assert.ok(Math.abs((f.hp - before) - (eBefore - e.hp) * 0.25) < 1e-9, '가한 피해의 25% 회복 (' + (f.hp - before) + ')');
+
+  const t = makeBattle({ augments: ['warmup', 'accelRot', 'speedster'] });
+  const g = t.fighters[0];
+  const base = CHARACTERS[g.charId].move * WEAPONS[g.weaponId].moveMult;
+  t.simT = 4.9; computeStats(g);
+  assert.deepEqual([g.st.atk, g.st.aspd], [1, 1], '5초 전에는 그대로');
+  t.simT = 15; computeStats(g);   // 3번 쌓임
+  assert.ok(Math.abs(g.st.atk - 1.09) < 1e-9, '예열 +9% (' + g.st.atk + ')');
+  assert.ok(Math.abs(g.st.aspd - 1.09) < 1e-9, '가속 +9% (' + g.st.aspd + ')');
+  assert.ok(Math.abs(g.st.move / base - 1.15) < 1e-9, '속도광 +15% (' + g.st.move / base + ')');
+});
+
+test('농구공 3바운드: 세 번째로 튕긴 그 자리에서 상대에게 돌진해 26을 준다', () => {
+  const b = makeBattle({ charId: 'bball' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  e.x = 0; e.y = 0; e.maxHp = e.hp = 1e6; e.vx = e.vy = 0;
+  f.maxHp = f.hp = 1e6;
+  assert.equal(useSkill(b, f, 'char'), true);
+  f.tracking.bounces = 2;
+  // 오른쪽 벽 바로 앞에서 벽으로 달린다 — 이번 프레임에 세 번째로 튕긴다
+  f.x = b.arena.H - f.radius - 0.5; f.y = 0; f.vx = 1; f.vy = 0;
+  moveFighter(b, f, 1 / 60);
+  assert.equal(f.tracking, null, '세 번째 튕김으로 추적이 끝난다');
+  assert.ok(f.timers.dashT > 0 && f.dash && f.dash.kind === 'rush', '튕긴 그 프레임에 돌진이 살아 있다');
+  const hp = e.hp, startX = f.x;
+  for (let i = 0; i < 60 && e.hp === hp; i++) { b.simT += 1 / 60; updateTimers(b, f, 1 / 60); moveFighter(b, f, 1 / 60); }
+  assert.ok(f.x < startX - 50, '상대 쪽으로 달려간다');
+  assert.ok(Math.abs((hp - e.hp) - 26 * f.st.dmg) < 1e-6, '돌진에 맞으면 26 (' + (hp - e.hp) + ')');
+
+  // 이미 돌진 중에 벽에 부딪히면 그 돌진은 끝난다 (단검 돌진도 같다)
+  const d = makeBattle({ weaponId: 'dagger' }).fighters[0];
+  const db = d.b;
+  computeStats(d);
+  d.x = db.arena.H - d.radius - 0.5; d.y = 0; d.vx = 1; d.vy = 0;
+  d.dash = { dx: 1, dy: 0, spd: 690, kind: 'dash' }; d.timers.dashT = 0.5; d.dashHit = new Set();
+  moveFighter(db, d, 1 / 60);
+  assert.equal(d.timers.dashT, 0, '벽에 막힌 돌진은 끝난다');
+  assert.equal(d.dash, null);
 });
 
 test('스틱 세기와 벽 반사 잠금이 조향에 정확히 반영된다', () => {

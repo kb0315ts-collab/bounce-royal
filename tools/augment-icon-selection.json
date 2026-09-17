@@ -28,7 +28,6 @@
   "survivor": {"source":"delapouite/stump-regrowth", "tone":"health", "reason":"잘려도 다시 자라나는 생명"},
   "battleExp": {"source":"lorc/book-storm", "tone":"speed", "reason":"전투 경험이 쌓이는 책"},
   "seasonedExp": {"source":"delapouite/book-pile", "tone":"attack", "reason":"라운드마다 쌓이는 노련함"},
-  "fallenPower": {"source":"lorc/crown-coin", "tone":"curse", "reason":"코인을 잃은 강자의 왕관"},
   "brink": {"source":"delapouite/cliff-crossing", "tone":"curse", "reason":"마지막 코인으로 버티는 벼랑 끝"},
   "trollCondition": {"source":"skoll/troll", "tone":"curse", "reason":"승패를 뒤집는 트롤의 조건"},
   "devilDeal": {"source":"delapouite/devil-mask", "tone":"curse", "reason":"힘의 대가를 요구하는 악마"},

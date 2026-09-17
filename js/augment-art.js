@@ -223,7 +223,6 @@
     ['survivor', 'heart', 'round', 'growth', '체력 하트 + 상승 그래프: 라운드 종료마다 최대 체력 성장.'],
     ['battleExp', 'attackSpeed', 'round', 'growth', '공격속도 검 + 같은 상승 그래프: 라운드마다 공격속도 성장.'],
     ['seasonedExp', 'attack', 'round', 'growth', '공격력 검 + 같은 상승 그래프: 라운드 종료마다 공격력 성장.'],
-    ['fallenPower', 'damage', 'coinLoss', 'growth', '모든 피해 충격 별 + 잃는 코인: 코인 상실에 따라 피해 성장.'],
     ['brink', 'damage', 'lastCoin', 'threshold', '모든 피해 충격 별 + 마지막 코인 하나: 코인 한 개일 때 피해 증가.'],
     ['trollCondition', 'protectedCoin', 'loss', 'win-cost-damage-gain', '방패에 든 코인 + 패배 눈물: 다음 패배는 코인 보호와 피해 강화, 승리는 코인 상실.'],
     ['devilDeal', 'attack', 'coinLoss', 'immediate-cost', '공격력 검 + 코인 감소: 즉시 코인을 내고 공격력 획득.'],

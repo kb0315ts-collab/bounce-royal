@@ -65,10 +65,11 @@ const WEAPONS = {
   /* 공에 매달린 추가 관성으로 따라온다. 휘두르지 않으면 아프지 않은 것이
    * 이 무기의 전부다 — 조이스틱이 공을 조향하는 동시에 추를 민다.
    *   chainLen 사슬 길이 · headR 추 반지름 · gate 피해가 들어가는 최소 상대속도
-   *   response 접힌 줄을 펴는 힘 · drag 감쇠
+   *   response 접힌 줄을 펴는 힘 (조이스틱 힘을 450으로 낮추며 3 -> 6. 약한 힘으로는
+   *            달리며 꺾을 때 줄이 공 속으로 접혀 들어갔다) · drag 감쇠
    *   rot 조이스틱 힘의 기준값 (공격속도가 오르면 st.rot이 커지고 그 비율만큼 세게 민다) */
   chain:  { name:'철퇴', ico:'⛓️', type:'chain', dmg:12, rot:2.3, moveMult:1.05,
-    chainLen:85, headR:10, gate:80, hitLock:0.35, response:3, drag:0.35,
+    chainLen:85, headR:10, gate:80, hitLock:0.35, response:6, drag:0.35,
     // 벽 강타(c_quake): 추가 벽에 세게 부딪힌 자리의 충격파 피해·반경·같은 추 재발동 간격
     quakeDmg:5, quakeR:112, quakeCd:0.5,
     desc:'조이스틱으로 공을 조향하면 매달린 추도 그쪽으로 휘둘린다. 천천히 닿으면 피해가 없다.', stat:{atk:.7,spd:.5,rng:.55,mob:.8},
@@ -103,14 +104,14 @@ const AUGMENTS = [
   { id:'dmg10',     cat:'stat', stackable:true, name:'날카로운 감각', desc:'모든 피해량 +10%' },
   { id:'rot15',     cat:'stat', stackable:true, name:'속사', desc:'공격속도 +15%' },
   { id:'move15',    cat:'stat', stackable:true, name:'가벼운 몸', desc:'이동속도 +15%' },
-  { id:'lifesteal', cat:'stat', stackable:true, name:'전투 흡수', desc:'가한 피해의 8%만큼 체력 회복' },
+  { id:'lifesteal', cat:'stat', stackable:true, name:'전투 흡수', desc:'가한 피해의 25%만큼 체력 회복' },
   { id:'giant',     cat:'stat', name:'거대화', desc:'본체 크기 +20%, 최대 체력 +50% (무기 크기 불변)' },
   { id:'tiny',      cat:'stat', name:'소형화', desc:'본체 크기 -20%. 맞기 어려워진다' },
   { id:'elastic',   cat:'stat', name:'탄성 강화', desc:'벽에 충돌한 직후 1초간 이동속도 +25%' },
   // ---- 시간 성장 ----
-  { id:'warmup',    cat:'time', name:'예열', desc:'전투 중 5초마다 공격력 +4%' },
-  { id:'accelRot',  cat:'time', name:'가속', desc:'전투 중 5초마다 공격속도 +10%' },
-  { id:'speedster', cat:'time', name:'속도광', desc:'전투 중 5초마다 이동속도 +6%' },
+  { id:'warmup',    cat:'time', name:'예열', desc:'전투 중 5초마다 공격력 +3%' },
+  { id:'accelRot',  cat:'time', name:'가속', desc:'전투 중 5초마다 공격속도 +3%' },
+  { id:'speedster', cat:'time', name:'속도광', desc:'전투 중 5초마다 이동속도 +5%' },
   { id:'meditate',  cat:'time', name:'명상', desc:'전투 중 5초마다 체력 5% 회복' },
   { id:'marathoner',cat:'time', name:'장기전 체질', desc:'전투 30초가 지나면 잃은 체력의 50% 회복' },
   { id:'rampage20', cat:'time', name:'폭주 시간', desc:'전투 20초 이후 공격력·이동속도·공격속도 +20%' },
@@ -131,7 +132,6 @@ const AUGMENTS = [
   { id:'survivor',   cat:'streak', name:'끈질긴 생존자', desc:'라운드 종료마다 최대 체력 +3%' },
   { id:'battleExp',  cat:'streak', name:'전투 경험', desc:'라운드마다 공격속도 +2%' },
   { id:'seasonedExp',cat:'streak', name:'노련한 경험', desc:'라운드 종료마다 공격력 +3%' },
-  { id:'fallenPower',cat:'streak', name:'몰락한 강자', desc:'코인을 잃을 때마다 모든 피해량 +5%' },
   { id:'brink',      cat:'streak', name:'벼랑 끝', desc:'코인이 1개 남았을 때 모든 피해량 +20%' },
   // ---- 코인 ----
   { id:'trollCondition',cat:'coin', name:'트롤의 조건', desc:'획득 직후 다음 전투에서 패배하면 코인을 잃지 않고 모든 피해량 +10%. 승리하면 코인 1개 상실' },

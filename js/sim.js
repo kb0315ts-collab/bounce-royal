@@ -191,6 +191,16 @@ function steeringBlocked(f) {
   return f.rocketActive || T.dashPrep > 0 || T.dashT > 0 || T.stun > 0 || T.bind > 0;
 }
 
+/* 이동속도가 오른 만큼 조향도 같은 비율(1:1)로 오른다. 조향은 각도로 제한되니, 가만두면
+ * 빨라진 공은 같은 각도를 트는 동안 더 멀리 가서 꺾는 곡선이 크게 휘었다 — 빨라져도
+ * 그 곡선이 그대로이게 한다. 기준은 이 캐릭터·무기의 원래 속도이고, 느려질 때는 줄이지 않는다. */
+function steerSpeedScale(f) {
+  const ch = CHARACTERS[f.charId], wp = WEAPONS[f.weaponId];
+  const base = ch && wp ? ch.move * wp.moveMult : 0;
+  const move = f.st && f.st.move;
+  return base > 0 && move > base ? move / base : 1;
+}
+
 function applySteering(f, dt) {
   const s = f.steer;
   if (!s || dt <= 0) return;
@@ -202,7 +212,7 @@ function applySteering(f, dt) {
   const len = Math.hypot(f.vx, f.vy);
   if (len <= 1e-9 || s.power <= 0) return;
   const current = Math.atan2(f.vy, f.vx);
-  const maxTurn = STEER_MAX_RAD * s.power * s.magnitude * dt;
+  const maxTurn = STEER_MAX_RAD * steerSpeedScale(f) * s.power * s.magnitude * dt;
   const next = current + clamp(angleDelta(current, s.angle), -maxTurn, maxTurn);
   // 방향만 바꾸고 벡터의 길이는 그대로 둔다. 실제 이동속도는 st.move가 맡는다.
   f.vx = Math.cos(next) * len;
@@ -387,7 +397,7 @@ function applyAugmentBattle(f, id, player) {
     case 'dmg10': P.dmg *= 1.10; break;
     case 'rot15': P.aspd *= 1.15; break;
     case 'move15': P.move *= 1.15; break;
-    case 'lifesteal': Fl.lifesteal = (Fl.lifesteal || 0) + 0.08; break;
+    case 'lifesteal': Fl.lifesteal = (Fl.lifesteal || 0) + 0.25; break;
     case 'giant': P.size *= 1.2; P.hp *= 1.5; break;
     case 'tiny': P.size *= 0.8; break;
     case 'elastic': Fl.elastic = 1; break;
@@ -403,7 +413,6 @@ function applyAugmentBattle(f, id, player) {
     case 'survivor': P.hp *= 1 + 0.03 * gained('rounds'); break;
     case 'battleExp': P.aspd *= 1 + 0.02 * gained('rounds'); break;
     case 'seasonedExp': P.atk *= 1 + 0.03 * gained('rounds'); break;
-    case 'fallenPower': P.dmg *= 1 + 0.05 * gained('coinsLost'); break;
     case 'brink':
       if (player.coins === 1) P.dmg *= 1.2;
       break;
@@ -572,7 +581,7 @@ function rollAugmentOffers(player, n = 3) {
 }
 /* 집은 뒤로 쌓은 것만 세는 증강들. 연승 계열(핏빛 질주)은 여기 없다 —
  * 진행 중인 연승을 그대로 받는다. */
-const BASELINE_AUGMENTS = ['winMomentum', 'vengeance', 'learnLoss', 'survivor', 'battleExp', 'seasonedExp', 'fallenPower'];
+const BASELINE_AUGMENTS = ['winMomentum', 'vengeance', 'learnLoss', 'survivor', 'battleExp', 'seasonedExp'];
 function applyAugmentPick(player, aug) {
   if (BASELINE_AUGMENTS.includes(aug.id)) {
     player.augmentBaselines = player.augmentBaselines || {};
@@ -650,7 +659,6 @@ function aiAugmentScore(aug, player) {
   // 코인이 곧 목숨이다. 여유가 없으면 거는 증강을 피하고, 벼랑 끝에서는 오히려 챙긴다.
   if (aug.id === 'devilDeal' || aug.id === 'gamble') w *= coins <= 2 ? 0.15 : coins >= 4 ? 1.1 : 0.6;
   if (aug.id === 'brink') w *= coins <= 2 ? 2.2 : 0.5;
-  if (aug.id === 'fallenPower') w *= 1 + 0.3 * Math.min(3, (player && player.coinsLost) || 0);
 
   // 누적형은 획득 이후부터 쌓인다. 끝물에 집으면 쌓일 시간이 없다.
   if (cat === 'streak') w *= rounds >= 5 ? 0.6 : 1;
@@ -748,9 +756,9 @@ function boltFx(b, x1, y1, x2, y2) {
 /* ============================================================
  * 전투
  * ============================================================ */
-/* 한 판은 실시간 40초로 끝난다. 연장전은 없다 — 시간이 다 되면 체력 비율로 가린다. */
-const BATTLE_TIME = 40;
-// 장기전 체질이 발동하는 경기 시각. 예전 연장전 진입 시점(남은 10초)과 같다.
+/* 한 판은 실시간 45초로 끝난다. 연장전은 없다 — 시간이 다 되면 체력 비율로 가린다. */
+const BATTLE_TIME = 45;
+// 장기전 체질이 발동하는 경기 시각 (전투 30초)
 const MARATHON_TIME = 30;
 
 /* 경기 진행 속도. 1이면 수치 그대로, 0.583이면 그 속도로 굴러간다.
@@ -1321,9 +1329,9 @@ function computeStats(f) {
   // 공격속도(aspd) 하나로 통합했다. 근접은 무기 회전속도로, 원거리·지뢰는 발사 빈도로 쓰인다.
   let move = ch.move * f.perm.move, aspd = f.perm.aspd, size = f.perm.size;
   const T = f.timers, Fl = f.flags;
-  if (Fl.warmup) atk *= 1 + 0.04 * Math.floor(t / 5);
-  if (Fl.accelRot) aspd *= 1 + 0.10 * Math.floor(t / 5);
-  if (Fl.speedster) move *= 1 + 0.06 * Math.floor(t / 5);
+  if (Fl.warmup) atk *= 1 + 0.03 * Math.floor(t / 5);
+  if (Fl.accelRot) aspd *= 1 + 0.03 * Math.floor(t / 5);
+  if (Fl.speedster) move *= 1 + 0.05 * Math.floor(t / 5);
   if (Fl.rampage20 && t >= 20) { atk *= 1.2; move *= 1.2; aspd *= 1.2; }
   if (Fl.firstStrike && t < 10) atk *= 1.3;
   const hpRatio = clamp(f.hp / f.maxHp, 0, 1);
@@ -1476,8 +1484,12 @@ function moveFighter(b, f, dt) {
   // use a swept segment instead of relying on overlap at the final position.
   if (wasRocket) rocketSweepHits(b, f, px, py, f.x, f.y);
   if (n > 0) {
+    /* 벽에 부딪히면 하던 돌진은 끝난다. 이 튕김으로 막 시작한 돌진(농구공 3바운드)은
+     * 그대로 둔다 — 예전에는 세 번째 튕김이 돌진을 만들자마자 여기서 꺼 버려서,
+     * '3바운드!'만 뜨고 공은 돌진하지 않았다. */
+    const dashing = f.timers.dashT > 0 ? f.dash : null;
     onWallBounce(b, f, n);
-    if (f.timers.dashT > 0) { f.timers.dashT = 0; f.dash = null; }
+    if (dashing && f.dash === dashing) { f.timers.dashT = 0; f.dash = null; }
   }
   // 돌진 경로 판정 (터널링 방지)
   if (f.timers.dashT > 0) {
@@ -2087,8 +2099,9 @@ const CHAIN_ITERS = 8;
 const CHAIN_INHERIT = 1;
 /* 조이스틱이 추에 주는 힘(px/s², GAME_SPEED 곱하기 전). 조이스틱은 공을 조향하는
  * 동시에 추를 당긴 쪽으로 민다 — 스틱을 돌리면 추가 따라 돌고, 반대로 꺾으면 크게
- * 휘둘린다. 공격속도가 오르면 이 힘이 같은 배율로 세진다(연결부 회전 대신). */
-const CHAIN_STEER_ACCEL = 600;
+ * 휘둘린다. 공격속도가 오르면 이 힘이 같은 배율로 세진다(연결부 회전 대신).
+ * 900 -> 600 -> 450. 쉽게 다뤄지지 않게 낮췄다. */
+const CHAIN_STEER_ACCEL = 450;
 const CHAIN_STEP = 1 / 120;
 
 /* 사슬은 공 가운데가 아니라 공 표면에 매여 있다. 매인 자리(attach)는 사슬
