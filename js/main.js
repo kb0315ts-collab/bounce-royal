@@ -89,9 +89,9 @@ const RANKED_SEARCH_TIME = 10;   // 실제 플레이어를 기다리는 시간(�
 function makeBattlesFor(state) {
   const alive = aliveOf(state);
   const mapId = pick(ACTIVE_MAP_IDS);
-  // 4인 난투는 더 이상 임의로 발생하지 않는다. 3라운드 이벤트 투표에서
-  // '전원 집결'이 뽑힌 바로 다음 라운드에만 한 번 열린다.
-  const ffa = alive.length >= 2 && state.eventForceFfaRound === state.round;
+  // 4인 난투는 임의로 발생하지 않는다. 3라운드 이벤트 투표에서 '전원 집결'이
+  // 뽑히면 그 뒤로 4라운드마다(4·8·12…) 열린다.
+  const ffa = alive.length >= 2 && isEventFfaRound(state);
   const battleOptions = {
     eventFfa: ffa,
     powerSupply: !!state.eventPowerSupply,
@@ -188,7 +188,6 @@ function applyResultsFor(state, battles) {
     }
     for (const f of b.fighters) f.player.rounds++;
   }
-  if (state.eventForceFfaRound === state.round) state.eventForceFfaRound = 0;
   // 자동 관전 대상(부전승) 라운드 카운트
   const fought = new Set();
   battles.forEach(b => b.fighters.forEach(f => fought.add(f.player)));

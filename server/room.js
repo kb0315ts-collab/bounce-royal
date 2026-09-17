@@ -172,7 +172,7 @@ class Room {
     this.round++;
     this.roundOverAt = 0;
     const alive = this.aliveOf();
-    const ffa = alive.length >= 2 && this.eventForceFfaRound === this.round;
+    const ffa = alive.length >= 2 && core.isEventFfaRound(this);
     const options = {
       eventFfa: ffa,
       powerSupply: !!this.eventPowerSupply,
@@ -296,7 +296,6 @@ class Room {
       }
       for (const f of b.fighters) f.player.rounds++;
     }
-    if (this.eventForceFfaRound === this.round) this.eventForceFfaRound = 0;
 
     const fought = new Set();
     this.battles.forEach(b => b.fighters.forEach(f => fought.add(f.player)));

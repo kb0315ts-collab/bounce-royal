@@ -20,7 +20,7 @@ const EXPORTS = [
   'rollAugmentOffers', 'applyAugmentPick', 'aiPickAugment', 'augEligible',
   'winRound', 'loseCoin', 'useSkill', 'setSteerInput', 'clearSteerInput', 'setFlameInput', 'buildFighter',
   'GAME_EVENTS', 'GAME_EVENT_BY_ID', 'rollGameEventOffers', 'resolveGameEventVote',
-  'resetGameEventState', 'applyGameEvent', 'eventAugmentPickCount',
+  'resetGameEventState', 'applyGameEvent', 'eventAugmentPickCount', 'isEventFfaRound',
   'BounceRoyalMatchmaking', 'shuffle', 'pick', 'rand',
 ];
 

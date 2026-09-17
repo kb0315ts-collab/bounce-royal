@@ -230,14 +230,22 @@ function roomAtEventVote(eventId) {
   return room;
 }
 
-test('전원 집결이 당첨되면 다음 라운드가 4인 난투가 된다', () => {
+test('전원 집결이 당첨되면 4라운드마다(4·8·12…) 4인 난투가 된다', () => {
   const room = roomAtEventVote('nextFfa');
   try {
     assert.equal(room.activeEventId, 'nextFfa', '서버가 당첨 이벤트를 적용해야 한다');
-    assert.equal(room.eventForceFfaRound, room.round + 1);
+    assert.equal(room.eventFfaEveryFour, true);
     room.startRound();
+    assert.equal(room.round, 4);
     assert.equal(room.battles.length, 1, '난투는 전투가 하나여야 한다 (실제 ' + room.battles.length + '개)');
     assert.equal(room.battles[0].fighters.length, 4, '남은 전원이 한 판에 들어가야 한다');
+    room.round = 4; room.startRound();
+    assert.equal(room.round, 5);
+    assert.equal(room.battles.length, 2, '5라운드는 다시 1대1');
+    room.round = 7; room.startRound();
+    assert.equal(room.round, 8);
+    assert.equal(room.battles.length, 1, '8라운드에 다시 난투');
+    assert.equal(room.battles[0].fighters.length, 4);
   } finally { clearInterval(room.tickTimer); }
 });
 
@@ -258,6 +266,7 @@ test('경기장을 바꾸는 이벤트가 실제 전투에 반영된다', () => 
   try {
     pillars.startRound();
     assert.equal(pillars.battles[0].arena.pillars.length, 2, '기둥 2개가 생겨야 한다');
+    assert.ok(pillars.battles[0].arena.pillars.every(p => p.r === 21), '기둥 반지름은 21 (예전 42의 절반)');
   } finally { clearInterval(pillars.tickTimer); }
 
   const power = roomAtEventVote('powerSupply');

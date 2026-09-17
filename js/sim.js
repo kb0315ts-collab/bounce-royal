@@ -756,6 +756,7 @@ function boltFx(b, x1, y1, x2, y2) {
 /* ============================================================
  * 전투
  * ============================================================ */
+const EVENT_PILLAR_R = 21;   // 쌍둥이 기둥 반지름
 /* 한 판은 실시간 45초로 끝난다. 연장전은 없다 — 시간이 다 되면 체력 비율로 가린다. */
 const BATTLE_TIME = 45;
 // 장기전 체질이 발동하는 경기 시각 (전투 30초)
@@ -794,10 +795,11 @@ class Battle {
     if (this.eventPowerSupply && !this.arena.cube) {
       this.arena.cube = { x: 0, y: 0, active: false, respT: 2.5, spin: 0 };
     }
+    // 쌍둥이 기둥. 반지름 42는 너무 커서 절반(21)으로 줄였다.
     if (this.eventTwoPillars) {
       this.arena.pillars.push(
-        { x: -145, y: -65, r: 42 },
-        { x: 145, y: 65, r: 42 },
+        { x: -145, y: -65, r: EVENT_PILLAR_R },
+        { x: 145, y: 65, r: EVENT_PILLAR_R },
       );
     }
     // 1대1은 서로 만날 확률을 높이기 위해 경기장을 좁힌다. 4인 난투는 그대로 둔다.

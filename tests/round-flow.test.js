@@ -118,7 +118,7 @@ function makeFighter(player, { dead = false, deathAt = 0 } = {}) {
 function makeState(players, overrides = {}) {
   const state = Object.assign({
     players, round:1, elimCounter:1, refreshes:0,
-    eventVoteDone:true, eventForceFfaRound:0,
+    eventVoteDone:true, eventFfaEveryFour:false,
     eventPowerSupply:false, eventTwoPillars:false,
     eventDoubleAugments:false, eventLossAugment:false,
   }, overrides);
@@ -268,7 +268,7 @@ test('실제 이벤트 투표 흐름은 네 표를 차례로 공개하고 개표
 test('전원 집결 라운드에 3명만 살아 있어도 셋 모두 한 난투에 참가한다', () => {
   const players = [makePlayer(1), makePlayer(2), makePlayer(3), makePlayer(4, 0)];
   players[3].eliminated = true;
-  const state = makeState(players, { round:4, eventForceFfaRound:4 });
+  const state = makeState(players, { round:4, eventFfaEveryFour:true });
 
   const created = makeBattlesFor(state);
 
@@ -277,8 +277,14 @@ test('전원 집결 라운드에 3명만 살아 있어도 셋 모두 한 난투�
   assert.equal(created.battles[0].eventFfa, true);
   assert.equal(created.battles[0].fighters.length, 3);
   assert.deepEqual(Array.from(created.battles[0].fighters, fighter => fighter.player.id), [1, 2, 3]);
-  assert.equal(state.eventForceFfaRound, 4,
-    '난투 생성 단계에서 플래그를 버리지 말고 실제 결과 정산 때까지 유지해야 한다');
+  assert.equal(state.eventFfaEveryFour, true, '난투를 열어도 전원 집결은 계속 남는다');
+  // 다음 라운드들은 1대1, 8라운드에 다시 난투
+  const alive3 = [makePlayer(5), makePlayer(6), makePlayer(7), makePlayer(8)];
+  for (const [round, ffa] of [[5, false], [7, false], [8, true], [12, true]]) {
+    const next = makeBattlesFor(makeState(alive3, { round, eventFfaEveryFour:true }));
+    assert.equal(next.ffa, ffa, round + '라운드 난투 여부');
+    assert.equal(next.battles.length, ffa ? 1 : 2, round + '라운드 전투 수');
+  }
 });
 
 test('4인 난투는 1등 +1, 2등 변화 없음, 3·4등 패배로 정산한다', () => {
@@ -295,7 +301,7 @@ test('4인 난투는 1등 +1, 2등 변화 없음, 3·4등 패배로 정산한다
     hpRatio:fighter => Math.max(0, fighter.hp) / fighter.maxHp,
     result:{ winner:fighters[0], losers:fighters.slice(1), draw:false, reason:'격파' },
   };
-  const state = makeState(players, { round:4, eventForceFfaRound:4 });
+  const state = makeState(players, { round:4, eventFfaEveryFour:true });
 
   applyResultsFor(state, [battle]);
 
@@ -303,7 +309,7 @@ test('4인 난투는 1등 +1, 2등 변화 없음, 3·4등 패배로 정산한다
   assert.deepEqual(players.map(player => player.wins), [1, 0, 0, 0]);
   assert.deepEqual(players.map(player => player.losses), [0, 0, 1, 1]);
   assert.deepEqual(players.map(player => player.eventLostLastRound), [false, false, true, true]);
-  assert.equal(state.eventForceFfaRound, 0, '해당 난투 라운드 정산 직후 일회성 플래그를 소비해야 한다');
+  assert.equal(state.eventFfaEveryFour, true, '정산 뒤에도 4라운드마다 난투가 이어진다');
 });
 
 test('3라운드에 인간이 탈락해도 결과 화면 없이 이벤트 투표로 자동 전환한다', () => {

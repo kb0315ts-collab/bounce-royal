@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'js', 'events.js'), 'utf8') + `
 globalThis.__eventApi = {
   GAME_EVENTS, GAME_EVENT_BY_ID, rollGameEventOffers, resolveGameEventVote,
-  resetGameEventState, applyGameEvent, eventAugmentPickCount,
+  resetGameEventState, applyGameEvent, eventAugmentPickCount, isEventFfaRound,
 };
 `;
 const context = vm.createContext({ console, Map, Math });
@@ -17,7 +17,7 @@ vm.runInContext(source, context, { filename: 'bounce-royal-events.test.bundle.js
 
 const {
   GAME_EVENTS, GAME_EVENT_BY_ID, rollGameEventOffers, resolveGameEventVote,
-  resetGameEventState, applyGameEvent, eventAugmentPickCount,
+  resetGameEventState, applyGameEvent, eventAugmentPickCount, isEventFfaRound,
 } = context.__eventApi;
 
 let passed = 0;
@@ -50,7 +50,7 @@ function makeGame(overrides = {}) {
     eventOffers: [],
     eventVotes: new Map(),
     activeEventId: null,
-    eventForceFfaRound: 0,
+    eventFfaEveryFour: false,
     eventPowerSupply: false,
     eventTwoPillars: false,
     eventDoubleAugments: false,
@@ -125,13 +125,18 @@ test('과격한 경기는 탈락 여부와 관계없이 모든 플레이어 피�
   assert.deepEqual(game.players.map(player => player.eventDamageMult), [1.3, 1.3, 1.3, 1.3]);
 });
 
-test('4인 난투는 다음 한 라운드 번호만 플래그로 기록한다', () => {
-  const game = makeGame({ round: 6 });
+test('전원 집결은 한 번이 아니라 4라운드마다(4·8·12…) 4인 난투를 연다', () => {
+  const game = makeGame({ round: 3 });
+  const ffaRounds = () => Array.from({ length: 16 }, (_, i) => i + 1).filter(r => isEventFfaRound(game, r));
+  assert.deepEqual(ffaRounds(), [], '뽑히기 전에는 난투가 없다');
   applyGameEvent(game, 'nextFfa');
-  assert.equal(game.eventForceFfaRound, 7);
+  assert.equal(game.eventFfaEveryFour, true);
+  assert.deepEqual(ffaRounds(), [4, 8, 12, 16]);
+  game.round = 8;
+  assert.equal(isEventFfaRound(game), true, '인자가 없으면 지금 라운드를 본다');
 
   resetGameEventState(game);
-  assert.equal(game.eventForceFfaRound, 0);
+  assert.deepEqual(ffaRounds(), [], '새 게임에서는 다시 없다');
 });
 
 test('패배의 교훈은 직전 라운드 패자만 증강을 하나 더 선택하게 한다', () => {

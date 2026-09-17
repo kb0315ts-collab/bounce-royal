@@ -4,7 +4,7 @@
  * 바운스 로얄 — 3라운드 종료 이벤트 투표
  * ============================================================ */
 const GAME_EVENTS = Object.freeze([
-  Object.freeze({ id:'nextFfa', ico:'⚔️', name:'전원 집결', desc:'다음 한 라운드는 4인 난투. 1등 코인 +1, 2등 변화 없음, 3·4등 코인 -1. 탈락자가 있으면 남은 전원이 참가합니다.' }),
+  Object.freeze({ id:'nextFfa', ico:'⚔️', name:'전원 집결', desc:'앞으로 4라운드마다(4·8·12…) 4인 난투. 1등 코인 +1, 2등 변화 없음, 3·4등 코인 -1. 탈락자가 있으면 남은 전원이 참가합니다.' }),
   Object.freeze({ id:'powerSupply', ico:'🎁', name:'중앙 보급', desc:'앞으로 경기장 중앙에 일시적인 파워를 얻는 보급이 등장합니다.' }),
   Object.freeze({ id:'twoPillars', ico:'🗿', name:'쌍둥이 기둥', desc:'앞으로 경기장에 충돌과 투사체를 막는 장애물 기둥 2개가 생성됩니다.' }),
   Object.freeze({ id:'doubleAugments', ico:'✦', name:'두 배의 선택', desc:'앞으로 라운드마다 증강을 2개씩 선택합니다.' }),
@@ -39,7 +39,7 @@ function resetGameEventState(game) {
   game.eventOffers = [];
   game.eventVotes = new Map();
   game.activeEventId = null;
-  game.eventForceFfaRound = 0;
+  game.eventFfaEveryFour = false;
   game.eventPowerSupply = false;
   game.eventTwoPillars = false;
   game.eventDoubleAugments = false;
@@ -56,7 +56,7 @@ function applyGameEvent(game, eventOrId) {
   game.activeEventId = event.id;
   switch (event.id) {
     case 'nextFfa':
-      game.eventForceFfaRound = game.round + 1;
+      game.eventFfaEveryFour = true;
       break;
     case 'powerSupply':
       game.eventPowerSupply = true;
@@ -90,6 +90,13 @@ function applyGameEvent(game, eventOrId) {
       break;
   }
   return event;
+}
+
+/* 전원 집결이 뽑히면 그 뒤로 4라운드마다(4·8·12…) 4인 난투다. 투표가 3라운드 뒤라
+ * 첫 난투는 바로 다음인 4라운드다. 혼자하기(main.js)와 방(room.js)이 같이 쓴다. */
+const EVENT_FFA_EVERY = 4;
+function isEventFfaRound(game, round = game.round) {
+  return !!game.eventFfaEveryFour && round > 0 && round % EVENT_FFA_EVERY === 0;
 }
 
 function eventAugmentPickCount(game, player) {

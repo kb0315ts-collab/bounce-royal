@@ -705,6 +705,7 @@ test('이벤트 전투 옵션은 원형 경기장에 보급·기둥과 피해 �
   assert.ok(b.arena.cube);
   assert.equal(b.arena.cube.respT, 2.5);
   assert.equal(b.arena.pillars.length, 2);
+  assert.deepEqual(b.arena.pillars.map(p => p.r), [21, 21], '쌍둥이 기둥은 예전(42)의 절반 굵기');
   assert.ok(Math.abs(b.fighters[0].perm.dmg - 1.56) < 1e-9);
 
   const pillar = b.arena.pillars[0];
