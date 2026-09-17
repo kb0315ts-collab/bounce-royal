@@ -1293,9 +1293,44 @@ function bindSteerJoystick(controlId, baseId, knobId) {
 }
 const SteeringJoystick = bindSteerJoystick('steer-control', 'steer-base', 'steer-knob');
 window.BounceRoyalClearSteerInput = () => SteeringJoystick?.cancel();
+/* 키보드로도 스킬을 쓴다: Q(또는 1)는 캐릭터 스킬, E(또는 2)는 무기 스킬.
+ * 글자가 아니라 자판 위치(code)로 본다 — 한글 입력 상태면 key가 'ㅂ'·'ㄷ'로 들어온다.
+ * 버튼과 같이 누를 때 쓰고 뗄 때 뗀다: 활 차지는 누르고 있다 떼면 나가고, 화염방사기는
+ * 누르는 동안만 뿜는다. 꾹 누르면 반복 입력이 들어오는데, 그걸 받으면 차지가 바로 나가
+ * 버리므로 처음 누른 한 번만 받는다. 글을 쓰는 칸에서는 가로채지 않는다. */
+const SKILL_KEY_CODES = { KeyQ: 'char', Digit1: 'char', Numpad1: 'char', KeyE: 'weapon', Digit2: 'weapon', Numpad2: 'weapon' };
+const SKILL_KEY_CHARS = { q: 'char', 'ㅂ': 'char', 1: 'char', e: 'weapon', 'ㄷ': 'weapon', 2: 'weapon' };
+const heldSkillKeys = new Map();   // 누르고 있는 키 -> 칸
+function skillKeyOf(event) {
+  if (!event || event.ctrlKey || event.altKey || event.metaKey) return null;
+  const target = event.target;
+  if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName || ''))) return null;
+  // 자판 위치가 오면 그것만 본다. 위치를 안 주는 오래된 브라우저에서만 글자로 본다.
+  const slot = event.code ? SKILL_KEY_CODES[event.code] : SKILL_KEY_CHARS[String(event.key || '').toLowerCase()];
+  return slot ? { id: event.code || String(event.key).toLowerCase(), slot } : null;
+}
+function releaseHeldWeaponKey(id) {
+  heldSkillKeys.delete(id);
+  if (![...heldSkillKeys.values()].includes('weapon')) Game.releaseSkill('weapon');
+}
 window.addEventListener('keydown', e => {
-  if (e.key === '1') Game.pressSkill('char');
-  if (e.key === '2') Game.pressSkill('weapon');
+  const key = skillKeyOf(e);
+  if (!key || e.repeat || heldSkillKeys.has(key.id)) return;
+  heldSkillKeys.set(key.id, key.slot);
+  Game.pressSkill(key.slot);
+});
+window.addEventListener('keyup', e => {
+  const id = e.code || String(e.key || '').toLowerCase();
+  const slot = heldSkillKeys.get(id);
+  if (!slot) return;
+  if (slot === 'weapon') releaseHeldWeaponKey(id);
+  else heldSkillKeys.delete(id);
+});
+// 누른 채로 창을 벗어나면 keyup이 오지 않는다 — 화염이 계속 나가지 않게 뗀 것으로 친다
+window.addEventListener('blur', () => {
+  const weaponHeld = [...heldSkillKeys.values()].includes('weapon');
+  heldSkillKeys.clear();
+  if (weaponHeld) Game.releaseSkill('weapon');
 });
 
 function syncSoundUI() {
