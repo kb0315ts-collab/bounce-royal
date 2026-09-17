@@ -57,7 +57,9 @@
     if (voiceUntil && now < voiceUntil && (syllable < script.length || now < nextSyllable)) {
       if (syllable < script.length && now >= nextSyllable) {
         const step = script[syllable];
-        if (!muted || gg) sound()?.chatterSyllable?.({ index:syllable, emphasis:gg,
+        // 화면에 그려지지 않는 선인장은 소리를 내지 않는다 (숨은 화면에 남아 목소리만 들리던 일)
+        const shown = typeof host.getClientRects !== 'function' || host.getClientRects().length > 0;
+        if ((!muted || gg) && shown) sound()?.chatterSyllable?.({ index:syllable, emphasis:gg,
           vowel:step.vowel, onset:step.onset, tilt:step.tilt });
         mouthUntil = now + 45;
         nextSyllable = now + step.wait;
@@ -111,6 +113,10 @@
     if (finale) return;
     const hud = el('hud');
     if (!b || b.demo || document.hidden || !hud || hud.classList.contains('hidden')) { hide(); return; }
+    /* 증강·이벤트 화면은 선인장을 그 화면 칸으로 데려간다. 다음 라운드는 showScreen(null)로
+     * 시작해 hide()를 거치지 않아서, 선인장이 숨은 증강 화면에 남은 채 말만 했다.
+     * 전투를 해설하는 동안에는 늘 전투 화면에 있게 한다. */
+    if (host.parentNode !== hud) hide();
     const now = performance.now();
     if (b.result && b.matchConclusion) {
       if (!finalized) showFinale(director.decideMatch(b.matchConclusion, now, matchSerial), now, true);
