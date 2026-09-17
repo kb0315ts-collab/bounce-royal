@@ -1359,7 +1359,7 @@
     "file": "assets/icons/augments/sh_magnet.svg",
     "origin": "native",
     "author": "Bounce Royale",
-    "reason": "원형 방패와 아래로 뻗은 회수선: 방패를 줍는 반경이 늘어난다",
+    "reason": "원형 방패와 아래로 뻗은 회수선: 던진 방패를 불러온다",
     "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
     "tone": "guard",
     "sha256": "d1299af1404cb445b0b34b8e16777f0061c3224774cb78b28d6cdfa41754dea5"

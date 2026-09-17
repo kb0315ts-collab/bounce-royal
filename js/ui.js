@@ -963,7 +963,10 @@ function skillSlotInfo(fighter, slot) {
   // 멀티 뷰는 skillCd로 받고 로컬 전투원은 skillUses.cd에 들고 있다.
   // skillCd만 읽으면 혼자 할 때는 늘 0이라 게이지가 한 번도 안 나온다.
   const cd = slot === 'weapon' ? (fighter.skillCd ?? fighter.skillUses?.cd ?? 0) : 0;
-  const cdMax = slot === 'weapon' ? (WEAPON_SKILL_CD?.[fighter.weaponId] || 0) : 0;
+  // 방패는 자기 방패일 때만 던진 뒤 불러오기 쿨타임이 있다
+  const cdMax = slot !== 'weapon' ? 0 : fighter.weaponId === 'shield'
+    ? (fighter.flags?.discMagnet ? WEAPONS.shield.recallCd : 0)
+    : (WEAPON_SKILL_CD?.[fighter.weaponId] || 0);
   const name = slot === 'char'
     ? (CHARACTERS[fighter.charId]?.skillName || '캐릭터 스킬')
     : (weapon?.skillName || '무기 스킬');

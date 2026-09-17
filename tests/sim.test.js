@@ -1499,6 +1499,67 @@ test('벽에 튕긴 방패는 붙어 있던 상대를 다시 맞힌다', () => {
   assert.ok(e.hp < afterFirst - 1e-9, '튕긴 뒤에는 다시 맞아야 한다');
 });
 
+test('자기 방패: 던지면 8초 쿨타임이 돌고, 그 전에 주우면 바로 초기화된다', () => {
+  const b = makeBattle({ weaponId: 'shield', augments: ['sh_magnet'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  e.x = 300; e.y = 300;
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 0;
+  assert.equal(WEAPONS.shield.recallCd, 8);
+  assert.equal(useSkill(b, f, 'weapon'), true, '던진다');
+  assert.ok(f.disc);
+  assert.equal(f.skillUses.cd, 8, '던지면 8초 쿨타임');
+  assert.equal(useSkill(b, f, 'weapon'), false, '쿨타임 중에는 불러올 수 없다');
+  // 주인 발밑까지 굴러온 방패를 줍는다
+  Object.assign(f.disc, { x: f.x + 5, y: f.y, spd: 0, resting: true, armed: true });
+  updateDisc(b, f, 1 / 60);
+  assert.equal(f.disc, null, '주웠다');
+  assert.equal(f.skillUses.cd, 0, '주우면 쿨타임이 바로 풀린다');
+  assert.equal(useSkill(b, f, 'weapon'), true, '곧바로 다시 던진다');
+  // 자기 방패가 없으면 예전처럼 쿨타임도 불러오기도 없다
+  const plain = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const g = plain.fighters[0];
+  computeStats(g); g.weaponAngle = 0;
+  assert.equal(useSkill(plain, g, 'weapon'), true);
+  assert.equal(g.skillUses.cd, 0);
+  updateCooldowns(plain, g, 9);
+  assert.equal(useSkill(plain, g, 'weapon'), false, '던져 둔 방패는 주워야 한다');
+  assert.equal(!!(g.disc && g.disc.returning), false);
+});
+
+test('자기 방패: 8초 뒤 스킬로 불러오면 적을 관통하며 한 번씩 때리고 손에 돌아온다', () => {
+  const b = makeBattle({ weaponId: 'shield', augments: ['sh_magnet'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.vx = 0; f.vy = 0; f.weaponAngle = 0; f.st.move = 0;
+  assert.equal(useSkill(b, f, 'weapon'), true);
+  const d = f.disc;
+  // 방패는 멀리 멈춰 있고, 주인과 방패 사이 길목에 상대가 서 있다
+  Object.assign(d, { x: 240, y: 0, spd: 0, resting: true, armed: true });
+  e.x = 120; e.y = 0; e.vx = 0; e.vy = 0; e.maxHp = e.hp = 1e9; e.st.move = 0;
+  updateCooldowns(b, f, 7.5);
+  assert.equal(useSkill(b, f, 'weapon'), false, '8초 전에는 부를 수 없다');
+  updateCooldowns(b, f, 0.6);
+  assert.equal(f.skillUses.cd, 0);
+  assert.equal(useSkill(b, f, 'weapon'), true, '8초가 지나면 스킬로 불러온다');
+  assert.equal(d.returning, true);
+  assert.equal(f.skillUses.cd, 0, '불러오는 데에는 쿨타임을 쓰지 않는다');
+  assert.equal(useSkill(b, f, 'weapon'), false, '날아오는 중에는 다시 누를 수 없다');
+  let hits = 0, hp = e.hp, frames = 0, lastX = d.x, backward = false;
+  while (f.disc && frames++ < 600) {
+    e.x = 120; e.y = 0;
+    updateDisc(b, f, 1 / 60);
+    if (e.hp < hp - 1e-9) { hits++; hp = e.hp; }
+    if (d.x > lastX + 1e-9) backward = true;
+    lastX = d.x;
+  }
+  assert.equal(f.disc, null, '주인 손에 돌아왔다');
+  assert.equal(hits, 1, '길목의 상대는 한 번 맞는다 (실제 ' + hits + '대)');
+  assert.equal(backward, false, '맞아도 튕기지 않고 관통해 곧장 온다');
+  assert.ok(frames < 90, '빠르게 돌아온다 (' + frames + '프레임)');
+  assert.equal(useSkill(b, f, 'weapon'), true, '손에 들어오면 바로 다시 던진다');
+});
+
 test('유도 화살은 가까울 때만 휘고 멀리서는 거의 직진한다', () => {
   const turnPerFrame = gap => {
     const b = makeBattle({ weaponId: 'bow', augments: ['b_homing'] });

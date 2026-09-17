@@ -1645,6 +1645,8 @@ function weaponSegment(f) {
 /* 무기 스킬 쿨타임. 값이 없는 무기(화염방사기·방패처럼 연료나 회수가
  * 제한인 무기)는 0이라 곧바로 다시 쓸 수 있다. */
 function weaponSkillCd(f) {
+  // 방패는 주워야 다시 던지므로 쿨타임이 없다. 자기 방패만 던질 때 불러오기 쿨타임이 돈다.
+  if (f.weaponId === 'shield') return f.flags && f.flags.discMagnet ? WEAPONS.shield.recallCd : 0;
   return (typeof WEAPON_SKILL_CD !== 'undefined' && WEAPON_SKILL_CD[f.weaponId]) || 0;
 }
 
@@ -1814,10 +1816,52 @@ function throwDisc(b, f) {
   return true;
 }
 
+/* 자기 방패 — 쿨타임이 끝난 뒤 스킬을 누르면 던져 둔 방패가 주인에게 날아온다. */
+function recallDisc(b, f) {
+  const d = f.disc;
+  if (!d || d.returning) return false;
+  d.returning = true; d.resting = false; d.armed = true;
+  d.hitSet = new Set();
+  battleSound(b, 'weapon.shield.throw', d);
+  addFx(b, { type: 'ring', x: d.x, y: d.y, r0: 6, r1: 36, color: '#8fe3d0', dur: 0.25 });
+  return true;
+}
+
+function catchDisc(b, f) {
+  f.disc = null;
+  if (f.flags.discGrip) f.gripT = 5;
+  // 자기 방패 — 손에 들어오면 쿨타임이 바로 풀려 곧장 다시 던질 수 있다
+  if (f.flags.discMagnet) { f.skillUses.cd = 0; f.skillUses.weapon = 1; }
+  battleSound(b, 'weapon.shield.catch', f);
+  addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 40, color: '#8fe3d0', dur: 0.3 });
+}
+
 function updateDisc(b, f, dt) {
   const d = f.disc;
   if (!d) return;
   const wp = WEAPONS.shield;
+  if (d.returning) {
+    /* 불러온 방패는 주인에게 곧장 날아온다. 튕기지 않고 길목의 적을 관통하며
+     * 한 번씩만 때린다. 경기장은 볼록해서 방패→주인 직선은 늘 경기장 안이다. */
+    const gx = f.x - d.x, gy = f.y - d.y, far = Math.hypot(gx, gy);
+    if (far > 1e-6) { d.vx = gx / far; d.vy = gy / far; }
+    d.spd = wp.recallSpd;
+    const step = Math.min(far, wp.recallSpd * GAME_SPEED * dt);
+    d.x += d.vx * step; d.y += d.vy * step;
+    const mult = f.flags.discRicochet ? 1 + 0.25 * Math.min(3, d.bounces) : 1;
+    for (const e of b.enemiesOf(f)) {
+      for (const body of b.bodiesOf(e)) {
+        if (d.hitSet.has(body.uid) || dist(d.x, d.y, body.x, body.y) > d.r + bodyRadius(body)) continue;
+        d.hitSet.add(body.uid);
+        if (weaponDamage(b, f, body, wp.throwDmg * mult, undefined, { projectile: true, wallAssist: false }) > 0) {
+          battleSound(b, 'weapon.shield.hit', body, 0.05);
+          sparks(b, d.x, d.y, 4, '#b7ffe9', 110);
+        }
+      }
+    }
+    if (dist(f.x, f.y, d.x, d.y) < f.radius + d.r + wp.pickupPad) catchDisc(b, f);
+    return;
+  }
   if (!d.resting) {
     d.spd *= Math.pow(wp.decel, dt);              // 초당 x0.82
     d.x += d.vx * d.spd * GAME_SPEED * dt;
@@ -1877,16 +1921,10 @@ function updateDisc(b, f, dt) {
     b.arena.reflectProj(d);
   }
   // 회수 — 주인이 닿으면 다시 든다
-  const pad = (f.flags.discMagnet ? 55 : wp.pickupPad);
-  const reach = f.radius + d.r + pad;
+  const reach = f.radius + d.r + wp.pickupPad;
   const away = dist(f.x, f.y, d.x, d.y);
   if (!d.armed) { if (away > reach) d.armed = true; return; }
-  if (away < reach) {
-    f.disc = null;
-    if (f.flags.discGrip) f.gripT = 5;
-    battleSound(b, 'weapon.shield.catch', f);
-    addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 40, color: '#8fe3d0', dur: 0.3 });
-  }
+  if (away < reach) catchDisc(b, f);
 }
 
 /* ═══════════ 화염방사기 ═══════════
@@ -2991,6 +3029,14 @@ function useSkillBody(b, f, slot) {
       popup(b, f.x, f.y - f.radius - 24, '마력 폭주!', '#c9a0ff', true);
       break;
     case 'shield':
+      if (f.disc) {
+        // 자기 방패는 쿨타임이 끝났으면 던져 둔 방패를 불러온다. 불러오는 데에는
+        // 쿨타임을 쓰지 않는다 — 손에 들어오면 바로 다시 던진다.
+        if (!f.flags.discMagnet || !recallDisc(b, f)) return false;
+        popup(b, f.x, f.y - f.radius - 24, '회수!', '#8fe3d0');
+        f.sfxSkill++;
+        return true;
+      }
       if (!throwDisc(b, f)) return false;   // 던져 둔 채로는 다시 못 던진다
       popup(b, f.x, f.y - f.radius - 24, '투척!', '#8fe3d0');
       break;
@@ -3194,7 +3240,11 @@ function aiUpdate(b, f, dt) {
     switch (f.weaponId) {
       // 위치 교환은 상대가 붙었을 때가 값어치가 가장 크다 — 그 자리에 추가 남는다.
       // 방패는 맞을 만한 거리에서만 던진다. 빗나가면 주우러 가는 동안 무방비다.
-      case 'shield': if (!f.disc && d > 90 && d < 300) use('weapon'); break;
+      case 'shield':
+        if (!f.disc) { if (d > 90 && d < 300) use('weapon'); }
+        // 자기 방패 — 쿨타임이 끝났는데 방패가 멀리 있으면 불러온다
+        else if (f.flags.discMagnet && !f.disc.returning && dist(f.x, f.y, f.disc.x, f.disc.y) > 140) use('weapon');
+        break;
       case 'chain': if (d < f.radius + 70) use('weapon'); break;
       // 화염방사기는 사거리 안일 때만 뿜고, 벗어나면 끈다. 연료가 바닥이면 쉰다.
       case 'flame': {

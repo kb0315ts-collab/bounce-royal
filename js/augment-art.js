@@ -287,7 +287,7 @@
     ['m_big', 'mine', 'expand', 'area', '실제 여섯 접점·크림 원판·색 중앙의 지뢰 + 확대: 감지와 폭발 범위 증가.'],
     ['m_heal', 'mine', 'heal', 'self-trigger', '같은 지뢰 + 회복 십자: 자신이 밟으면 회복.'],
     ['m_freeze', 'mine', 'freeze', 'slow', '같은 지뢰 + 얼음 결정: 밟은 상대의 이동·공격속도 감소.'],
-    ['sh_magnet', 'disc', 'magnet', 'pickup', '실제 원형 방패 + 말굽자석: 더 넓은 범위에서 회수한다.'],
+    ['sh_magnet', 'disc', 'magnet', 'recall', '실제 원형 방패 + 말굽자석: 던진 방패를 불러와 끌어당긴다.'],
     ['sh_ricochet', 'disc', 'wall', 'bounce-damage', '같은 원형 방패 + 반사 화살표: 벽에 튕길 때마다 피해가 올라간다.'],
     ['sh_grip', 'disc', 'grip', 'guard', '같은 원형 방패 + 꽉 쥔 장갑: 주운 직후 받는 피해가 줄어든다.'],
     ['f_pressure', 'flameJet', 'contract', 'focus', '실제 노즐과 분사 불길 + 압축 화살표: 더 좁고 길어지는 불꽃.'],

@@ -283,7 +283,7 @@
     'aug-m_big':augmentIcon(AUG_SHAPES.mine,'<circle cx="32" cy="35" r="23" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="32" cy="35" r="29" fill="none" stroke="currentColor" stroke-width="3"/>'),
     'aug-m_heal':augmentIcon(AUG_SHAPES.mine,'<path d="M32 46c-7-5-13-9-13-16 0-7 8-10 13-3 5-7 13-4 13 3 0 7-6 11-13 16Z"/>','<path d="M32 28v12M26 34h12"/>'),
     'aug-m_freeze':augmentIcon(AUG_SHAPES.mine,AUG_SHAPES.snow,'<path d="M14 52h36"/>'),
-    // 자기 방패 — 회수 반경이 커진다
+    // 자기 방패 — 던진 방패를 불러온다
     'aug-sh_magnet':augmentIcon(AUG_SHAPES.shield,'','<path d="M32 50v8M20 46l-6 6M44 46l6 6"/>'),
     // 튕기는 방패 — 벽에 맞고 세진다
     'aug-sh_ricochet':augmentIcon(AUG_SHAPES.shield,'','<path d="M8 8v48M12 20l16 12-16 12"/>'),
