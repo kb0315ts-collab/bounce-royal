@@ -2066,9 +2066,13 @@ const CHAIN_SPRING_DAMP = 8;
 // 한계 근처에서 몇 배까지 뻣뻣해지나 (한계에서 1 + 이 값 배)
 const CHAIN_SPRING_HARDEN = 4;
 const CHAIN_MAX_STRETCH = 1.18;
-// 튕길 때 법선 방향 속도를 얼마나 돌려주나 (1이면 그대로, 0이면 딱 멈춤)
-const CHAIN_WALL_BOUNCE = 0.6;
-const CHAIN_BODY_BOUNCE = 0.5;
+// 튕길 때 법선 방향 속도를 얼마나 돌려주나 (1이면 그대로, 0이면 딱 멈춤).
+// 거의 다 돌려준다 — 부딪히면 확실히 반대편으로 튀어 나가야 상대에 붙어 비비지 않는다.
+const CHAIN_WALL_BOUNCE = 0.9;
+const CHAIN_BODY_BOUNCE = 0.9;
+// 맞힌 상대에게서 추가 이만큼(px) 떨어져야 같은 상대를 다시 맞힐 수 있다.
+// 추 지름(20)보다 조금 더 — 8로는 튕겨 나가다 스친 것도 새로 부딪힌 것으로 쳐 연타가 남았다.
+const CHAIN_REHIT_GAP = 24;
 // 겹친 추를 한 서브스텝에 떼어 놓는 최대 거리(px)
 const CHAIN_SHOVE_MAX = 3;
 const CHAIN_ITERS = 8;
@@ -2077,7 +2081,7 @@ const CHAIN_INHERIT = 1;
 /* 조이스틱이 추에 주는 힘(px/s², GAME_SPEED 곱하기 전). 조이스틱은 공을 조향하는
  * 동시에 추를 당긴 쪽으로 민다 — 스틱을 돌리면 추가 따라 돌고, 반대로 꺾으면 크게
  * 휘둘린다. 공격속도가 오르면 이 힘이 같은 배율로 세진다(연결부 회전 대신). */
-const CHAIN_STEER_ACCEL = 900;
+const CHAIN_STEER_ACCEL = 600;
 const CHAIN_STEP = 1 / 120;
 
 /* 사슬은 공 가운데가 아니라 공 표면에 매여 있다. 매인 자리(attach)는 사슬
@@ -2373,9 +2377,17 @@ function updateChain(b, f, dt) {
   if (f.timers.weaponLock > 0 || f.timers.stun > 0) return;
   // 휘두르는 소리는 내지 않는다. 계속 도는 무기라 상시 휙휙 소리가 과했다 — 맞을 때만 소리 낸다.
 
+  /* 재타격은 시간(hitLock)과 접촉 둘 다로 막는다. 맞힌 상대에게서 추가 완전히
+   * 떨어졌다가 다시 부딪혀야 다음 한 대다 — 스틱이 추를 상대 쪽으로 계속 미는 동안
+   * 붙어서 잠금이 풀릴 때마다 또 맞는 일이 없게. 던진 방패와 같은 규칙이다. */
+  const held = f.chainHeld || (f.chainHeld = new Set());
   for (const e of b.enemiesOf(f)) for (const body of b.bodiesOf(e)) {
-    if (b.simT < (f.chainHits.get(body.uid) || 0)) continue;
     const br = bodyRadius(body);
+    if (held.has(body.uid)) {
+      if (heads.some(h => Math.hypot(h.x - body.x, h.y - body.y) < headR + br + CHAIN_REHIT_GAP)) continue;
+      held.delete(body.uid);
+    }
+    if (b.simT < (f.chainHits.get(body.uid) || 0)) continue;
     const bx = body._motionX ?? body.x, by = body._motionY ?? body.y;
     // Real displacement includes stun/bind/dash, unlike the nominal move stat.
     const bv = Number.isFinite(body._motionX)
@@ -2406,10 +2418,12 @@ function updateChain(b, f, dt) {
     }
     if (hitDmg > 0 && weaponDamage(b, f, body, hitDmg) > 0) {
       f.chainHits.set(body.uid, b.simT + wp.hitLock);
+      held.add(body.uid);
       battleSound(b, 'weapon.chain.hit', body, 0.05);
     }
   }
   if (f.chainHits.size > 40) f.chainHits.clear();
+  if (held.size > 40) held.clear();
 }
 
 /* 위치 교환 — 공과 추의 자리·속도를 맞바꾼다.

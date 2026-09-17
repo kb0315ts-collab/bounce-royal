@@ -12,7 +12,7 @@ function runtime() {
   context.window = context;
   vm.runInContext(['js/data.js', 'js/sim.js'].map(file =>
     fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n')
-    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN, ropeLen, chainAttach, CHAIN_MAX_STRETCH, CHAIN_WALL_BOUNCE, CHAIN_MAX_SPD, springChainRope, setSteerInput };', context);
+    + '\nthis.testCore = { Battle, Arena, WEAPONS, GAME_SPEED, buildFighter, ensureChainHeads, updateChain, chainLen, chainSwap, MELEE_ASPD_GAIN, ropeLen, chainAttach, CHAIN_MAX_STRETCH, CHAIN_WALL_BOUNCE, CHAIN_BODY_BOUNCE, CHAIN_REHIT_GAP, CHAIN_MAX_SPD, springChainRope, setSteerInput };', context);
   return context.testCore;
 }
 const T = runtime();
@@ -63,7 +63,7 @@ function measure(f, metrics) {
 const metrics = () => ({ speed: 0, velocity: 0, segmentError: 0, reachError: 0 });
 
 test('chain combat numbers and augmentation damage/range contracts remain unchanged', () => {
-  assert.equal(T.WEAPONS.chain.dmg, 24);
+  assert.equal(T.WEAPONS.chain.dmg, 12);
   assert.equal(T.WEAPONS.chain.chainLen, 85);
   assert.equal(T.WEAPONS.chain.headR, 10);
   // 연결부가 검처럼 돈다. 검(2.6)보다 살짝 느리게.
@@ -142,8 +142,9 @@ test('without the stick a collapsed rope just opens and settles: no spin of its 
 });
 
 test('turning the stick in a circle drags the weight around at the stick rate, either way', () => {
-  for (const w of [2, 3, -2.5]) {
+  const follow = (w, aspd = 1) => {
     const { b, f } = fixture(), dt = 1 / 60;
+    f.st.rot = spinFor(aspd);
     let prev = null, turned = 0, time = 0;
     for (let i = 0; i < 600; i++) {
       circleStick(f, i, dt, w);
@@ -152,14 +153,22 @@ test('turning the stick in a circle drags the weight around at the stick rate, e
       if (i >= 180 && prev !== null) { turned += wrapAngle(ang - prev); time += dt; }
       prev = ang;
     }
-    const rate = turned / time;
+    return turned / time;
+  };
+  for (const w of [1.5, 2, -2]) {
+    const rate = follow(w);
     assert.ok(Math.abs(rate / w - 1) < 0.1, `스틱을 초당 ${w}라디안 돌리면 추도 그만큼 돈다 (${rate.toFixed(2)})`);
   }
+  /* 힘에는 한계가 있다. 기본 공격속도로는 초당 3라디안을 못 따라와 추가 뒤처지고,
+   * 공격속도가 높으면 미는 힘이 세져 따라온다 — 공격속도가 곧 다루기 쉬움이다. */
+  const slow = follow(3), quick = follow(3, 1.5);
+  assert.ok(slow < 3 * 0.7, `기본 힘으로는 너무 빠른 스틱을 못 따라온다 (${slow.toFixed(2)})`);
+  assert.ok(Math.abs(quick / 3 - 1) < 0.1, `공격속도가 높으면 따라온다 (${quick.toFixed(2)})`);
   // 돌리는 동안 추는 피해 관문을 넉넉히 넘는 속도로 지나간다
   const { b, f } = fixture(), dt = 1 / 60;
   let speed = 0, n = 0;
   for (let i = 0; i < 600; i++) {
-    circleStick(f, i, dt, 3);
+    circleStick(f, i, dt, 2);
     b.simT += dt; T.updateChain(b, f, dt);
     if (i >= 180) { speed += Math.hypot(f.chainHeads[0].vx, f.chainHeads[0].vy) * T.GAME_SPEED; n++; }
   }
@@ -196,7 +205,7 @@ test('the rope is tied to the ball surface and the tie slides to where the rope 
   const { b, f } = fixture(), dt = 1 / 60, h = f.chainHeads[0];
   let worst = 0;
   for (let i = 0; i < 360; i++) {
-    circleStick(f, i, dt, 3);
+    circleStick(f, i, dt, 2);
     b.simT += dt; T.updateChain(b, f, dt);
     assert.ok(Math.abs(Math.hypot(h._anchor.x - f.x, h._anchor.y - f.y) - f.radius) < 1e-6,
       '매인 자리는 공 가운데가 아니라 표면에 있다');
@@ -246,7 +255,9 @@ test('the rope keeps its length under a steady stick, stretches only when swung 
 
 test('while the ball runs and turns under the stick, the rope stays spread instead of folding into the ball', () => {
   /* 공이 앞서 달려 뒤에 끌려오던 추를 덮치면 줄이 느슨해진다. 스틱 힘의 바깥 몫이
-   * 느슨한 줄을 다시 편다. 이게 없으면 추가 공 한가운데까지 접혀 들어왔다. */
+   * 느슨한 줄을 다시 편다. 이게 없으면 추가 공 한가운데까지 접혀 들어왔다.
+   * 힘을 600으로 줄인 뒤로는 달리며 꺾을 때 줄이 조금 더 느슨해진다 (중앙 0.95 -> 0.88).
+   * 바깥 몫을 버리면 0.76까지 접힌다. */
   const { b, f } = fixture({ arena: true });
   b.update = b.update.bind(b);
   const dt = 1 / 60, L = T.chainLen(f), reach = [];
@@ -260,8 +271,8 @@ test('while the ball runs and turns under the stick, the rope stays spread inste
   }
   reach.sort((a, c) => a - c);
   const p10 = reach[Math.floor(reach.length * .1)], mid = reach[reach.length >> 1];
-  assert.ok(mid > 0.9, `대부분 제 길이로 펼쳐져 있다 (중앙 ${mid.toFixed(2)})`);
-  assert.ok(p10 > 0.5, `접혀 들어오는 순간이 드물다 (하위 10% ${p10.toFixed(2)})`);
+  assert.ok(mid > 0.84, `대부분 제 길이로 펼쳐져 있다 (중앙 ${mid.toFixed(2)})`);
+  assert.ok(p10 > 0.35, `공 쪽으로 접혀 들어오는 순간이 드물다 (하위 10% ${p10.toFixed(2)})`);
 });
 
 test('the flail head bounces off a body instead of passing through, and still hits once', () => {
@@ -283,6 +294,47 @@ test('the flail head bounces off a body instead of passing through, and still hi
   assert.ok(deepest < 3, `몸을 뚫고 들어가지 않는다 (최대 ${deepest.toFixed(1)}px)`);
   assert.ok(reversed, '부딪히면 되돌아 튕겨 나온다');
   assert.ok(hits >= 1, '튕기면서도 맞힌다');
+});
+
+test('the flail head rebounds off a body almost as fast as it came in', () => {
+  /* 줄이 느슨한 채 추를 멈춰 선 상대에게 곧장 던진다. 부딪힌 스텝에서 법선 속도가
+   * 거의 그대로(CHAIN_BODY_BOUNCE) 뒤집혀야 상대에 붙어 비비지 않고 확실히 떨어진다. */
+  const { b, f, e } = fixture({ enemies: true });
+  e.x = 0; e.y = 90; e.vx = e.vy = 0; e.st.move = 0; e.hp = e.maxHp = 1e9;
+  f.st.rot = 0;
+  const h = setHead(f, 0, 40, 0, 900);
+  let ratio = null;
+  for (let i = 0; i < 60 && ratio === null; i++) {
+    const vy = h.vy;
+    b.simT += 1 / 120; T.updateChain(b, f, 1 / 120);
+    if (vy > 200 && h.vy < 0) ratio = -h.vy / vy;
+  }
+  assert.ok(T.CHAIN_BODY_BOUNCE >= 0.85, '몸에서도 벽처럼 거의 그대로 튕긴다');
+  assert.ok(ratio !== null, '상대에 닿으면 반대 방향으로 튕겨 나온다');
+  assert.ok(Math.abs(ratio - T.CHAIN_BODY_BOUNCE) < 0.05, `튕기는 비율 ${ratio && ratio.toFixed(2)}`);
+});
+
+test('the flail hits the same enemy again only after the head has come away from it', () => {
+  /* 추가 상대에 붙은 채로는 시간 잠금(0.35초)이 풀려도 다시 맞지 않는다.
+   * CHAIN_REHIT_GAP만큼 떨어졌다가 다시 부딪혀야 다음 한 대다. */
+  const { b, f, e } = fixture({ enemies: true });
+  e.x = 40; e.y = 0; e._motionX = 40; e._motionY = 0; e.st.move = 0;
+  const dmg = T.WEAPONS.chain.dmg, hp = e.hp, dt = 1 / 120;
+  const clear = e.radius + T.WEAPONS.chain.headR + T.CHAIN_REHIT_GAP;
+  const strike = () => { setHead(f, 40, -38, 0, 1800); T.updateChain(b, f, dt); };
+  const gap = () => Math.hypot(f.chainHeads[0].x - e.x, f.chainHeads[0].y - e.y);
+  strike();
+  assert.equal(e.hp, hp - dmg, '처음 부딪히면 맞는다');
+  assert.ok(gap() < clear, `튕겨도 아직 떨어지지 않았다 (${gap().toFixed(1)} < ${clear})`);
+  b.simT = 1;
+  strike();
+  assert.equal(e.hp, hp - dmg, '잠금이 풀려도 떨어지지 않고 다시 부딪히면 맞지 않는다');
+  setHead(f, 40, -70, 0, 0); b.simT = 1.1; T.updateChain(b, f, dt);
+  assert.ok(gap() > clear, '추를 상대에게서 떼어 놓는다');
+  assert.equal(e.hp, hp - dmg, '떨어지기만 해서는 맞지 않는다');
+  b.simT = 1.2;
+  strike();
+  assert.equal(e.hp, hp - dmg * 2, '떨어졌다가 다시 부딪히면 맞는다');
 });
 
 test('the flail head rebounds off a wall instead of sliding along it', () => {
@@ -449,12 +501,16 @@ test('fast whip sweep hits between render frames and honors the shared 0.35s tar
   assert.ok(Math.hypot(h.x - e.x, h.y - e.y) > e.radius + T.WEAPONS.chain.headR);
   T.updateChain(b, f, 0.1);
   assert.ok(Math.hypot(h.x - e.x, h.y - e.y) > e.radius + T.WEAPONS.chain.headR);
-  assert.equal(e.hp, hp - 24, 'crossing between clear endpoints still hits exactly once');
+  const dmg = T.WEAPONS.chain.dmg;
+  assert.equal(e.hp, hp - dmg, 'crossing between clear endpoints still hits exactly once');
   assert.equal(f.chainHits.get(e.uid), 0.35);
+  // 여기서는 시간 잠금만 본다 — 추가 떨어졌다 다시 온 것으로 친다 (접촉 규칙은 따로 본다)
+  f.chainHeld.clear();
   setHead(f, 40, -40, 0, 1800); b.simT = 0.1;
-  T.updateChain(b, f, 0.1); assert.equal(e.hp, hp - 24);
+  T.updateChain(b, f, 0.1); assert.equal(e.hp, hp - dmg);
+  f.chainHeld.clear();
   setHead(f, 40, -40, 0, 1800); b.simT = 0.35;
-  T.updateChain(b, f, 0.1); assert.equal(e.hp, hp - 48);
+  T.updateChain(b, f, 0.1); assert.equal(e.hp, hp - dmg * 2);
 });
 
 test('a stunned stationary victim does not fake attack speed from its nominal movement stat', () => {

@@ -1499,6 +1499,25 @@ test('벽에 튕긴 방패는 붙어 있던 상대를 다시 맞힌다', () => {
   assert.ok(e.hp < afterFirst - 1e-9, '튕긴 뒤에는 다시 맞아야 한다');
 });
 
+test('방패 피해: 휘두르면 15, 던진 방패는 10', () => {
+  assert.equal(WEAPONS.shield.dmg, 15);
+  assert.equal(WEAPONS.shield.throwDmg, 10);
+  // 겹쳐 둔 상대에게 던진 방패 한 대는 같은 조건의 무기 피해 10과 같다
+  const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 0;
+  throwDisc(b, f);
+  e.maxHp = e.hp = 1e9; e.x = f.disc.x; e.y = f.disc.y; e.vx = 0; e.vy = 0;
+  updateDisc(b, f, 1 / 60);
+  const thrown = 1e9 - e.hp;
+  const b2 = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
+  const [f2, e2] = b2.fighters;
+  computeStats(f2); computeStats(e2);
+  e2.maxHp = e2.hp = 1e9;
+  assert.ok(Math.abs(thrown - weaponDamage(b2, f2, e2, 10)) < 1e-6, '던진 방패 한 대 ' + thrown);
+});
+
 test('자기 방패: 던지면 8초 쿨타임이 돌고, 그 전에 주우면 바로 초기화된다', () => {
   const b = makeBattle({ weaponId: 'shield', augments: ['sh_magnet'] }, { weaponId: 'sword' });
   const [f, e] = b.fighters;
