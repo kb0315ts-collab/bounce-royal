@@ -118,7 +118,7 @@ function makeFighter(player, { dead = false, deathAt = 0 } = {}) {
 function makeState(players, overrides = {}) {
   const state = Object.assign({
     players, round:1, elimCounter:1, refreshes:0,
-    eventVoteDone:true, eventForceFfaRound:0, eventCoinReversalRound:0,
+    eventVoteDone:true, eventForceFfaRound:0,
     eventPowerSupply:false, eventTwoPillars:false,
     eventDoubleAugments:false, eventLossAugment:false,
   }, overrides);
@@ -304,33 +304,6 @@ test('4인 난투는 1등 +1, 2등 변화 없음, 3·4등 패배로 정산한다
   assert.deepEqual(players.map(player => player.losses), [0, 0, 1, 1]);
   assert.deepEqual(players.map(player => player.eventLostLastRound), [false, false, true, true]);
   assert.equal(state.eventForceFfaRound, 0, '해당 난투 라운드 정산 직후 일회성 플래그를 소비해야 한다');
-});
-
-test('코인 역전은 승자 +1·패자 코인 보존과 승패 통계를 함께 적용한다', () => {
-  const winner = makePlayer(1, 4);
-  const loser = makePlayer(2, 3);
-  loser.coinsLost = 2;
-  loser.streak = 4;
-  const winnerFighter = makeFighter(winner);
-  const loserFighter = makeFighter(loser, { dead:true, deathAt:12 });
-  const battle = {
-    eventFfa:false,
-    fighters:[winnerFighter, loserFighter],
-    result:{ winner:winnerFighter, losers:[loserFighter], draw:false, reason:'격파' },
-  };
-  const state = makeState([winner, loser], { round:7, eventCoinReversalRound:7 });
-
-  applyResultsFor(state, [battle]);
-
-  assert.equal(winner.coins, 5);
-  assert.equal(winner.wins, 1);
-  assert.equal(winner.streak, 1);
-  assert.equal(loser.coins, 3, '패자의 코인은 정산 전 값으로 복구되어야 한다');
-  assert.equal(loser.coinsLost, 2, '보호된 패배는 누적 코인 손실도 늘리면 안 된다');
-  assert.equal(loser.losses, 1, '코인을 보호해도 패배 통계는 갱신해야 한다');
-  assert.equal(loser.streak, 0);
-  assert.equal(loser.eventLostLastRound, true);
-  assert.equal(state.eventCoinReversalRound, 0, '해당 역전 라운드 정산 직후 일회성 플래그를 소비해야 한다');
 });
 
 test('3라운드에 인간이 탈락해도 결과 화면 없이 이벤트 투표로 자동 전환한다', () => {

@@ -106,25 +106,16 @@ function makeBattlesFor(state) {
   return { battles, mapId, ffa };
 }
 
-function applyEventAwareLoss(state, player) {
-  const protectCoins = state.eventCoinReversalRound === state.round;
-  const coinsBefore = player.coins;
-  const coinsLostBefore = player.coinsLost || 0;
+function applyRoundLoss(player) {
   loseCoin(player);
-  if (protectCoins) {
-    player.coins = coinsBefore;
-    player.coinsLost = coinsLostBefore;
-  }
-  player.eventLostLastRound = true;
-  return protectCoins;
+  player.eventLostLastRound = true;   // 패배의 교훈 이벤트가 본다
 }
 
-function lossResultBits(player, protectedByEvent) {
+function lossResultBits(player) {
   const bits = [];
-  if (protectedByEvent) bits.push('이벤트 · 코인 보호');
   if (player.trollLossProtected) bits.push('트롤의 조건 · 모든 피해 +10%');
-  else if (!protectedByEvent) bits.push('🪙 -1');
-  if (player.gambleExtra) bits.push(protectedByEvent ? '승부사 기질 소모' : '승부사 기질 🪙 -1');
+  else bits.push('🪙 -1');
+  if (player.gambleExtra) bits.push('승부사 기질 🪙 -1');
   return bits;
 }
 
@@ -170,8 +161,8 @@ function applyResultsFor(state, battles) {
       }
       placementNotes[1] = ['변화 없음'];
       for (let index = 2; index < placed.length; index++) {
-        const protectedByEvent = applyEventAwareLoss(state, placed[index].player);
-        placementNotes[index] = lossResultBits(placed[index].player, protectedByEvent);
+        applyRoundLoss(placed[index].player);
+        placementNotes[index] = lossResultBits(placed[index].player);
       }
       const rows = placed.map((fighter, index) => {
         const reward = (placementNotes[index] || []).join(' · ');
@@ -179,21 +170,16 @@ function applyResultsFor(state, battles) {
       });
       lines.push({ html: `⚔️ <span class="win">${placed.length}인 난투 결과</span><br>${rows.join('<br>')}` });
     } else if (r.draw) {
-      const protectedCount = b.fighters.reduce((count, f) => count + (applyEventAwareLoss(state, f.player) ? 1 : 0), 0);
-      const coinNote = protectedCount === b.fighters.length ? '이벤트로 코인 보호' : '양측 🪙 -1';
-      lines.push({ html: `🤝 무승부 — ${b.fighters.map(fmt).join(' vs ')} <span class="coinloss">${coinNote}</span>` });
+      for (const f of b.fighters) applyRoundLoss(f.player);
+      lines.push({ html: `🤝 무승부 — ${b.fighters.map(fmt).join(' vs ')} <span class="coinloss">양측 🪙 -1</span>` });
     } else {
       winRound(r.winner.player);
       const winnerBits = [];
-      if (state.eventCoinReversalRound === state.round) {
-        r.winner.player.coins++;
-        winnerBits.push('이벤트 🪙 +1');
-      }
       if (r.winner.player.trollWinCost) winnerBits.push('트롤의 조건 🪙 -1');
       if (r.winner.player.gambleRewarded) winnerBits.push('승부사 기질 · 모든 피해 +20%');
       const loserHtml = r.losers.map(f => {
-        const protectedByEvent = applyEventAwareLoss(state, f.player);
-        const bits = lossResultBits(f.player, protectedByEvent);
+        applyRoundLoss(f.player);
+        const bits = lossResultBits(f.player);
         return `${fmt(f)} <span class="coinloss">${bits.join(' · ')}</span>`;
       }).join('');
       const winnerNote = winnerBits.length ? ` <span class="coinloss">${winnerBits.join(' · ')}</span>` : '';
@@ -203,7 +189,6 @@ function applyResultsFor(state, battles) {
     for (const f of b.fighters) f.player.rounds++;
   }
   if (state.eventForceFfaRound === state.round) state.eventForceFfaRound = 0;
-  if (state.eventCoinReversalRound === state.round) state.eventCoinReversalRound = 0;
   // 자동 관전 대상(부전승) 라운드 카운트
   const fought = new Set();
   battles.forEach(b => b.fighters.forEach(f => fought.add(f.player)));

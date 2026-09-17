@@ -1292,9 +1292,10 @@ function drawUnitUI(g, b, sc) {
       g.fillRect(sx, sy, sw * ratio, 2.5);
     }
     if (!f.mainDead && !f.dead) {
+      const orbit = satelliteOrbit(f);   // 판정과 같은 거리
       for (const s of f.satellites) {
         const a = s.ang;
-        const sx = f.x + Math.cos(a) * 42, sy = f.y + Math.sin(a) * 42;
+        const sx = f.x + Math.cos(a) * orbit, sy = f.y + Math.sin(a) * orbit;
         g.fillStyle(toInt(f.color), 1); g.fillCircle(sx, sy, 7);
         g.lineStyle(2, CASUAL_INK, 1); g.strokeCircle(sx, sy, 7);
         g.fillStyle(0xffffff, 0.8); g.fillEllipse(sx - 2, sy - 2.5, 5, 2);

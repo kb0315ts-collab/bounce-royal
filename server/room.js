@@ -291,14 +291,12 @@ class Room {
         lines.push({ kind: 'draw', ids: b.fighters.map(f => f.player.id) });
       } else {
         core.winRound(r.winner.player);
-        if (this.eventCoinReversalRound === this.round) r.winner.player.coins++;
         for (const f of r.losers) this.applyLoss(f.player);
         lines.push({ kind: 'win', winner: r.winner.player.id, losers: r.losers.map(f => f.player.id), why: r.reason });
       }
       for (const f of b.fighters) f.player.rounds++;
     }
     if (this.eventForceFfaRound === this.round) this.eventForceFfaRound = 0;
-    if (this.eventCoinReversalRound === this.round) this.eventCoinReversalRound = 0;
 
     const fought = new Set();
     this.battles.forEach(b => b.fighters.forEach(f => fought.add(f.player)));
@@ -317,10 +315,7 @@ class Room {
   }
 
   applyLoss(player) {
-    const protect = this.eventCoinReversalRound === this.round;
-    const before = player.coins, lostBefore = player.coinsLost || 0;
     core.loseCoin(player);
-    if (protect) { player.coins = before; player.coinsLost = lostBefore; }
     player.eventLostLastRound = true;
   }
 

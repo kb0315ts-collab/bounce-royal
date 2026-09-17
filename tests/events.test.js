@@ -51,7 +51,6 @@ function makeGame(overrides = {}) {
     eventVotes: new Map(),
     activeEventId: null,
     eventForceFfaRound: 0,
-    eventCoinReversalRound: 0,
     eventPowerSupply: false,
     eventTwoPillars: false,
     eventDoubleAugments: false,
@@ -59,14 +58,16 @@ function makeGame(overrides = {}) {
   }, overrides);
 }
 
-test('게임 이벤트는 정확히 10종이며 ID가 모두 고유하다', () => {
+test('게임 이벤트는 정확히 9종이며 ID가 모두 고유하다', () => {
   const ids = Array.from(GAME_EVENTS, event => event.id);
-  assert.equal(ids.length, 10);
-  assert.equal(new Set(ids).size, 10);
+  assert.equal(ids.length, 9);
+  assert.equal(new Set(ids).size, 9);
   assert.deepEqual(ids, [
     'nextFfa', 'powerSupply', 'twoPillars', 'doubleAugments', 'coinRelief',
-    'refreshTen', 'reverseCoins', 'lossAugment', 'globalDamage30', 'noChange',
+    'refreshTen', 'lossAugment', 'globalDamage30', 'noChange',
   ]);
+  // 승자의 보상(다음 라운드 패배 코인 보호 + 승리 코인 +1)은 없앴다
+  assert.equal(GAME_EVENT_BY_ID.reverseCoins, undefined);
   for (const id of ids) assert.equal(GAME_EVENT_BY_ID[id].id, id);
 });
 
@@ -124,16 +125,13 @@ test('과격한 경기는 탈락 여부와 관계없이 모든 플레이어 피�
   assert.deepEqual(game.players.map(player => player.eventDamageMult), [1.3, 1.3, 1.3, 1.3]);
 });
 
-test('4인 난투와 코인 역전은 다음 한 라운드 번호만 플래그로 기록한다', () => {
+test('4인 난투는 다음 한 라운드 번호만 플래그로 기록한다', () => {
   const game = makeGame({ round: 6 });
   applyGameEvent(game, 'nextFfa');
-  applyGameEvent(game, 'reverseCoins');
   assert.equal(game.eventForceFfaRound, 7);
-  assert.equal(game.eventCoinReversalRound, 7);
 
   resetGameEventState(game);
   assert.equal(game.eventForceFfaRound, 0);
-  assert.equal(game.eventCoinReversalRound, 0);
 });
 
 test('패배의 교훈은 직전 라운드 패자만 증강을 하나 더 선택하게 한다', () => {

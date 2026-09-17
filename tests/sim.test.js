@@ -1499,10 +1499,10 @@ test('벽에 튕긴 방패는 붙어 있던 상대를 다시 맞힌다', () => {
   assert.ok(e.hp < afterFirst - 1e-9, '튕긴 뒤에는 다시 맞아야 한다');
 });
 
-test('방패 피해: 휘두르면 15, 던진 방패는 10', () => {
+test('방패 피해: 휘두르면 15, 던진 방패는 8', () => {
   assert.equal(WEAPONS.shield.dmg, 15);
-  assert.equal(WEAPONS.shield.throwDmg, 10);
-  // 겹쳐 둔 상대에게 던진 방패 한 대는 같은 조건의 무기 피해 10과 같다
+  assert.equal(WEAPONS.shield.throwDmg, 8);
+  // 겹쳐 둔 상대에게 던진 방패 한 대는 같은 조건의 무기 피해 8과 같다
   const b = makeBattle({ weaponId: 'shield' }, { weaponId: 'sword' });
   const [f, e] = b.fighters;
   computeStats(f); computeStats(e);
@@ -1515,7 +1515,104 @@ test('방패 피해: 휘두르면 15, 던진 방패는 10', () => {
   const [f2, e2] = b2.fighters;
   computeStats(f2); computeStats(e2);
   e2.maxHp = e2.hp = 1e9;
-  assert.ok(Math.abs(thrown - weaponDamage(b2, f2, e2, 10)) < 1e-6, '던진 방패 한 대 ' + thrown);
+  assert.ok(Math.abs(thrown - weaponDamage(b2, f2, e2, 8)) < 1e-6, '던진 방패 한 대 ' + thrown);
+});
+
+/* 화염방사기는 불길 안의 상대에게 0.5초마다 3씩. 간격은 공격속도와 상관없고,
+ * 공격속도는 연료 회복으로만 들어간다. */
+function flameDuel({ aspd = 1, gap = 60, seconds = 1.2, pulse = false } = {}) {
+  const b = makeBattle({ weaponId: 'flame' }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.st.aspd = aspd;
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0;
+  e.x = gap; e.y = 0; e.vx = 0; e.vy = 0; e.maxHp = e.hp = 1e9;
+  f.steer = { active: true, angle: 0, magnitude: 1 };
+  f.flame.aim = 0; f.flame.fuel = 100;
+  const hits = [];
+  const dt = 1 / 60;
+  for (let i = 0; i < Math.round(seconds / dt); i++) {
+    // pulse: 매 프레임 버튼을 뗐다 누른다 (연타로 틱을 당길 수 없어야 한다)
+    setFlameInput(f, pulse ? i % 2 === 0 : true);
+    const before = e.hp;
+    updateFlame(b, f, dt);
+    if (e.hp < before) hits.push({ t: b.simT, dmg: before - e.hp });
+    b.simT += dt;
+  }
+  return { f, e, hits };
+}
+
+test('화염방사기는 불길 안의 상대에게 0.5초마다 3씩, 공격속도와 상관없이', () => {
+  assert.equal(WEAPONS.flame.tickDmg, 3);
+  assert.equal(WEAPONS.flame.tickT, 0.5);
+  const { f, hits } = flameDuel();
+  assert.deepEqual(hits.map(h => Math.round(h.t * 100) / 100), [0, 0.5, 1], '닿자마자 한 대, 그 뒤 0.5초마다');
+  assert.ok(hits.every(h => Math.abs(h.dmg - 3 * f.st.atk * f.st.dmg) < 1e-9), '한 대에 3');
+  const fast = flameDuel({ aspd: 2 });
+  assert.deepEqual(fast.hits.map(h => Math.round(h.t * 100) / 100), [0, 0.5, 1], '공격속도가 높아도 간격은 0.5초');
+  const pulse = flameDuel({ pulse: true });
+  assert.equal(pulse.hits.length, 3, '버튼을 뗐다 눌러도 더 자주 맞지 않는다');
+});
+
+test('화염방사기 사거리는 114, 기본 연료 회복은 초당 15에 공격속도가 곱해진다', () => {
+  assert.equal(WEAPONS.flame.range, 114);
+  assert.equal(WEAPONS.flame.refillRate, 15);
+  // 예전 사거리(95)로는 닿지 않던 상대가 이제 닿는다
+  const e0 = flameDuel({ seconds: 0.1 }).e;
+  const gap = e0.radius + 95 + 10;
+  assert.ok(gap < e0.radius + 114);
+  assert.equal(flameDuel({ gap, seconds: 0.1 }).hits.length, 1, '늘어난 사거리 안');
+  assert.equal(flameDuel({ gap: e0.radius + 114 + 4, seconds: 0.1 }).hits.length, 0, '사거리 밖');
+  const refill = aspd => {
+    const b = makeBattle({ weaponId: 'flame' }, { weaponId: 'sword' });
+    const [f] = b.fighters;
+    computeStats(f); f.st.aspd = aspd;
+    f.flame.fuel = 0; f.flame.idle = WEAPONS.flame.refillDelay;
+    setFlameInput(f, false);
+    updateFlame(b, f, 1);
+    return f.flame.fuel;
+  };
+  assert.ok(Math.abs(refill(1) - 15) < 1e-9, '기본 초당 15 (' + refill(1) + ')');
+  assert.ok(Math.abs(refill(1.5) - 22.5) < 1e-9, '공격속도 1.5면 22.5');
+});
+
+test('충격파 증강은 벽에 튕길 때 반경 112 안의 적에게 피해 7', () => {
+  assert.equal(SHOCKWAVE_R, 112);
+  const hurt = distance => {
+    const b = makeBattle({ augments: ['shockwave'] }, { weaponId: 'sword' });
+    const [f, e] = b.fighters;
+    computeStats(f); computeStats(e);
+    f.x = 0; f.y = 0; e.x = distance; e.y = 0; e.maxHp = e.hp = 1e9;
+    onWallBounce(b, f, 1);
+    return 1e9 - e.hp;
+  };
+  // 예전 반경(75)이면 몸(22)까지 97 안만 맞았다
+  assert.ok(Math.abs(hurt(120) - 7) < 1e-9, '예전 반경 밖, 지금 반경 안 (' + hurt(120) + ')');
+  assert.equal(hurt(112 + 22 + 3), 0, '반경 밖은 맞지 않는다');
+});
+
+test('위성체는 공 중심에서 반지름+41(기본 63)을 돌고, 그 자리에서 맞힌다', () => {
+  const b = makeBattle({ augments: ['satellite'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  assert.equal(f.satellites.length, 1);
+  assert.equal(f.radius, 22);
+  assert.equal(satelliteOrbit(f), 63);
+  f.x = 0; f.y = 0; e.maxHp = e.hp = 1e9; e.vx = e.vy = 0;
+  const s = f.satellites[0];
+  // 위성체가 orbit 거리에 있다고 치고, 그 안쪽(side -1)이나 바깥쪽(+1)에 닿기 직전(0.2px 겹침)으로
+  // 상대를 세운다. 양쪽 다 맞으면 실제 궤도는 63±0.2다 (예전 판정 64면 안쪽이 안 맞는다).
+  const probe = (orbit, side) => {
+    s.ang = 0; s.cd = 0; e.hp = 1e9;
+    const next = 2.7 * GAME_SPEED / 60, at = orbit + side * (9 + e.radius - 0.2);
+    e.x = Math.cos(next) * at; e.y = Math.sin(next) * at;
+    updateSatellites(b, f, 1 / 60);
+    return e.hp < 1e9;
+  };
+  assert.ok(probe(63, -1) && probe(63, 1), '63을 도는 위성체에 닿은 상대는 맞는다');
+  assert.equal(probe(62, -1), false, '1px 더 안쪽에 선 상대는 닿지 않는다 — 판정이 넉넉해서 통과한 게 아니다');
+  f.radius = 30;
+  assert.equal(satelliteOrbit(f), 71, '공이 커지면 같이 멀어진다');
 });
 
 test('자기 방패: 던지면 8초 쿨타임이 돌고, 그 전에 주우면 바로 초기화된다', () => {

@@ -1010,20 +1010,26 @@ function updateSteerControl(battle, fighter) {
     else label.textContent = '출발 준비 중';
   }
 }
-/* 라운드 시작 카운트다운. 화면 한가운데에 3 · 2 · 1을 띄운다.
- * 세는 동안 조이스틱이 가리키는 쪽이 그대로 출발 방향이 된다. */
-let countShown = 0;
+/* 라운드 시작 카운트다운(3 · 2 · 1)과 끝나기 전 카운트다운(5 · 4 · 3 · 2 · 1).
+ * 시작 때는 세는 동안 조이스틱이 가리키는 쪽이 그대로 출발 방향이 된다.
+ * 끝날 때는 싸움을 가리지 않게 final 모양(작고 옅게)으로 띄운다. */
+const FINAL_COUNT = 5;
+let countShown = 0, countKind = '';
 function updateCountdown(battle) {
   const el = $('hud-count');
   if (!el) return;
-  const counting = !!battle && battle.phase === 'count' && !battle.result;
-  const n = counting ? Math.max(1, Math.ceil(battle.countT || 0)) : 0;
-  if (n === countShown) return;
-  const wasCounting = countShown > 0;
-  countShown = n;
+  const live = !!battle && !battle.result;
+  const left = live && battle.phase === 'fight' && typeof BATTLE_TIME === 'number'
+    ? BATTLE_TIME - (battle.simT || 0) : Infinity;
+  const kind = live && battle.phase === 'count' ? 'start' : left > 0 && left <= FINAL_COUNT ? 'final' : '';
+  const n = kind === 'start' ? Math.max(1, Math.ceil(battle.countT || 0)) : kind === 'final' ? Math.ceil(left) : 0;
+  if (n === countShown && kind === countKind) return;
+  const wasStarting = countShown > 0 && countKind === 'start';
+  countShown = n; countKind = kind;
+  el.classList.toggle('final', kind === 'final');
   if (!n) {
     el.classList.remove('on'); el.textContent = '';
-    if (wasCounting && battle?.phase === 'fight' && typeof SFX !== 'undefined' && SFX.play) SFX.play('ui.fight');
+    if (wasStarting && battle?.phase === 'fight' && typeof SFX !== 'undefined' && SFX.play) SFX.play('ui.fight');
     return;
   }
   el.textContent = String(n);

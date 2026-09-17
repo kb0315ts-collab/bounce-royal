@@ -150,6 +150,25 @@ test('loadout portrait reuses the same art and respects the shared mobile pixel 
   assert.equal(r.graphicsForCanvas(c.context), r.graphicsForCanvas(c.context), 'adapter is cached per canvas');
 });
 
+test('satellites are drawn where they hit: the shared orbit, not a fixed 42', () => {
+  const r = runtime();
+  const f = {
+    uid: 1, pid: 1, name: '위성', color: '#ff6879', charId: 'cat', weaponId: 'sword',
+    x: 10, y: 20, radius: 22, weaponAngle: 0, hp: 100, maxHp: 100, shield: 0,
+    mainDead: false, dead: false, flash: 0, vx: 1, vy: 0,
+    flags: {}, timers: { stun: 0, immune: 0, untouchable: 0, freeze: 0, actingDead: 0,
+      balloon: 0, rampage: 0, gunBarrage: 0, berserk: 0, dashPrep: 0, dashT: 0 },
+    summons: [], satellites: [{ ang: 0 }], splitBalls: [], charging: null, gun: null,
+    chainHeads: null, flame: null, disc: null, gunFlash: 0,
+  };
+  const c = recordingContext(), g = r.graphicsForCanvas(c.context);
+  r.drawUnitUI(g, { fighters: [f] }, { useText: () => ({ setAlpha() {} }) });
+  const dots = c.calls.filter(k => k[0] === 'arc' && k[3] === 7);
+  assert.ok(dots.length > 0, 'satellite drawn');
+  assert.ok(dots.every(k => Math.abs(k[1] - (10 + 63)) < 1e-9 && Math.abs(k[2] - 20) < 1e-9),
+    'drawn 63 from the centre: ' + dots.map(k => k[1]).join(','));
+});
+
 /* 분열체는 본체가 죽은 뒤 몸을 대신한다. 체력바도 무기도 없이 굴러다니면
  * 남은 체력도 무슨 무기인지도 읽을 수가 없다. 둘 다 그려져야 한다. */
 test('split balls carry their own health bar and hold the weapon', () => {

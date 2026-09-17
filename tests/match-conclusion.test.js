@@ -23,7 +23,6 @@ function roomOf(coins = [2, 1, 0, 0]) {
 const preview = room => annotate(room, copy => Room.prototype.resolveRound.call(copy));
 const metrics = room => JSON.stringify({ players:room.players.map(({conn,...p})=>p),
   round:room.round, phase:room.phase, elimCounter:room.elimCounter,
-  eventCoinReversalRound:room.eventCoinReversalRound,
   steer:room.battles.map(b=>b.fighters.map(f=>({steer:f.steer,splits:f.splitBalls.map(s=>s.steer)}))) });
 
 test('decisive result announces the champion without touching real settlement, steering, RNG or messages', () => {
@@ -43,12 +42,11 @@ test('decisive result announces the champion without touching real settlement, s
 });
 
 test('normal rounds, coin protection, surviving splits and unfinished other battles cannot announce final GG', () => {
-  for (const kind of ['normal','troll','event','split','other']) {
+  for (const kind of ['normal','troll','split','other']) {
     const room = roomOf(kind==='normal'?[2,2,0,0]:kind==='other'?[1,1,1,1]:undefined);
     try {
       const b=room.battles[0];
       if(kind==='troll')room.players[1].trollCondition=true;
-      if(kind==='event')room.eventCoinReversalRound=room.round;
       if(kind==='split'){ b.fighters[1].mainDead=true;b.fighters[1].splitBalls=[{hp:10,dead:false}]; }
       else b.finish(b.fighters[0],'격파');
       if(kind==='other')room.battles.push(new core.Battle('diamond',room.players.slice(2)));

@@ -494,6 +494,7 @@ function buildFighter(player, battle) {
     // 철퇴면 하나, 다른 무기는 빈 배열이다.
     chainHeads: [],
     chainHits: new Map(),   // 대상 uid -> 다음에 때릴 수 있는 시각 (재타격 잠금)
+    flameHits: new Map(),   // 화염방사기: 대상 uid -> 다음 불길 피해 시각
     // 무기 스킬은 쿨타임(cd, 초)으로 돈다. 분열체가 이 객체를 참조로 공유하므로
     // 쿨타임도 여기 넣어야 본체와 분열체가 같은 값을 본다.
     skillUses: { char: 1, weapon: 1, cd: 0 },
@@ -1552,7 +1553,7 @@ function onWallBounce(b, f, n) {
     popup(b, f.x, f.y - f.radius - 20, '로켓 종료', '#8ed8ff');
   }
   if (f.flags.wallClimb) healFighter(b, f, f.maxHp * 0.01, true);
-  if (f.flags.shockwave) { battleSound(b, 'augment.shockwave', f); explodeAt(b, f, f.x, f.y, 75, 7 * f.st.dmg, 'auto', true, undefined, 'augment:shockwave'); }
+  if (f.flags.shockwave) { battleSound(b, 'augment.shockwave', f); explodeAt(b, f, f.x, f.y, SHOCKWAVE_R, 7 * f.st.dmg, 'auto', true, undefined, 'augment:shockwave'); }
   if (f.flags.reflectCharge) {
     f.bounceRun += n;
     if (f.bounceRun >= 3 && !f.charged) { f.charged = true; f.bounceRun = 0; battleSound(b, 'augment.reflect', f); addFx(b, { type: 'ring', x: f.x, y: f.y, r0: 6, r1: 44, color: '#ffe08a', dur: 0.3 }); }
@@ -1988,15 +1989,21 @@ function updateFlame(b, f, dt) {
       const ts = Math.hypot(f.thrustX, f.thrustY);
       if (ts > cap) { f.thrustX = f.thrustX / ts * cap; f.thrustY = f.thrustY / ts * cap; }
     }
+    /* 불길 안의 상대는 tickT(0.5초)마다 tickDmg씩 맞는다. 간격은 공격속도와 상관없이
+     * 고정이다 — 공격속도는 연료가 다시 차는 속도로만 들어간다. 대상마다 따로 재서
+     * 불길에 막 들어온 상대는 바로 한 대 맞고, 버튼을 뗐다 눌러도 더 자주 맞지 않는다. */
     for (const e of b.enemiesOf(f)) {
       for (const body of b.bodiesOf(e)) {
         const d = dist(f.x, f.y, body.x, body.y);
         if (d > range + bodyRadius(body)) continue;
         const to = Math.atan2(body.y - f.y, body.x - f.x);
         if (Math.abs(angleDelta(aim, to)) > halfArc) continue;
-        dealDamage(b, f, body, wp.dps * f.st.atk * f.st.dmg * dt, { kind: 'weapon' });
+        if (b.simT + 1e-6 < (f.flameHits.get(body.uid) || 0)) continue;   // 프레임 합의 부동소수 오차로 한 프레임 밀리지 않게
+        f.flameHits.set(body.uid, b.simT + wp.tickT);
+        dealDamage(b, f, body, wp.tickDmg * f.st.atk * f.st.dmg, { kind: 'weapon' });
       }
     }
+    if (f.flameHits.size > 40) f.flameHits.clear();
     // 잔불 — 불길이 닿은 바닥에 남는다. 기존 화염 구조를 그대로 쓴다.
     if (f.flags.flameEmber) {
       f.cd.ember = (f.cd.ember || 0) - dt;
@@ -2699,13 +2706,21 @@ function autoSystems(b, f, dt) {
   }
 }
 
+/* 위성체가 도는 거리(공 중심에서). 공이 커지면 같이 멀어진다. 기본 공(반지름 22)에서 63.
+ * 예전에는 화면은 중심에서 42에 그리고 판정은 반지름+42(=64)에서 해서 보이는 자리와
+ * 맞는 자리가 달랐다. 화면을 1.5배(63) 벌리면서 둘을 이 함수 하나로 맞췄다. */
+function satelliteOrbit(f) {
+  return (f.radius || 22) + 41;
+}
+
 function updateSatellites(b, f, dt) {
   if (f.mainDead || f.dead) return;
+  const orbit = satelliteOrbit(f);
   for (const s of f.satellites) {
     s.ang += 2.7 * GAME_SPEED * dt;
     s.cd = Math.max(0, s.cd - dt);
-    const sx = f.x + Math.cos(s.ang) * (f.radius + 42);
-    const sy = f.y + Math.sin(s.ang) * (f.radius + 42);
+    const sx = f.x + Math.cos(s.ang) * orbit;
+    const sy = f.y + Math.sin(s.ang) * orbit;
     if (s.cd <= 0) {
       for (const e of b.enemiesOf(f)) {
         for (const body of b.bodiesOf(e)) {
@@ -2766,6 +2781,9 @@ function explodeMine(b, m, scale = 1, damage = m.dmg, commentarySource = 'weapon
     }
   }
 }
+// 충격파 증강(shockwave)이 벽에 튕길 때 퍼지는 반경. 철퇴의 벽 강타(quakeR)도 같은 크기다.
+const SHOCKWAVE_R = 112;
+
 function explodeAt(b, src, x, y, radius, dmg, kind, small, sound = 'battle.explosion', commentarySource) {
   if (small) addFx(b, { type: 'ring', x, y, r0: radius * 0.3, r1: radius, color: '#8ea6ff', dur: 0.25 });
   else explodeFx(b, x, y, radius, '#ffb14d', sound);

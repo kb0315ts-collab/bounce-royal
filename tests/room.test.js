@@ -299,11 +299,6 @@ test('피해·코인 이벤트가 실제 수치에 반영된다', () => {
         p.id + '번 사람의 새로고침이 10개 늘어야 한다');
     }
   } finally { clearInterval(relief.tickTimer); }
-
-  const rev = roomAtEventVote('reverseCoins');
-  try {
-    assert.equal(rev.eventCoinReversalRound, rev.round + 1, '다음 라운드에 예약되어야 한다');
-  } finally { clearInterval(rev.tickTimer); }
 });
 
 

@@ -375,7 +375,7 @@ function slamWall({ quake = true, speed = 900 } = {}) {
 
 test('the wall-strike flail bursts a shockwave where the head hits the wall and hurts an enemy nearby', () => {
   const wp = T.WEAPONS.chain;
-  assert.equal(wp.quakeDmg, 12); assert.equal(wp.quakeR, 75); assert.equal(wp.quakeCd, 0.5);   // 반경은 공의 충격파 증강과 같다
+  assert.equal(wp.quakeDmg, 5); assert.equal(wp.quakeR, 112); assert.equal(wp.quakeCd, 0.5);   // 반경은 공의 충격파 증강과 같다
   const s = slamWall();
   let hurtAt = null;
   for (let i = 0; i < 30 && hurtAt === null; i++) { s.run(1); if (s.e.hp < 1000) hurtAt = { x: s.h.x, y: s.h.y }; }
@@ -390,6 +390,13 @@ test('the wall-strike flail bursts a shockwave where the head hits the wall and 
   // 반경 밖의 적은 맞지 않는다
   const far = slamWall(); far.e.x += 110 * Math.SQRT1_2; far.e.y -= 110 * Math.SQRT1_2; far.run(60);
   assert.equal(far.e.hp, 1000);
+  // 예전 반경(75)이면 닿지 않았을 거리도 이제는 맞는다 (벽을 따라 55 더 비켜 섬)
+  const wide = slamWall(); wide.e.x += 55 * Math.SQRT1_2; wide.e.y -= 55 * Math.SQRT1_2;
+  let spot = null;
+  for (let i = 0; i < 60; i++) { wide.run(1); if (wide.e.hp < 1000 && !spot) spot = { x: wide.h.x, y: wide.h.y }; }
+  assert.ok(spot, '넓어진 반경 안의 적은 맞는다');
+  const gap = Math.hypot(spot.x - wide.e.x, spot.y - wide.e.y) - wide.e.radius;
+  assert.ok(gap > 75 && gap < wp.quakeR, `예전 반경 밖, 지금 반경 안 (${gap.toFixed(1)})`);
 });
 
 test('the wall strike needs a hard hit, waits out its cooldown, and stays quiet while stunned or locked', () => {

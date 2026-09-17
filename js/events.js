@@ -10,7 +10,6 @@ const GAME_EVENTS = Object.freeze([
   Object.freeze({ id:'doubleAugments', ico:'✦', name:'두 배의 선택', desc:'앞으로 라운드마다 증강을 2개씩 선택합니다.' }),
   Object.freeze({ id:'coinRelief', ico:'🪙', name:'구호 자금', desc:'코인이 5개 미만인 생존자 모두가 코인 1개를 얻습니다.' }),
   Object.freeze({ id:'refreshTen', ico:'↻', name:'새로운 가능성', desc:'추가 새로고침을 10개 얻습니다.' }),
-  Object.freeze({ id:'reverseCoins', ico:'🔄', name:'승자의 보상', desc:'다음 한 라운드에는 패배해도 코인을 잃지 않고, 승리하면 코인 1개를 얻습니다.' }),
   Object.freeze({ id:'lossAugment', ico:'🩹', name:'패배의 교훈', desc:'앞으로 패배할 때마다 그 라운드의 증강을 하나 더 선택합니다.' }),
   Object.freeze({ id:'globalDamage30', ico:'💥', name:'과격한 경기', desc:'앞으로 모든 플레이어의 모든 피해가 30% 증가합니다.' }),
   Object.freeze({ id:'noChange', ico:'☁️', name:'평온한 하루', desc:'이번 게임에는 아무 변화도 일어나지 않습니다.' }),
@@ -41,7 +40,6 @@ function resetGameEventState(game) {
   game.eventVotes = new Map();
   game.activeEventId = null;
   game.eventForceFfaRound = 0;
-  game.eventCoinReversalRound = 0;
   game.eventPowerSupply = false;
   game.eventTwoPillars = false;
   game.eventDoubleAugments = false;
@@ -79,9 +77,6 @@ function applyGameEvent(game, eventOrId) {
       } else {
         game.refreshes += 10;
       }
-      break;
-    case 'reverseCoins':
-      game.eventCoinReversalRound = game.round + 1;
       break;
     case 'lossAugment':
       game.eventLossAugment = true;

@@ -358,6 +358,38 @@ test('카운트다운 소리는 숫자당 한 번, 전투 시작음은 전환 �
   } finally { delete context.SFX; }
 });
 
+test('라운드가 끝나기 5초 전부터 5 · 4 · 3 · 2 · 1을 작게 띄운다', () => {
+  const el = $('hud-count');
+  context.BATTLE_TIME = 40;
+  const played = [];
+  context.SFX = { play: id => played.push(id) };
+  try {
+    updateCountdown(null);
+    const seen = [];
+    for (let t = 30; t < 40.05; t += 0.05) {
+      updateCountdown({ phase: 'fight', simT: t, result: null });
+      const shown = el.classList.contains('on') ? el.textContent : '';
+      if (shown !== (seen.length ? seen[seen.length - 1] : '')) seen.push(shown);
+    }
+    assert.deepEqual(seen.filter(Boolean), ['5', '4', '3', '2', '1'], '실제 ' + seen.join(','));
+    assert.equal(played.filter(id => id === 'ui.countdown').length, 5, '숫자마다 한 번 소리');
+    assert.equal(played.includes('ui.fight'), false, '끝날 때 전투 시작음은 없다');
+    updateCountdown({ phase: 'fight', simT: 36.2, result: null });
+    assert.equal(el.textContent, '4');
+    assert.ok(el.classList.contains('final'), '끝나기 전 숫자는 싸움을 가리지 않는 작은 모양이다');
+    updateCountdown({ phase: 'fight', simT: 36.5, result: { winner: {} } });
+    assert.equal(el.classList.contains('on'), false, '승부가 나면 바로 치운다');
+    updateCountdown({ phase: 'ending', simT: 40, result: null });
+    assert.equal(el.classList.contains('on'), false);
+    // 시작 카운트다운은 예전 모양 그대로
+    updateCountdown({ phase: 'count', countT: 2.5, result: null });
+    assert.equal(el.textContent, '3');
+    assert.equal(el.classList.contains('final'), false);
+    updateCountdown({ phase: 'fight', simT: 0, result: null });
+    assert.equal(played.at(-1), 'ui.fight');
+  } finally { delete context.SFX; delete context.BATTLE_TIME; updateCountdown(null); }
+});
+
 /* 초상화 캔버스가 칸보다 큰 크기로 그려지면, 브라우저가 칸에 맞춰
  * 눌러 넣으면서 공이 찌그러진다. 상단 참가자 탭이 실제로 그랬다 —
  * 칸은 8cqw(약 32px)인데 하한 72로 그려 세로가 44%로 눌렸다. */

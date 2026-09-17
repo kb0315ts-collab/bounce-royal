@@ -75,11 +75,13 @@ test('flame paint follows center-based range and angle, and never shows a blocke
     api.drawFlameG(r.g, f, scale);
     const flame = r.paths.filter(p => [0xff9850, 0xffd256, 0xfff6dc].includes(p.color));
     assert.equal(flame.length, 3, 'three readable flame tongues');
-    const range = (pressure ? 140 : 95) * scale, half = pressure ? .26 : .35;
+    const range = (pressure ? 140 : 114) * scale, half = pressure ? .26 : .35;
     for (const p of flame.flatMap(p => p.points)) {
       assert.ok(Math.hypot(...p) <= range + 1e-6, 'paint stays inside actual range');
       assert.ok(Math.abs(Math.atan2(p[1], p[0])) <= half + 1e-6, 'paint stays inside actual cone');
     }
+    const reach = Math.max(...flame.flatMap(p => p.points).map(p => Math.hypot(...p)));
+    assert.ok(reach > range * 0.9, `paint reaches the real range, not a shorter one (${reach.toFixed(1)} / ${range})`);
     assert.equal(r.depth(), 0); assert.equal(JSON.stringify(f), before);
   }
   for (const change of [f => f.flame.on = false, f => f.flame.fuel = 0, f => f.dead = true,

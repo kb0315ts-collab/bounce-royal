@@ -46,7 +46,7 @@ const WEAPONS = {
    * 던진 뒤에는 주울 때까지 무기가 없으니 신중해야 한다.
    * 횟수 제한이 필요 없다 — 주워야만 다시 던질 수 있어 제한이 저절로 걸린다. */
   shield: { name:'방패', ico:'🛡️', type:'melee', dmg:15, reach:42, tip:14, rot:2.2, moveMult:0.95,
-    throwSpd:520, throwDmg:10, decel:0.82, restSpd:40, pickupPad:18, discR:15, hitBounce:0.5,
+    throwSpd:520, throwDmg:8, decel:0.82, restSpd:40, pickupPad:18, discR:15, hitBounce:0.5,
     // 자기 방패(sh_magnet): 던지면 recallCd초 쿨타임, 끝나면 스킬로 불러온다(recallSpd로 날아옴)
     recallCd:8, recallSpd:700,
     desc:'몸에 붙여 휘두르다 던질 수 있다. 던진 뒤에는 주울 때까지 무기가 없다.', stat:{atk:.65,spd:.5,rng:.45,mob:.65},
@@ -54,10 +54,12 @@ const WEAPONS = {
   /* 자동 공격이 없는 첫 무기. 스킬 버튼을 누르고 있는 동안만 조향 방향으로
    * 분사하고 연료를 쓴다. 떼면 다시 찬다. 투사체가 없어 피할 수 없는 대신
    * 사거리가 짧고 연료가 상한 역할을 한다.
-   *   dps 초당 피해 · range 사거리 · halfArc 반각(rad)
-   *   burnRate 초당 소모 · refillRate 초당 회복 (공격속도가 여기 곱해진다) */
-  flame:  { name:'화염방사기', ico:'🔥', type:'cone', dmg:0, dps:21, range:95, halfArc:0.35,
-    fuelMax:100, burnRate:40, refillRate:25, refillDelay:0.5, rot:0, moveMult:0.92,
+   *   tickDmg 불길 안의 상대가 tickT초마다 받는 피해 (tickT는 공격속도와 상관없이 고정)
+   *   range 사거리 · halfArc 반각(rad)
+   *   burnRate 초당 소모 · refillRate 초당 회복 (공격속도가 여기 곱해진다 —
+   *   기본 회복을 낮게 두어 공격속도를 챙길 이유가 된다) */
+  flame:  { name:'화염방사기', ico:'🔥', type:'cone', dmg:0, tickDmg:3, tickT:0.5, range:114, halfArc:0.35,
+    fuelMax:100, burnRate:40, refillRate:15, refillDelay:0.5, rot:0, moveMult:0.92,
     desc:'버튼을 누르는 동안 조향 방향으로 불을 뿜는다. 피할 수 없지만 연료가 있다.', stat:{atk:.75,spd:.6,rng:.35,mob:.6},
     skillName:'분사', skillDesc:'누르고 있는 동안 조향 방향으로 불을 뿜는다. 연료를 다 쓰면 잠시 못 쏜다.' },
   /* 공에 매달린 추가 관성으로 따라온다. 휘두르지 않으면 아프지 않은 것이
@@ -68,7 +70,7 @@ const WEAPONS = {
   chain:  { name:'철퇴', ico:'⛓️', type:'chain', dmg:12, rot:2.3, moveMult:1.05,
     chainLen:85, headR:10, gate:80, hitLock:0.35, response:3, drag:0.35,
     // 벽 강타(c_quake): 추가 벽에 세게 부딪힌 자리의 충격파 피해·반경·같은 추 재발동 간격
-    quakeDmg:12, quakeR:75, quakeCd:0.5,
+    quakeDmg:5, quakeR:112, quakeCd:0.5,
     desc:'조이스틱으로 공을 조향하면 매달린 추도 그쪽으로 휘둘린다. 천천히 닿으면 피해가 없다.', stat:{atk:.7,spd:.5,rng:.55,mob:.8},
     skillName:'위치 교환', skillDesc:'공과 추의 위치·속도를 즉시 맞바꾼다. 상대가 붙었을 때 쓰면 그 자리에 추가 남는다.' },
   // maxMines를 없앴다. 이제 제한 없이 깔아 둘 수 있다.
@@ -211,7 +213,7 @@ const AUGMENTS = [
   { id:'f_thrust',cat:'weapon', weapon:'flame', name:'역분사', desc:'분사하는 동안 반대 방향으로 밀려난다. 조향으로는 못 하는 기동이 열린다' },
   { id:'c_long',  cat:'weapon', weapon:'chain', name:'사슬 연장', desc:'사슬이 길어진다. 훑는 범위가 넓어지지만 추가 더 늦게 따라온다' },
   { id:'c_barbed',cat:'weapon', weapon:'chain', name:'가시 사슬', desc:'사슬 줄에도 판정이 생긴다. 줄에 스치면 추 피해의 40%' },
-  { id:'c_quake', cat:'weapon', weapon:'chain', name:'벽 강타', desc:'추가 벽에 세게 부딪히면 그 자리에 충격파가 퍼져 주변 적에게 피해 12' },
+  { id:'c_quake', cat:'weapon', weapon:'chain', name:'벽 강타', desc:'추가 벽에 세게 부딪히면 그 자리에 충격파가 퍼져 주변 적에게 피해 5' },
   { id:'m_freeze',cat:'weapon', weapon:'mine', name:'빙결 지뢰', desc:'상대가 밟으면 2초간 이동속도·공격속도 대폭 감소' },
   // ---- 캐릭터 스킬 카피 ----
 ];
