@@ -151,7 +151,7 @@ const AUGMENTS = [
   { id:'staticUp',     cat:'physics', name:'전기 강화', desc:'정전기 피해 +60%', req:'staticShock' },
   { id:'staticFast',   cat:'physics', name:'빠른 정전기', desc:'이동속도가 높을수록 정전기 피해 증가', req:'staticShock' },
   // ---- 이동 방해 ----
-  { id:'sleepGas',    cat:'cc', name:'수면 가스', desc:'10초마다 상대를 1초간 기절시켜 이동·무기·스킬 사용을 봉인' },
+  { id:'sleepGas',    cat:'cc', name:'수면 가스', desc:'12초마다 상대를 1초간 기절시켜 이동·무기·스킬 사용을 봉인' },
   { id:'frost',       cat:'cc', name:'냉기', desc:'무기 적중 시 상대 이동속도 -10% (3초, 최대 3중첩)' },
   { id:'gravityWell', cat:'cc', name:'중력장', desc:'10초마다 상대 진행 방향을 자신 쪽으로 변경' },
   { id:'repulse', cat:'cc', name:'반발심', desc:'8초마다 주변(반경 130)의 적을 밀어내 나에게서 멀어지는 쪽으로 보낸다. 충전된 뒤 적이 가까이 오면 터진다' },

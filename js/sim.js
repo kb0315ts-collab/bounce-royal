@@ -535,7 +535,7 @@ function buildFighter(player, battle) {
   f.autoCdMult = exp;
   f.cd = {
     fire: 0.5, mine: 0.8, missile: 3 * exp, shuriken: 2 * exp, flame: 0, sticky: 0,
-    gasT: 10 * exp, gravT: 10 * exp, repelT: REPULSE_CD * exp, medT: 5, bloodT: 5, flameTick: 0,
+    gasT: SLEEP_GAS_CD * exp, gravT: 10 * exp, repelT: REPULSE_CD * exp, medT: 5, bloodT: 5, flameTick: 0,
   };
   /* 거인의 날(이벤트): 공·무기·투사체가 모두 30% 크다. 무기 크기는 weaponScale이,
    * 투사체는 spawnProj가 이 표식을 본다. 표식이라 온라인 화면에도 같이 간다. */
@@ -766,6 +766,7 @@ function boltFx(b, x1, y1, x2, y2) {
  * ============================================================ */
 const EVENT_PILLAR_R = 21;   // 쌍둥이 기둥 반지름
 const EVENT_GIANT_SCALE = 1.3;   // 거인의 날: 공·무기·투사체 크기 배율
+const SLEEP_GAS_CD = 12;   // 수면 가스 간격(초). 첫 발동도 이만큼 뒤
 // 반발심: 충전 시간, 밀어내는 반경(충격파 112보다 조금 넓게)
 const REPULSE_CD = 8, REPULSE_R = 130;
 // 가시목줄: 줄에 닿은 상대가 받는 피해, 같은 상대를 다시 찌를 수 있는 간격, 줄의 굵기
@@ -2787,7 +2788,7 @@ function autoSystems(b, f, dt) {
   if (Fl.sleepGas) {
     f.cd.gasT -= dt;
     if (f.cd.gasT <= 0) {
-      f.cd.gasT = 10 * f.autoCdMult;
+      f.cd.gasT = SLEEP_GAS_CD * f.autoCdMult;
       let did = false;
       for (const e of b.enemiesOf(f)) {
         for (const body of b.bodiesOf(e)) {

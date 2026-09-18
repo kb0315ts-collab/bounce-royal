@@ -425,7 +425,15 @@ test('수면 가스는 1초간 이동·무기·스킬을 막고 자동화 전문
   f.cd.gasT = 0;
   autoSystems(b, f, 1 / 60);
   assert.ok(e.timers.stun > 0);
-  assert.equal(f.cd.gasT, 7);
+  assert.ok(Math.abs(f.cd.gasT - 12 * 0.7) < 1e-9, '12초에서 30% 줄어든 8.4초');
+  // 자동화 전문가가 없으면 첫 발동도, 다음 발동도 12초
+  const plain = makeBattle({ augments: ['sleepGas'] });
+  const [g] = plain.fighters;
+  computeStats(g);
+  assert.equal(g.cd.gasT, 12, '전투 시작 12초 뒤 첫 발동');
+  g.cd.gasT = 0;
+  autoSystems(plain, g, 1 / 60);
+  assert.equal(g.cd.gasT, 12, '그 뒤 12초마다');
 
   const x = e.x, y = e.y, ang = e.weaponAngle;
   moveFighter(b, e, 0.2);
