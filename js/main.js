@@ -430,15 +430,29 @@ const TITLE_DEMO_MODE = 'video';
 // Earlier broadcast/casual clips remain in their own folders for easy rollback.
 const TITLE_DEMO_CLIPS = Array.from({ length: 6 }, (_, i) =>
   `assets/title-demos-cosmic/title-demo-${String(i + 1).padStart(2, '0')}.mp4?v=cosmic2`);
+/* 타이틀 뒤에 도는 녹화 전투 영상.
+ * 영상 하나로 주소만 바꾸면 다음 영상의 첫 장면이 준비될 때까지 빈 화면(예전에는 첫 빌드의
+ * 원형 경기장 포스터)이 잠깐 비쳤다. 두 개를 번갈아 쓴다: 지금 영상이 도는 동안 다음 영상을
+ * 뒤에서 불러 두고, 지금 영상이 끝나면 다음 영상을 틀어 실제로 재생이 시작된 순간에
+ * 앞으로 바꿔 낸다. 그때까지는 끝난 영상의 마지막 장면이 그대로 남아 있다. */
 const TitleDemo = {
-  video: $('title-demo-video'), active: false, failed: false, clipIndex: -1,
+  videos: [$('title-demo-video'), $('title-demo-video-next')].filter(Boolean),
+  current: 0, active: false, failed: false, clipIndex: -1, queued: -1,
+  get video() { return this.videos[this.current] || null; },
   init() {
-    if (!this.video) { this.failed = true; return; }
-    this.video.addEventListener('ended', () => {
-      this.active = false;
-      if (this.shouldShow()) this.playNext();
-    });
-    this.video.addEventListener('error', () => this.useLiveFallback());
+    if (!this.videos.length) { this.failed = true; return; }
+    for (const v of this.videos) {
+      v.addEventListener('ended', () => {
+        if (v !== this.video) return;
+        this.active = false;
+        if (this.shouldShow()) this.playNext();
+      });
+      v.addEventListener('error', () => {
+        // 미리 불러 두던 쪽이 실패하면 다음 차례에 새로 고른다
+        if (v !== this.video) { this.queued = -1; return; }
+        this.useLiveFallback();
+      });
+    }
   },
   shouldShow() {
     const title = $('scr-title');
@@ -455,20 +469,57 @@ const TitleDemo = {
       if (!this.active) this.playNext();
     } else if (this.active) this.stopVideo();
   },
-  playNext() {
-    if (!this.video || !TITLE_DEMO_CLIPS.length) return this.useLiveFallback();
+  pickClip() {
     let next = Math.floor(Math.random() * TITLE_DEMO_CLIPS.length);
     if (next === this.clipIndex) next = (next + 1) % TITLE_DEMO_CLIPS.length;
+    return next;
+  },
+  playNext() {
+    if (!this.video || !TITLE_DEMO_CLIPS.length) return this.useLiveFallback();
+    const outgoing = this.video;
+    const showing = !outgoing.classList.contains('hidden');
+    // 보이는 영상이 있고 두 번째 칸이 있으면 뒤에서 틀어 바꿔 낸다. 처음에는 바로 튼다.
+    const incoming = showing && this.videos.length > 1 ? this.videos[1 - this.current] : outgoing;
+    const next = incoming !== outgoing && this.queued >= 0 ? this.queued : this.pickClip();
+    this.queued = -1;
     this.clipIndex = next;
     this.active = true;
-    this.video.src = TITLE_DEMO_CLIPS[next];
-    this.video.classList.remove('hidden');
+    const src = TITLE_DEMO_CLIPS[next];
+    if (!incoming.src || !incoming.src.endsWith(src)) incoming.src = src;
+    else incoming.currentTime = 0;
     canvas.classList.add('title-video-active');
-    const play = this.video.play();
+    if (incoming === outgoing) {
+      incoming.classList.remove('hidden', 'standby');
+    } else {
+      incoming.classList.remove('hidden');
+      incoming.classList.add('standby');
+      const reveal = () => {
+        incoming.removeEventListener('playing', reveal);
+        if (!this.active || this.videos[1 - this.current] !== incoming) return;
+        incoming.classList.remove('standby');
+        outgoing.classList.add('hidden');
+        outgoing.pause();
+        this.current = 1 - this.current;
+        this.preload();
+      };
+      incoming.addEventListener('playing', reveal);
+    }
+    const play = incoming.play();
     if (play && typeof play.catch === 'function') play.catch(() => this.useLiveFallback());
+    if (incoming === outgoing) this.preload();
+  },
+  // 다음에 틀 영상을 쉬고 있는 칸에 미리 불러 둔다
+  preload() {
+    if (this.videos.length < 2) return;
+    const spare = this.videos[1 - this.current];
+    this.queued = this.pickClip();
+    spare.classList.add('hidden');
+    spare.classList.remove('standby');
+    spare.src = TITLE_DEMO_CLIPS[this.queued];
+    spare.load();
   },
   stopVideo() {
-    if (this.video) { this.video.pause(); this.video.classList.add('hidden'); }
+    for (const v of this.videos) { v.pause(); v.classList.add('hidden'); v.classList.remove('standby'); }
     canvas.classList.remove('title-video-active');
     this.active = false;
   },

@@ -37,8 +37,10 @@ body{display:flex;align-items:center;justify-content:center}
 
 /* 전투 캔버스: 720×1280 세로 화면의 중앙 경기장 */
 #game{position:absolute;z-index:1;left:0;top:14.4%;width:100%;height:71.4%;touch-action:none}
-#title-demo-video{position:absolute;z-index:2;inset:0;width:100%;height:100%;object-fit:cover;
+.title-demo-video{position:absolute;z-index:2;inset:0;width:100%;height:100%;object-fit:cover;
   pointer-events:none;background:#050812}
+/* 다음 영상은 지금 영상 뒤에서 미리 불러 둔다. 재생이 시작된 뒤에야 앞으로 나온다. */
+.title-demo-video.standby{z-index:1;opacity:0}
 #game.title-video-active{visibility:hidden}
 
 /* 공통 화면 */
@@ -241,8 +243,8 @@ body{display:flex;align-items:center;justify-content:center}
 </head>
 <body>
 <main id="app" aria-label="바운스 로얄 720×1280 세로 게임 화면" data-render-target="720x1280">
-  <video id="title-demo-video" class="hidden" muted playsinline preload="metadata"
-    poster="assets/title-demos/title-poster.jpg" aria-hidden="true"></video>
+  <video id="title-demo-video" class="title-demo-video hidden" muted playsinline preload="metadata" aria-hidden="true"></video>
+  <video id="title-demo-video-next" class="title-demo-video hidden" muted playsinline preload="auto" aria-hidden="true"></video>
   <canvas id="game" aria-label="전투 경기장"></canvas>
 
   <section id="hud" class="hidden" aria-label="전투 정보">
