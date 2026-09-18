@@ -61,11 +61,11 @@ test('회복 리포트는 최대 체력을 넘기지 않으며 전투 흡수와 
   a.hp = a.maxHp - 20; a.flags.lifesteal = 0.5; a.flags.vampiric = 1;
   r.weaponDamage(b, a, target, 10);
   assert.equal(b.roundReport[a.pid].healing.lifesteal, 5);
-  assert.equal(b.roundReport[a.pid].healing.vampiric, a.maxHp * 0.05);
+  assert.equal(b.roundReport[a.pid].healing.vampiric, a.maxHp * 0.04);
   a.hp = a.maxHp - 2;
   r.weaponDamage(b, a, target, 10);
   assert.equal(b.roundReport[a.pid].healing.lifesteal, 7, '남은 체력 2만 회복으로 기록');
-  assert.equal(b.roundReport[a.pid].healing.vampiric, a.maxHp * 0.05,
+  assert.equal(b.roundReport[a.pid].healing.vampiric, a.maxHp * 0.04,
     '같은 공격의 후속 회복은 이미 최대 체력이면 0');
   r.healFighter(b, a, 500, true, 'lifesteal');
   r.healFighter(b, a, -1, true, 'lifesteal');
@@ -74,7 +74,7 @@ test('회복 리포트는 최대 체력을 넘기지 않으며 전투 흡수와 
   r.healFighter(b, a, 20, true);
   assert.equal(b.roundReport[a.pid].healing.heal, 3, '일반 회복은 흡혈과 구분');
   const lines = recapLines(b.roundReport[a.pid], weapons, characters);
-  assert.ok(lines.some(line => line.includes('흡혈') && line.includes('12')));
+  assert.ok(lines.some(line => line.includes('흡혈') && line.includes('11')));   // 전투 흡수 7 + 흡혈 폭주 4
 });
 
 test('누적 기록은 짧은 해설 이벤트가 잘려도 보존되고 다음 전투와 demo에 섞이지 않는다', () => {

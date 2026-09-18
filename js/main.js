@@ -96,6 +96,7 @@ function makeBattlesFor(state) {
     eventFfa: ffa,
     powerSupply: !!state.eventPowerSupply,
     twoPillars: !!state.eventTwoPillars,
+    giant: !!state.eventGiant,
   };
   let battles;
   if (ffa) battles = [new Battle(mapId, alive, battleOptions)];
@@ -272,7 +273,7 @@ function applyAiAugmentChoices(state) {
     if (!player.isAI) continue;
     const pickCount = eventAugmentPickCount(state, player);
     for (let pickIndex = 0; pickIndex < pickCount && player.coins > 0; pickIndex++) {
-      const offers = rollAugmentOffers(player);
+      const offers = rollEventAugmentOffers(state, player);
       if (offers.length) applyAugmentPick(player, aiPickAugment(offers, player));
     }
   }
@@ -876,7 +877,7 @@ const Game = {
     this.refreshes++;
     const totalPicks = eventAugmentPickCount(this, this.human);
     let remainingPicks = totalPicks;
-    let offers = rollAugmentOffers(this.human);
+    let offers = rollEventAugmentOffers(this, this.human);
     showScreen('scr-augment');
     const finishRoundSelection = () => {
       if (this.human.coins <= 0) {
@@ -895,7 +896,7 @@ const Game = {
       remainingPicks--;
       if (this.human.coins <= 0) { finishRoundSelection(); return; }
       if (remainingPicks <= 0) { finishRoundSelection(); return; }
-      offers = rollAugmentOffers(this.human);
+      offers = rollEventAugmentOffers(this, this.human);
       renderOffers();
     };
     const renderOffers = () => {
@@ -905,7 +906,7 @@ const Game = {
         this.refreshes--;
         const previous = offers.map(a => a.id).join('|');
         let attempts = 0;
-        do { offers = rollAugmentOffers(this.human); } while (attempts++ < 5 && offers.map(a => a.id).join('|') === previous);
+        do { offers = rollEventAugmentOffers(this, this.human); } while (attempts++ < 5 && offers.map(a => a.id).join('|') === previous);
         SFX.ui();
         renderOffers();
       };

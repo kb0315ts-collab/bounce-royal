@@ -1367,5 +1367,23 @@
     "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
     "tone": "guard",
     "sha256": "31daf97b3d857cb04d13d18e8fe3f2f5b7255406b409ac8213dda6b3632efb70"
+  },
+  "repulse": {
+    "file": "assets/icons/augments/repulse.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "가운데 공에서 사방으로 밀려 나가는 화살표와 퍼지는 물결: 주기적으로 주변 적을 밀어낸다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "guard",
+    "sha256": "099bbd50247270c926df658f69a5a3d43d194a55cae794a9bf896d73776236d5"
+  },
+  "thornLeash": {
+    "file": "assets/icons/augments/thornLeash.svg",
+    "origin": "native",
+    "author": "Bounce Royale",
+    "reason": "큰 공과 꼬마볼을 잇는 가시 줄: 줄에 닿은 상대가 다친다",
+    "modifications": "Authored in the existing casual vocabulary: #ink gradient, charcoal outline, paint-order stroke.",
+    "tone": "health",
+    "sha256": "1956fc537e4d736116ef1bdb18e35cec0ef52db6d197e027f5582cd2a46dcf33"
   }
 }

@@ -102,6 +102,8 @@
   "aug-c_long": "assets/icons/augments/c_long.svg?v=7efdf5b760d8",
   "aug-c_barbed": "assets/icons/augments/c_barbed.svg?v=50d68ce0c10d",
   "aug-c_quake": "assets/icons/augments/c_quake.svg?v=2b7b8f1bb116",
-  "aug-m_freeze": "assets/icons/augments/m_freeze.svg?v=cce5fd1be6da"
+  "aug-m_freeze": "assets/icons/augments/m_freeze.svg?v=cce5fd1be6da",
+  "aug-repulse": "assets/icons/augments/repulse.svg?v=099bbd502472",
+  "aug-thornLeash": "assets/icons/augments/thornLeash.svg?v=1956fc537e4d"
 });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -12,6 +12,8 @@ const GAME_EVENTS = Object.freeze([
   Object.freeze({ id:'refreshTen', ico:'↻', name:'새로운 가능성', desc:'추가 새로고침을 10개 얻습니다.' }),
   Object.freeze({ id:'lossAugment', ico:'🩹', name:'패배의 교훈', desc:'앞으로 패배할 때마다 그 라운드의 증강을 하나 더 선택합니다.' }),
   Object.freeze({ id:'globalDamage30', ico:'💥', name:'과격한 경기', desc:'앞으로 모든 플레이어의 모든 피해가 30% 증가합니다.' }),
+  Object.freeze({ id:'giantDay', ico:'🗿', name:'거인의 날', desc:'앞으로 모두의 공과 무기·투사체가 30% 커집니다.' }),
+  Object.freeze({ id:'weaponForge', ico:'⚒️', name:'무기강화소', desc:'바로 다음 증강 선택에서 모두의 선택지 3개가 자기 무기 전용 증강이 됩니다. 이미 가진 무기 증강 자리는 다른 증강으로 채웁니다.' }),
   Object.freeze({ id:'noChange', ico:'☁️', name:'평온한 하루', desc:'이번 게임에는 아무 변화도 일어나지 않습니다.' }),
 ]);
 const GAME_EVENT_BY_ID = Object.freeze(Object.fromEntries(GAME_EVENTS.map(event => [event.id, event])));
@@ -44,6 +46,8 @@ function resetGameEventState(game) {
   game.eventTwoPillars = false;
   game.eventDoubleAugments = false;
   game.eventLossAugment = false;
+  game.eventGiant = false;
+  game.eventWeaponForgeRound = 0;
   for (const player of game.players || []) {
     player.eventDamageMult = 1;
     player.eventLostLastRound = false;
@@ -86,6 +90,13 @@ function applyGameEvent(game, eventOrId) {
     case 'globalDamage30':
       for (const player of game.players) player.eventDamageMult = 1.3;
       break;
+    case 'giantDay':
+      game.eventGiant = true;
+      break;
+    case 'weaponForge':
+      // 투표는 라운드가 끝난 뒤라, 바로 다음 증강 선택도 같은 라운드 번호에서 열린다
+      game.eventWeaponForgeRound = game.round;
+      break;
     case 'noChange':
       break;
   }
@@ -97,6 +108,13 @@ function applyGameEvent(game, eventOrId) {
 const EVENT_FFA_EVERY = 4;
 function isEventFfaRound(game, round = game.round) {
   return !!game.eventFfaEveryFour && round > 0 && round % EVENT_FFA_EVERY === 0;
+}
+
+/* 이벤트를 반영해 증강 선택지를 뽑는다. 혼자하기와 방이 모든 선택지(처음·다음 칸·새로고침)를
+ * 여기서 뽑아야 무기강화소가 빠지는 곳이 없다. */
+function rollEventAugmentOffers(game, player) {
+  const weaponForge = !!game.eventWeaponForgeRound && game.eventWeaponForgeRound === game.round;
+  return rollAugmentOffers(player, 3, { weaponForge });
 }
 
 function eventAugmentPickCount(game, player) {

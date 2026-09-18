@@ -606,6 +606,7 @@ function netVisualFlags(fg) {
     chainLong: !!(fg & 16), chainBarbed: !!(fg & 32),
     flamePressure: !!(fg & 64), flameEmber: !!(fg & 128), flameThrust: !!(fg & 256),
     discGrip: !!(fg & 512), discMagnet: !!(fg & 1024), discRicochet: !!(fg & 2048),
+    eventGiant: !!(fg & 4096), thornLeash: !!(fg & 8192),
   };
 }
 

@@ -22,7 +22,8 @@ function visualFlags(f) {
     | (flags.shotgun ? 4 : 0) | (flags.bayonet ? 8 : 0)
     | (flags.chainLong ? 16 : 0) | (flags.chainBarbed ? 32 : 0)
     | (flags.flamePressure ? 64 : 0) | (flags.flameEmber ? 128 : 0) | (flags.flameThrust ? 256 : 0)
-    | (flags.discGrip ? 512 : 0) | (flags.discMagnet ? 1024 : 0) | (flags.discRicochet ? 2048 : 0);
+    | (flags.discGrip ? 512 : 0) | (flags.discMagnet ? 1024 : 0) | (flags.discRicochet ? 2048 : 0)
+    | (flags.eventGiant ? 4096 : 0) | (flags.thornLeash ? 8192 : 0);
 }
 
 // Input may stay held while stunned or disarmed; only paint actual spray.

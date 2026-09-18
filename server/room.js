@@ -177,6 +177,7 @@ class Room {
       eventFfa: ffa,
       powerSupply: !!this.eventPowerSupply,
       twoPillars: !!this.eventTwoPillars,
+      giant: !!this.eventGiant,
     };
     let groups;
     if (ffa) groups = [alive];
@@ -372,7 +373,7 @@ class Room {
     for (const p of this.players) {
       if (!p.isAI || p.eliminated) continue;
       const picks = core.eventAugmentPickCount(this, p);
-      for (let i = 0; i < picks; i++) core.applyAugmentPick(p, core.aiPickAugment(core.rollAugmentOffers(p), p));
+      for (let i = 0; i < picks; i++) core.applyAugmentPick(p, core.aiPickAugment(core.rollEventAugmentOffers(this, p), p));
     }
     for (const p of this.players) {
       if (!p.eliminated && p.coins <= 0) { p.eliminated = true; p.elimOrder = this.elimCounter++; }
@@ -386,7 +387,7 @@ class Room {
     this.setPhase('augment', AUGMENT_TIME);
     for (const p of humans) {
       const total = core.eventAugmentPickCount(this, p);
-      const offers = core.rollAugmentOffers(p);
+      const offers = core.rollEventAugmentOffers(this, p);
       this.augmentState.set(p.id, { left: total, total, offers });
       this.send(p, { t: 'augmentOffers', offers, left: total, total, refreshes: this.refreshes.get(p.id) || 0, seconds: AUGMENT_TIME, fullSeconds: AUGMENT_TIME });
     }
@@ -400,7 +401,7 @@ class Room {
     core.applyAugmentPick(player, aug);
     st.left--;
     if (st.left > 0 && player.coins > 0) {
-      st.offers = core.rollAugmentOffers(player);
+      st.offers = core.rollEventAugmentOffers(this, player);
       this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes.get(player.id) || 0, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
     }
     this.maybeFinishAugment();
@@ -410,7 +411,7 @@ class Room {
     const st = this.augmentState.get(player.id);
     if (!st || st.left <= 0) return;
     this.refreshes.set(player.id, this.refreshes.get(player.id) - 1);
-    st.offers = core.rollAugmentOffers(player);
+    st.offers = core.rollEventAugmentOffers(this, player);
     this.send(player, { t: 'augmentOffers', offers: st.offers, left: st.left, total: st.total, refreshes: this.refreshes.get(player.id) || 0, seconds: this.timeLeft(), fullSeconds: AUGMENT_TIME });
   }
   maybeFinishAugment() {
@@ -423,7 +424,7 @@ class Room {
       while (st.left > 0) {
         core.applyAugmentPick(player, core.aiPickAugment(st.offers, player));
         st.left--;
-        if (st.left > 0) st.offers = core.rollAugmentOffers(player);
+        if (st.left > 0) st.offers = core.rollEventAugmentOffers(this, player);
       }
     }
     for (const p of this.players) {

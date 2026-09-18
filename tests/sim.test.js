@@ -62,8 +62,8 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
 });
 
 test('기획 증강 96종이 중복 ID 없이 등록되고 삭제 항목은 풀에서 빠진다', () => {
-  assert.equal(AUGMENTS.length, 101, '신규 무기 3종의 전용 증강 9개가 더해져 102, 몰락한 강자를 빼 101이다');
-  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 101);
+  assert.equal(AUGMENTS.length, 103, '신규 무기 3종의 전용 증강 9개가 더해져 102, 몰락한 강자를 빼 101, 반발심·가시목줄을 더해 103이다');
+  assert.equal(new Set(AUGMENTS.map(a => a.id)).size, 103);
   // 새로 들어온 것과 이름이 바뀐 것
   for (const id of ['p_shotgun', 's_double']) assert.ok(AUG_BY_ID[id], id);
   for (const id of ['rampage20', 'seasonedExp', 'trollCondition', 'sleepGas',
@@ -447,9 +447,10 @@ test('자동 공격·소환수·유체화·반사 충전의 변경 수치가 적
 
   const legionBattle = makeBattle({ augments: ['miniBall', 'legion'] });
   const minion = legionBattle.fighters[0].summons[0];
-  assert.equal(minion.maxHp, 39);
-  assert.equal(minion.dmg, 13);
-  assert.ok(Math.abs(minion.r - 16.9) < 1e-9);
+  // 군단: 소환수 체력·피해·크기 +50%
+  assert.equal(minion.maxHp, 45);
+  assert.equal(minion.dmg, 15);
+  assert.ok(Math.abs(minion.r - 19.5) < 1e-9);
   assert.equal(minion.spd, 205);
 
   const phaseBattle = makeBattle({ weaponId: 'dagger', augments: ['d_phase'] });
@@ -1765,16 +1766,166 @@ function flameDuel({ aspd = 1, gap = 60, seconds = 1.2, pulse = false } = {}) {
   return { f, e, hits };
 }
 
-test('화염방사기는 불길 안의 상대에게 0.5초마다 3씩, 공격속도와 상관없이', () => {
-  assert.equal(WEAPONS.flame.tickDmg, 3);
-  assert.equal(WEAPONS.flame.tickT, 0.5);
+test('화염방사기는 불길 안의 상대에게 0.2초마다 2씩, 공격속도와 상관없이', () => {
+  assert.equal(WEAPONS.flame.tickDmg, 2);
+  assert.equal(WEAPONS.flame.tickT, 0.2);
+  const every = [0, 0.2, 0.4, 0.6, 0.8, 1];
   const { f, hits } = flameDuel();
-  assert.deepEqual(hits.map(h => Math.round(h.t * 100) / 100), [0, 0.5, 1], '닿자마자 한 대, 그 뒤 0.5초마다');
-  assert.ok(hits.every(h => Math.abs(h.dmg - 3 * f.st.atk * f.st.dmg) < 1e-9), '한 대에 3');
+  assert.deepEqual(hits.map(h => Math.round(h.t * 100) / 100), every, '닿자마자 한 대, 그 뒤 0.2초마다');
+  assert.ok(hits.every(h => Math.abs(h.dmg - 2 * f.st.atk * f.st.dmg) < 1e-9), '한 대에 2');
   const fast = flameDuel({ aspd: 2 });
-  assert.deepEqual(fast.hits.map(h => Math.round(h.t * 100) / 100), [0, 0.5, 1], '공격속도가 높아도 간격은 0.5초');
+  assert.deepEqual(fast.hits.map(h => Math.round(h.t * 100) / 100), every, '공격속도가 높아도 간격은 0.2초');
   const pulse = flameDuel({ pulse: true });
-  assert.equal(pulse.hits.length, 3, '버튼을 뗐다 눌러도 더 자주 맞지 않는다');
+  assert.equal(pulse.hits.length, every.length, '버튼을 뗐다 눌러도 더 자주 맞지 않는다');
+});
+
+test('화염방사기는 몸 가장자리만 불길에 걸려도 맞힌다', () => {
+  // 불길 옆 경계(반각) 바깥에 몸 한가운데가 있지만 몸 가장자리는 불길 안에 들어온 상대
+  const hitAt = offset => {
+    const b = makeBattle({ weaponId: 'flame' }, { weaponId: 'sword' });
+    const [f, e] = b.fighters;
+    computeStats(f); computeStats(e);
+    f.x = 0; f.y = 0; f.vx = 1; f.vy = 0;
+    f.steer = { active: true, angle: 0, magnitude: 1 }; f.flame.aim = 0; f.flame.fuel = 100;
+    const d = 80, edge = Math.asin(bodyRadius(e) / d), ang = WEAPONS.flame.halfArc + edge * offset;
+    e.x = Math.cos(ang) * d; e.y = Math.sin(ang) * d; e.maxHp = e.hp = 1e6;
+    setFlameInput(f, true);
+    updateFlame(b, f, 1 / 60);
+    return e.hp < 1e6;
+  };
+  assert.equal(hitAt(0.8), true, '가장자리가 불길 안이면 맞는다');
+  assert.equal(hitAt(1.2), false, '몸 전체가 불길 밖이면 안 맞는다');
+});
+
+test('잔불은 불길을 뿜은 방향을 따라 가까운 곳·가운데·끝에 깔리고, 벽 밖에는 남지 않는다', () => {
+  const b = makeBattle({ weaponId: 'flame', augments: ['f_ember'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  e.x = 300; e.y = 300;
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0;
+  const aim = 0.6;
+  f.steer = { active: true, angle: aim, magnitude: 1 }; f.flame.aim = aim; f.flame.fuel = 100;
+  setFlameInput(f, true);
+  updateFlame(b, f, 1 / 60);
+  const range = WEAPONS.flame.range * weaponScale(f);
+  const mine = b.flames.filter(fl => fl.owner === f);
+  assert.equal(mine.length, 3, '한 번에 세 자리');
+  for (const [i, fl] of mine.entries()) {
+    const r = Math.hypot(fl.x - f.x, fl.y - f.y), a = Math.atan2(fl.y - f.y, fl.x - f.x);
+    assert.ok(Math.abs(angleDelta(a, aim)) < 1e-9, '뿜은 방향 위에 깔린다');
+    assert.ok(Math.abs(r - range * [0.35, 0.65, 0.92][i]) < 1e-6, '가까운 곳·가운데·끝');
+    assert.ok(fl.r >= 11 && fl.r <= 30);
+  }
+  // 벽에 붙어 벽 쪽으로 뿜으면 벽 밖 자리는 건너뛴다
+  b.flames.length = 0;
+  const L = b.arena.H;
+  f.x = L - 40; f.y = 0; f.flame.aim = 0; f.steer.angle = 0; f.cd.ember = 0;
+  updateFlame(b, f, 1 / 60);
+  for (const fl of b.flames) assert.ok(Math.max(Math.abs(fl.x), Math.abs(fl.y)) + fl.r <= L + 1e-9, '벽 밖에 남지 않는다');
+  assert.ok(b.flames.length < 3, '벽 너머 자리는 없다');
+});
+
+test('반발심: 충전되면 반경 130 안의 적을 나에게서 멀어지는 쪽으로 보내고, 8초 뒤 다시 충전된다', () => {
+  const b = makeBattle({ augments: ['repulse'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  assert.equal(REPULSE_CD, 8);
+  assert.equal(REPULSE_R, 130);
+  f.x = 0; f.y = 0;
+  e.x = 300; e.y = 0; e.vx = -1; e.vy = 0;       // 멀리서 다가온다
+  f.cd.repelT = 0;
+  autoSystems(b, f, 1 / 60);
+  assert.equal(e.vx, -1, '반경 밖이면 터지지 않고 기다린다');
+  assert.equal(f.cd.repelT, 0);
+  e.x = 100; e.y = 30;
+  autoSystems(b, f, 1 / 60);
+  const away = Math.atan2(30, 100);
+  assert.ok(Math.abs(angleDelta(Math.atan2(e.vy, e.vx), away)) < 1e-9, '나에게서 멀어지는 쪽으로 방향이 바뀐다');
+  assert.ok(Math.abs(f.cd.repelT - 8) < 1e-9, '8초 뒤에 다시 쓸 수 있다');
+  e.vx = -1; e.vy = 0;
+  autoSystems(b, f, 1);
+  assert.equal(e.vx, -1, '충전 중에는 다시 밀지 않는다');
+});
+
+test('가시목줄: 꼬마볼과 내 공 사이 줄에 닿은 상대는 4씩, 같은 상대는 0.5초에 한 번', () => {
+  const b = makeBattle({ augments: ['miniBall', 'thornLeash'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  assert.equal(AUG_BY_ID.thornLeash.req, 'miniBall');
+  const m = f.summons[0];
+  const hold = () => { f.x = 0; f.y = 0; m.x = 200; m.y = 0; m.vx = 0; m.vy = 1; m.spd = 0; e.x = 100; e.y = 10; e.vx = e.vy = 0; };
+  e.maxHp = e.hp = 1e6;
+  hold(); b.simT = 1; b.updateMinions(1 / 60);
+  assert.ok(Math.abs((1e6 - e.hp) - 4 * f.st.dmg) < 1e-9, '줄에 닿으면 4');
+  hold(); b.simT = 1.2; b.updateMinions(1 / 60);
+  assert.ok(Math.abs((1e6 - e.hp) - 4 * f.st.dmg) < 1e-9, '0.5초 안에는 다시 안 찌른다');
+  hold(); b.simT = 1.6; b.updateMinions(1 / 60);
+  assert.ok(Math.abs((1e6 - e.hp) - 8 * f.st.dmg) < 1e-9, '0.5초 뒤에 다시 찌른다');
+  // 줄에서 떨어져 있으면 안 다친다
+  const b2 = makeBattle({ augments: ['miniBall', 'thornLeash'] }, { weaponId: 'sword' });
+  const [f2, e2] = b2.fighters;
+  computeStats(f2); computeStats(e2);
+  const m2 = f2.summons[0];
+  f2.x = 0; f2.y = 0; m2.x = 200; m2.y = 0; m2.spd = 0; e2.x = 100; e2.y = 60; e2.maxHp = e2.hp = 1e6;
+  b2.simT = 1; b2.updateMinions(1 / 60);
+  assert.equal(e2.hp, 1e6, '줄에서 떨어진 상대는 안 다친다');
+  // 꼬마볼만 있고 가시목줄이 없으면 줄도 없다
+  const b3 = makeBattle({ augments: ['miniBall'] }, { weaponId: 'sword' });
+  const [f3, e3] = b3.fighters;
+  computeStats(f3); computeStats(e3);
+  const m3 = f3.summons[0];
+  f3.x = 0; f3.y = 0; m3.x = 200; m3.y = 0; m3.spd = 0; e3.x = 100; e3.y = 10; e3.maxHp = e3.hp = 1e6;
+  b3.simT = 1; b3.updateMinions(1 / 60);
+  assert.equal(e3.hp, 1e6);
+});
+
+test('거인의 날: 모두의 공·무기·투사체가 30% 커진다', () => {
+  const normal = new Battle('square', [makePlayer({ weaponId: 'sword' }), makePlayer({ isAI: true, weaponId: 'bow' })]);
+  const giant = new Battle('square', [makePlayer({ weaponId: 'sword' }), makePlayer({ isAI: true, weaponId: 'bow' })], { giant: true });
+  for (const x of [...normal.fighters, ...giant.fighters]) computeStats(x);
+  for (let i = 0; i < 2; i++) {
+    const a = normal.fighters[i], g = giant.fighters[i];
+    assert.ok(Math.abs(g.radius / a.radius - 1.3) < 1e-9, '공 크기');
+    assert.ok(Math.abs(weaponScale(g) / weaponScale(a) - 1.3) < 1e-9, '무기 크기');
+    assert.equal(g.flags.eventGiant, 1, '온라인 화면도 알 수 있게 표식을 단다');
+  }
+  const pa = spawnProj(normal, normal.fighters[1], { kind: 'arrow', x: 0, y: 0, ang: 0, spd: 300, dmg: 8, r: 4, weapon: true });
+  const pg = spawnProj(giant, giant.fighters[1], { kind: 'arrow', x: 0, y: 0, ang: 0, spd: 300, dmg: 8, r: 4, weapon: true });
+  assert.ok(Math.abs(pg.r / pa.r - 1.3) < 1e-9, '투사체 크기');
+});
+
+test('무기강화소: 다음 증강 선택지 3개가 내 무기 전용 증강이고, 이미 가진 것 자리는 다른 증강이다', () => {
+  const p = makePlayer({ weaponId: 'shield' });
+  const shieldAugs = AUGMENTS.filter(a => a.weapon === 'shield').map(a => a.id).sort();
+  assert.equal(shieldAugs.length, 3);
+  for (let k = 0; k < 10; k++) {
+    const offers = rollAugmentOffers(p, 3, { weaponForge: true });
+    assert.deepEqual(offers.map(a => a.id).sort(), shieldAugs, '셋 다 방패 전용');
+  }
+  p.augments.push('sh_grip');
+  for (let k = 0; k < 10; k++) {
+    const ids = rollAugmentOffers(p, 3, { weaponForge: true }).map(a => a.id);
+    assert.equal(ids.length, 3);
+    assert.equal(new Set(ids).size, 3, '겹치지 않는다');
+    assert.ok(!ids.includes('sh_grip'), '이미 가진 것은 빠진다');
+    assert.ok(ids.includes('sh_magnet') && ids.includes('sh_ricochet'), '남은 무기 증강은 모두 나온다');
+    assert.equal(ids.filter(id => AUG_BY_ID[id].weapon).length, 2, '나머지 한 칸은 다른 증강');
+  }
+  // 이벤트가 없으면 평소대로 섞인다
+  const plain = makePlayer({ weaponId: 'shield' });
+  let allWeapon = 0;
+  for (let k = 0; k < 40; k++) if (rollAugmentOffers(plain).every(a => a.weapon)) allWeapon++;
+  assert.ok(allWeapon < 5, '평소에는 무기 증강만 나오는 일이 드물다');
+});
+
+test('명상은 5초마다 체력 3%를 회복한다', () => {
+  const b = makeBattle({ augments: ['meditate'] }, { weaponId: 'sword' });
+  const [f] = b.fighters;
+  computeStats(f);
+  f.hp = f.maxHp * 0.5; f.cd.medT = 0;
+  const before = f.hp;
+  updateTimers(b, f, 1 / 60);
+  assert.ok(Math.abs((f.hp - before) - f.maxHp * 0.03) < 1e-9, '3% (' + ((f.hp - before) / f.maxHp) + ')');
 });
 
 test('화염방사기 사거리는 114, 기본 연료 회복은 초당 15에 공격속도가 곱해진다', () => {

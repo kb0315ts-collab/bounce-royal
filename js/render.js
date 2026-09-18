@@ -1075,6 +1075,21 @@ function splitProxy(f, sp, sr) {
 
 function drawUnits(g, b) {
   for (const f of b.fighters) {
+    // 가시목줄: 주인 공과 꼬마볼을 잇는 가시 줄. 판정과 같은 직선이다.
+    if (f.flags && f.flags.thornLeash && !f.mainDead && !f.dead) {
+      for (const s of f.summons) {
+        const dx = s.x - f.x, dy = s.y - f.y, len = Math.hypot(dx, dy);
+        if (len < 1) continue;
+        g.lineStyle(5, CASUAL_INK, 0.85); g.beginPath(); g.moveTo(f.x, f.y); g.lineTo(s.x, s.y); g.strokePath();
+        g.lineStyle(2.4, 0xb8e07a, 1); g.beginPath(); g.moveTo(f.x, f.y); g.lineTo(s.x, s.y); g.strokePath();
+        const ux = dx / len, uy = dy / len;
+        for (let d = 18; d < len - 10; d += 16) {
+          const x = f.x + ux * d, y = f.y + uy * d, side = (Math.round(d / 16) % 2) ? 1 : -1;
+          g.fillStyle(0xe9ffd0, 1);
+          g.fillTriangle(x - ux * 4, y - uy * 4, x + ux * 4, y + uy * 4, x - uy * 7 * side, y + ux * 7 * side);
+        }
+      }
+    }
     for (const s of f.summons) {
       g.fillStyle(CASUAL_INK, 0.16); g.fillEllipse(s.x, s.y + s.r * 0.8, s.r * 2, s.r * 0.65);
       g.fillStyle(toInt(f.color), 1); g.fillCircle(s.x, s.y, s.r);

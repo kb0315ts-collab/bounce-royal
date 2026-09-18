@@ -88,6 +88,8 @@
     lossAugment: '<path d="M32 56S11 44 11 27c0-9 10-13 17-6l4 5 4-5c7-7 17-3 17 6 0 17-21 29-21 29Z"/><path d="M32 27v17M24 35h16"/>',
     globalDamage30: '<path d="M32 4v15M32 45v15M4 32h15M45 32h15M12 12l11 11M41 41l11 11M52 12 41 23M23 41 12 52"/><circle cx="32" cy="32" r="9"/>',
     noChange: '<path d="M13 43c-7-2-8-12-2-16 1-10 13-15 21-9 8-7 21-1 21 10 7 3 6 14-2 16H13Z"/>',
+    giantDay: '<circle cx="26" cy="38" r="16"/><circle cx="47" cy="21" r="8"/><path d="M7 7h11M7 7v11M57 57H46M57 57V46"/>',
+    weaponForge: '<path d="M9 52h30l-5-9H14ZM19 43V31h11v12M30 31l20-17 7 7-20 17M45 52h11"/>',
   });
 
   /*
@@ -229,6 +231,7 @@
 
     'aug-sleepGas':augmentIcon(AUG_SHAPES.cloud,'','<path d="M17 27h13L17 40h13M35 19h12L35 31h12"/>'),
     'aug-frost':augmentIcon(AUG_SHAPES.snow,'<path d="M47 17h.1M54 25h.1M48 33h.1" fill="none" stroke="currentColor" stroke-width="7"/>','',AUG_BADGES.three),
+    'aug-repulse':augmentIcon('<circle cx="32" cy="32" r="11"/>','<path d="M32 4v11M32 49v11M4 32h11M49 32h11"/>','<path d="m25 11 7-7 7 7M25 53l7 7 7-7M11 25l-7 7 7 7M53 25l7 7-7 7"/>'),
     'aug-gravityWell':augmentIcon('<circle cx="32" cy="32" r="14"/>','<path d="m7 16 13 8-12 6M57 16l-13 8 12 6M7 49l13-8-12-6M57 49l-13-8 12-6"/>'),
 
     'aug-missile':augmentIcon('<path d="M5 25 15 7l16 6-7 18-10 8 1-9-10-5Zm25 25 10-18 16 6-7 18-10 8 1-9-10-5Z"/>','<path d="m12 30-8 12 13-7m20 20-8 9 13-4"/>','<path d="M27 16c12-8 20-6 27 3M52 42c4-1 7 0 9 2"/>'),
@@ -247,6 +250,7 @@
 
     'aug-miniBall':augmentIcon('<circle cx="24" cy="30" r="18"/><circle cx="50" cy="43" r="9"/>','','<path d="M38 35c5 1 7 3 9 5m-4 9 7 7m0 0-1-7m1 7 7-1"/>'),
     'aug-twins':augmentIcon('<circle cx="32" cy="22" r="16"/><circle cx="16" cy="47" r="9"/><circle cx="48" cy="47" r="9"/>'),
+    'aug-thornLeash':augmentIcon('<circle cx="20" cy="42" r="14"/><circle cx="50" cy="18" r="8"/>','','<path d="M30 35 44 24M33 27l3 7M39 23l3 7"/>'),
     'aug-legion':augmentIcon('<circle cx="13" cy="45" r="10"/><circle cx="32" cy="42" r="13"/><circle cx="52" cy="45" r="10"/>',AUG_SHAPES.crown),
     'aug-minionRevenge':augmentIcon('<circle cx="32" cy="32" r="20"/>','<path d="m50 9 3 7 8-3-4 7 6 5-9 1 1 9-6-6-6 6 1-9-9-1 7-5-4-7 8 3 3-7Z"/>','<path d="m30 13 4 12-7 8 8 11-4 7"/>',AUG_BADGES.blast),
 

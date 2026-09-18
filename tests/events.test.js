@@ -11,6 +11,9 @@ globalThis.__eventApi = {
   GAME_EVENTS, GAME_EVENT_BY_ID, rollGameEventOffers, resolveGameEventVote,
   resetGameEventState, applyGameEvent, eventAugmentPickCount, isEventFfaRound,
 };
+// 무기강화소가 부르는 증강 뽑기는 sim.js에 있다. 여기서는 받은 인자만 기록한다.
+globalThis.__offerCalls = [];
+function rollAugmentOffers(player, n, opts) { globalThis.__offerCalls.push({ player, n, opts }); return []; }
 `;
 const context = vm.createContext({ console, Map, Math });
 vm.runInContext(source, context, { filename: 'bounce-royal-events.test.bundle.js' });
@@ -19,6 +22,7 @@ const {
   GAME_EVENTS, GAME_EVENT_BY_ID, rollGameEventOffers, resolveGameEventVote,
   resetGameEventState, applyGameEvent, eventAugmentPickCount, isEventFfaRound,
 } = context.__eventApi;
+const rollEventAugmentOffers = context.rollEventAugmentOffers;
 
 let passed = 0;
 function test(name, fn) {
@@ -58,13 +62,13 @@ function makeGame(overrides = {}) {
   }, overrides);
 }
 
-test('게임 이벤트는 정확히 9종이며 ID가 모두 고유하다', () => {
+test('게임 이벤트는 정확히 11종이며 ID가 모두 고유하다', () => {
   const ids = Array.from(GAME_EVENTS, event => event.id);
-  assert.equal(ids.length, 9);
-  assert.equal(new Set(ids).size, 9);
+  assert.equal(ids.length, 11);
+  assert.equal(new Set(ids).size, 11);
   assert.deepEqual(ids, [
     'nextFfa', 'powerSupply', 'twoPillars', 'doubleAugments', 'coinRelief',
-    'refreshTen', 'lossAugment', 'globalDamage30', 'noChange',
+    'refreshTen', 'lossAugment', 'globalDamage30', 'giantDay', 'weaponForge', 'noChange',
   ]);
   // 승자의 보상(다음 라운드 패배 코인 보호 + 승리 코인 +1)은 없앴다
   assert.equal(GAME_EVENT_BY_ID.reverseCoins, undefined);
@@ -137,6 +141,23 @@ test('전원 집결은 한 번이 아니라 4라운드마다(4·8·12…) 4인 �
 
   resetGameEventState(game);
   assert.deepEqual(ffaRounds(), [], '새 게임에서는 다시 없다');
+});
+
+test('거인의 날은 계속, 무기강화소는 바로 다음 증강 선택 한 번만 적용된다', () => {
+  const game = makeGame({ round: 3 });
+  applyGameEvent(game, 'giantDay');
+  assert.equal(game.eventGiant, true);
+  applyGameEvent(game, 'weaponForge');
+  const player = game.players[0];
+  context.__offerCalls.length = 0;
+  rollEventAugmentOffers(game, player);
+  assert.equal(context.__offerCalls[0].opts.weaponForge, true, '3라운드 뒤 증강 선택은 무기 전용');
+  game.round = 4;
+  rollEventAugmentOffers(game, player);
+  assert.equal(context.__offerCalls[1].opts.weaponForge, false, '그다음 선택부터는 평소대로');
+  resetGameEventState(game);
+  assert.equal(game.eventGiant, false);
+  assert.equal(game.eventWeaponForgeRound, 0);
 });
 
 test('패배의 교훈은 직전 라운드 패자만 증강을 하나 더 선택하게 한다', () => {

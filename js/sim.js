@@ -423,13 +423,13 @@ function applyAugmentBattle(f, id, player) {
     case 'reflectCharge': case 'wallClimb': case 'shockwave':
     case 'collisionMania':
     case 'staticShock': case 'staticUp': case 'staticFast':
-    case 'sleepGas': case 'frost': case 'gravityWell':
+    case 'sleepGas': case 'frost': case 'gravityWell': case 'repulse':
     case 'missile': case 'missilePlus': case 'missileUp':
     case 'flame': case 'flameUp': case 'flameDur':
     case 'lightning': case 'chainBolt':
     case 'shuriken': case 'shurikenSpd': case 'shurikenUp':
     case 'satellite': case 'satellitePlus':
-    case 'miniBall': case 'twins': case 'legion': case 'minionRevenge':
+    case 'miniBall': case 'twins': case 'legion': case 'minionRevenge': case 'thornLeash':
     case 'split': case 'lastStand':
     case 'warmonger': case 'rotMomentum': case 'chase': case 'vampiric':
     case 'mark': case 'counter': case 'hitCharge':
@@ -535,8 +535,11 @@ function buildFighter(player, battle) {
   f.autoCdMult = exp;
   f.cd = {
     fire: 0.5, mine: 0.8, missile: 3 * exp, shuriken: 2 * exp, flame: 0, sticky: 0,
-    gasT: 10 * exp, gravT: 10 * exp, medT: 5, bloodT: 5, flameTick: 0,
+    gasT: 10 * exp, gravT: 10 * exp, repelT: REPULSE_CD * exp, medT: 5, bloodT: 5, flameTick: 0,
   };
+  /* 거인의 날(이벤트): 공·무기·투사체가 모두 30% 크다. 무기 크기는 weaponScale이,
+   * 투사체는 spawnProj가 이 표식을 본다. 표식이라 온라인 화면에도 같이 간다. */
+  if (battle && battle.eventGiant) { f.flags.eventGiant = 1; f.perm.size *= EVENT_GIANT_SCALE; }
   return f;
 }
 
@@ -561,11 +564,16 @@ function augWeight(a) {
   if (a.cat === 'coin') return 0.85;
   return 1;
 }
-function rollAugmentOffers(player, n = 3) {
-  const pool = AUGMENTS.filter(a => augEligible(a, player));
-  const offers = [];
-  const used = new Set();
-  for (let k = 0; k < n && pool.length; k++) {
+function rollAugmentOffers(player, n = 3, opts = {}) {
+  /* 무기강화소(이벤트): 이번 선택지를 내 무기 전용 증강으로 채운다. 이미 가진 것은
+   * 빠지고, 비는 칸은 평소처럼 뽑는다. */
+  const forged = opts.weaponForge
+    ? shuffle(AUGMENTS.filter(a => a.weapon && a.weapon === player.weaponId && augEligible(a, player))).slice(0, n)
+    : [];
+  const pool = AUGMENTS.filter(a => augEligible(a, player) && !forged.includes(a));
+  const offers = forged.slice();
+  const used = new Set(forged.map(a => a.id));
+  for (let k = offers.length; k < n && pool.length; k++) {
     const cands = pool.filter(a => !used.has(a.id));
     if (!cands.length) break;
     let total = 0; for (const a of cands) total += augWeight(a);
@@ -635,7 +643,7 @@ const AI_AUG_WEIGHT = {
   bloodRush: 0.7,       // 40%
 };
 /* '자동화 전문가'가 쿨타임을 줄여 주는 대상 */
-const COOLDOWN_AUGMENTS = ['missile', 'shuriken', 'sleepGas', 'gravityWell'];
+const COOLDOWN_AUGMENTS = ['missile', 'shuriken', 'sleepGas', 'gravityWell', 'repulse'];
 
 /* 후보 하나의 점수. 성향(실측)에 그 판의 사정을 곱한다.
  * 사정은 고르는 시점에 알 수 있는 것만 쓴다 — 가진 증강, 코인, 치른 라운드. */
@@ -757,6 +765,11 @@ function boltFx(b, x1, y1, x2, y2) {
  * 전투
  * ============================================================ */
 const EVENT_PILLAR_R = 21;   // 쌍둥이 기둥 반지름
+const EVENT_GIANT_SCALE = 1.3;   // 거인의 날: 공·무기·투사체 크기 배율
+// 반발심: 충전 시간, 밀어내는 반경(충격파 112보다 조금 넓게)
+const REPULSE_CD = 8, REPULSE_R = 130;
+// 가시목줄: 줄에 닿은 상대가 받는 피해, 같은 상대를 다시 찌를 수 있는 간격, 줄의 굵기
+const LEASH_DMG = 4, LEASH_LOCK = 0.5, LEASH_W = 3;
 /* 한 판은 실시간 45초로 끝난다. 연장전은 없다 — 시간이 다 되면 체력 비율로 가린다. */
 const BATTLE_TIME = 45;
 // 장기전 체질이 발동하는 경기 시각 (전투 30초)
@@ -792,6 +805,7 @@ class Battle {
     this.eventFfa = !!opts.eventFfa;
     this.eventPowerSupply = !!opts.powerSupply;
     this.eventTwoPillars = !!opts.twoPillars;
+    this.eventGiant = !!opts.giant;
     if (this.eventPowerSupply && !this.arena.cube) {
       this.arena.cube = { x: 0, y: 0, active: false, respT: 2.5, spin: 0 };
     }
@@ -862,7 +876,7 @@ class Battle {
 
   spawnSummon(f, legion = false) {
     const a = rand(0, TAU);
-    const statMult = legion ? 1.3 : 1;
+    const statMult = legion ? 1.5 : 1;
     f.summons.push({
       uid: ++UID, kind: 'summon', owner: f, x: f.x + Math.cos(a) * 40, y: f.y + Math.sin(a) * 40,
       vx: Math.cos(a), vy: Math.sin(a), r: 13 * statMult, hp: 30 * statMult, maxHp: 30 * statMult,
@@ -1089,6 +1103,24 @@ class Battle {
           }
         }
       }
+    }
+
+    /* 가시목줄 — 주인 공과 꼬마볼 사이의 줄에 닿은 상대가 다친다. 같은 상대는
+     * LEASH_LOCK초에 한 번. 주인이 쓰러지면 줄도 없다. */
+    for (const f of this.fighters) {
+      if (!f.flags.thornLeash || f.dead || f.mainDead || !f.summons.length) continue;
+      const hits = f.leashHits || (f.leashHits = new Map());
+      for (const m of f.summons) {
+        if (m.hp <= 0) continue;
+        for (const e of this.enemiesOf(f)) for (const body of this.bodiesOf(e)) {
+          if (segDist(body.x, body.y, f.x, f.y, m.x, m.y) >= bodyRadius(body) + LEASH_W) continue;
+          if (this.simT < (hits.get(body.uid) || 0)) continue;
+          hits.set(body.uid, this.simT + LEASH_LOCK);
+          dealDamage(this, f, body, LEASH_DMG * f.st.dmg, { kind: 'auto', commentarySource: 'augment:thornLeash' });
+          sparks(this, body.x, body.y, 4, '#c9f08a', 110);
+        }
+      }
+      if (hits.size > 32) hits.clear();
     }
 
     // 분열체는 완전한 전투원 파이프라인(이동, 무기, 자동 증강)을
@@ -1417,7 +1449,7 @@ function updateTimers(b, f, dt) {
     f.cd.medT = Math.max(0, f.cd.medT - dt);
     if (f.cd.medT <= 0) {
       f.cd.medT = 5;
-      healFighter(b, f, f.maxHp * 0.05);
+      healFighter(b, f, f.maxHp * 0.03);
     }
   }
   if (f.flags.bloodWeapon) {
@@ -1645,7 +1677,9 @@ function nearestBodyFrom(b, m) {
 }
 
 /* ---------------- 무기 ---------------- */
-function weaponScale(f) { return (f.timers.balloon > 0 ? 1.6 : 1) * (f.flags.giantBlade ? 1.5 : 1); }
+function weaponScale(f) {
+  return (f.timers.balloon > 0 ? 1.6 : 1) * (f.flags.giantBlade ? 1.5 : 1) * (f.flags.eventGiant ? EVENT_GIANT_SCALE : 1);
+}
 function weaponSegment(f) {
   const wp = WEAPONS[f.weaponId];
   const ws = weaponScale(f);
@@ -1980,6 +2014,16 @@ function flameAim(f, dt) {
   return st.aim;
 }
 
+// 잔불을 까는 간격(초)과 불길을 따라 까는 자리(사거리 대비)
+const EMBER_STEP = 0.15, EMBER_SPOTS = [0.35, 0.65, 0.92];
+// 점(x, y)에 반지름 r인 원이 경기장 벽 안에 들어가는가
+function arenaHolds(arena, x, y, r) {
+  if (!arena) return true;
+  if (arena.type === 'diamond') return Math.abs(x) + Math.abs(y) + r * Math.SQRT2 <= arena.L;
+  if (arena.type === 'circle') return Math.hypot(x, y) + r <= arena.R;
+  return Math.max(Math.abs(x), Math.abs(y)) + r <= arena.H;
+}
+
 function updateFlame(b, f, dt) {
   const wp = WEAPONS.flame;
   const st = f.flame;
@@ -2015,8 +2059,11 @@ function updateFlame(b, f, dt) {
       for (const body of b.bodiesOf(e)) {
         const d = dist(f.x, f.y, body.x, body.y);
         if (d > range + bodyRadius(body)) continue;
+        /* 몸 가장자리가 불길에 걸려도 맞는다. 예전에는 몸 한가운데가 불길 각도 안에
+         * 있어야 해서, 화면에서는 분명 닿았는데 안 아팠다. */
         const to = Math.atan2(body.y - f.y, body.x - f.x);
-        if (Math.abs(angleDelta(aim, to)) > halfArc) continue;
+        const edge = Math.asin(Math.min(1, bodyRadius(body) / Math.max(d, 1e-6)));
+        if (Math.abs(angleDelta(aim, to)) > halfArc + edge) continue;
         if (b.simT + 1e-6 < (f.flameHits.get(body.uid) || 0)) continue;   // 프레임 합의 부동소수 오차로 한 프레임 밀리지 않게
         f.flameHits.set(body.uid, b.simT + wp.tickT);
         if (shieldGuards(b, f, body, { x: f.x, y: f.y }, 'weapon:flame', wp.tickDmg)) continue;
@@ -2024,16 +2071,20 @@ function updateFlame(b, f, dt) {
       }
     }
     if (f.flameHits.size > 40) f.flameHits.clear();
-    // 잔불 — 불길이 닿은 바닥에 남는다. 기존 화염 구조를 그대로 쓴다.
+    /* 잔불 — 불길이 닿은 바닥에 남는다. 예전에는 불길 안 아무 데나 한 점씩 떨어뜨려
+     * 제멋대로 보였다. 이제 뿜는 방향을 따라 가까운 곳·가운데·끝에 한 점씩, 그 거리의
+     * 불길 너비만큼 깔아 뿜은 자리를 그대로 덮는다. 벽 밖에는 남지 않는다. */
     if (f.flags.flameEmber) {
       f.cd.ember = (f.cd.ember || 0) - dt;
       if (f.cd.ember <= 0) {
-        f.cd.ember = 0.18;
-        const r = range * (0.45 + Math.random() * 0.5);
-        const a = f.weaponAngle + rand(-halfArc, halfArc);
-        b.flames.push({ owner: f, x: f.x + Math.cos(a) * r, y: f.y + Math.sin(a) * r,
-          r: 16, life: 2, maxLife: 2, dps: 4 });
-        if (b.flames.length > 60) b.flames.shift();
+        f.cd.ember = EMBER_STEP;
+        for (const k of EMBER_SPOTS) {
+          const r = range * k, pr = clamp(r * Math.sin(halfArc), 11, 30);
+          const x = f.x + Math.cos(aim) * r, y = f.y + Math.sin(aim) * r;
+          if (!arenaHolds(b.arena, x, y, pr * 0.5)) continue;
+          b.flames.push({ owner: f, x, y, r: pr, life: 2, maxLife: 2, dps: 4 });
+        }
+        while (b.flames.length > 60) b.flames.shift();
       }
     }
     battleSound(b, 'weapon.flame.spray', f, 0.22);
@@ -2108,8 +2159,8 @@ const CHAIN_INHERIT = 1;
 /* 조이스틱이 추에 주는 힘(px/s², GAME_SPEED 곱하기 전). 조이스틱은 공을 조향하는
  * 동시에 추를 당긴 쪽으로 민다 — 스틱을 돌리면 추가 따라 돌고, 반대로 꺾으면 크게
  * 휘둘린다. 공격속도가 오르면 이 힘이 같은 배율로 세진다(연결부 회전 대신).
- * 900 -> 600 -> 450. 쉽게 다뤄지지 않게 낮췄다. */
-const CHAIN_STEER_ACCEL = 450;
+ * 900 -> 600 -> 450 -> 500. 쉽게 다뤄지지 않게 낮췄다가 조금 되돌렸다. */
+const CHAIN_STEER_ACCEL = 500;
 const CHAIN_STEP = 1 / 120;
 
 /* 사슬은 공 가운데가 아니라 공 표면에 매여 있다. 매인 자리(attach)는 사슬
@@ -2593,6 +2644,7 @@ function releaseCharge(b, f) {
 
 function spawnProj(b, owner, o) {
   if (o.weapon && owner.timers.balloon > 0) o.r *= 1.7;
+  if (owner.flags && owner.flags.eventGiant) o.r *= EVENT_GIANT_SCALE;   // 거인의 날
   o.baseR = o.r;
   o.uid = ++UID; o.owner = owner; o.vx = Math.cos(o.ang); o.vy = Math.sin(o.ang);
   o.bounces = o.bounces || 0; o.pierce = !!o.pierce; o.life = o.life || 4;
@@ -2693,7 +2745,7 @@ function onWeaponHitEffects(b, f, body) {
   if (f.flags.warmonger) f.warmStacks = Math.min(5, f.warmStacks + 1);
   if (f.flags.rotMomentum) f.rotStacks = Math.min(8, f.rotStacks + 1);
   if (f.flags.chase) f.timers.chase = 3;
-  if (f.flags.vampiric) healFighter(b, f, f.maxHp * 0.05, true, 'vampiric');
+  if (f.flags.vampiric) healFighter(b, f, f.maxHp * 0.04, true, 'vampiric');
   if (f.flags.dualPhase) f.timers.untouchable = Math.max(f.timers.untouchable, 1);
 }
 
@@ -2759,6 +2811,30 @@ function autoSystems(b, f, dt) {
         addFx(b, { type: 'ring', x: e.x, y: e.y, r0: 50, r1: 8, color: '#8ef', dur: 0.4 });
       }
       if (did) { battleSound(b, 'augment.gravity', f); popup(b, f.x, f.y - f.radius - 30, '중력장!', '#8ef'); }
+    }
+  }
+  /* 반발심 — 중력장의 반대. 충전되면 적이 반경 안에 들어올 때 터져, 반경 안의 적
+   * (분열체 포함)이 나에게서 멀어지는 쪽으로 방향을 바꾼다. 아무도 없을 때 터뜨려
+   * 버리지 않는다. */
+  if (Fl.repulse) {
+    f.cd.repelT = Math.max(0, f.cd.repelT - dt);
+    if (f.cd.repelT <= 0) {
+      const inRange = [];
+      for (const e of b.enemiesOf(f)) for (const body of b.bodiesOf(e)) {
+        if (!isFighterBody(body) || body.dead) continue;
+        if (dist(f.x, f.y, body.x, body.y) <= REPULSE_R + bodyRadius(body)) inRange.push(body);
+      }
+      if (inRange.length) {
+        f.cd.repelT = REPULSE_CD * f.autoCdMult;
+        for (const body of inRange) {
+          const nd = normDir(body.x - f.x, body.y - f.y);
+          body.vx = nd.x; body.vy = nd.y;
+          addFx(b, { type: 'ring', x: body.x, y: body.y, r0: 8, r1: 46, color: '#ffc49a', dur: 0.35 });
+        }
+        addFx(b, { type: 'ring', x: f.x, y: f.y, r0: f.radius, r1: REPULSE_R, color: '#ffc49a', dur: 0.4 });
+        battleSound(b, 'augment.gravity', f);
+        popup(b, f.x, f.y - f.radius - 30, '반발!', '#ffc49a');
+      }
     }
   }
 }

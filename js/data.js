@@ -55,10 +55,11 @@ const WEAPONS = {
    * 분사하고 연료를 쓴다. 떼면 다시 찬다. 투사체가 없어 피할 수 없는 대신
    * 사거리가 짧고 연료가 상한 역할을 한다.
    *   tickDmg 불길 안의 상대가 tickT초마다 받는 피해 (tickT는 공격속도와 상관없이 고정)
+   *   (0.5초마다 3이던 것을 0.2초마다 2로 — 닿았는데 한동안 안 아픈 틈이 줄었다)
    *   range 사거리 · halfArc 반각(rad)
    *   burnRate 초당 소모 · refillRate 초당 회복 (공격속도가 여기 곱해진다 —
    *   기본 회복을 낮게 두어 공격속도를 챙길 이유가 된다) */
-  flame:  { name:'화염방사기', ico:'🔥', type:'cone', dmg:0, tickDmg:3, tickT:0.5, range:114, halfArc:0.35,
+  flame:  { name:'화염방사기', ico:'🔥', type:'cone', dmg:0, tickDmg:2, tickT:0.2, range:114, halfArc:0.35,
     fuelMax:100, burnRate:40, refillRate:15, refillDelay:0.5, rot:0, moveMult:0.92,
     desc:'버튼을 누르는 동안 조향 방향으로 불을 뿜는다. 피할 수 없지만 연료가 있다.', stat:{atk:.75,spd:.6,rng:.35,mob:.6},
     skillName:'분사', skillDesc:'누르고 있는 동안 조향 방향으로 불을 뿜는다. 연료를 다 쓰면 잠시 못 쏜다.' },
@@ -112,7 +113,7 @@ const AUGMENTS = [
   { id:'warmup',    cat:'time', name:'예열', desc:'전투 중 5초마다 공격력 +3%' },
   { id:'accelRot',  cat:'time', name:'가속', desc:'전투 중 5초마다 공격속도 +3%' },
   { id:'speedster', cat:'time', name:'속도광', desc:'전투 중 5초마다 이동속도 +5%' },
-  { id:'meditate',  cat:'time', name:'명상', desc:'전투 중 5초마다 체력 5% 회복' },
+  { id:'meditate',  cat:'time', name:'명상', desc:'전투 중 5초마다 체력 3% 회복' },
   { id:'marathoner',cat:'time', name:'장기전 체질', desc:'전투 30초가 지나면 잃은 체력의 50% 회복' },
   { id:'rampage20', cat:'time', name:'폭주 시간', desc:'전투 20초 이후 공격력·이동속도·공격속도 +20%' },
   // ---- 초반 / 후반 조건 ----
@@ -153,6 +154,7 @@ const AUGMENTS = [
   { id:'sleepGas',    cat:'cc', name:'수면 가스', desc:'10초마다 상대를 1초간 기절시켜 이동·무기·스킬 사용을 봉인' },
   { id:'frost',       cat:'cc', name:'냉기', desc:'무기 적중 시 상대 이동속도 -10% (3초, 최대 3중첩)' },
   { id:'gravityWell', cat:'cc', name:'중력장', desc:'10초마다 상대 진행 방향을 자신 쪽으로 변경' },
+  { id:'repulse', cat:'cc', name:'반발심', desc:'8초마다 주변(반경 130)의 적을 밀어내 나에게서 멀어지는 쪽으로 보낸다. 충전된 뒤 적이 가까이 오면 터진다' },
   // ---- 자동 공격 ----
   { id:'missile',    cat:'auto', name:'유도 미사일', desc:'3초마다 피해 2의 유도탄 2발 발사' },
   { id:'missilePlus',cat:'auto', name:'미사일 증식', desc:'유도 미사일 +1발', req:'missile' },
@@ -170,7 +172,8 @@ const AUGMENTS = [
   // ---- 소환수 ----
   { id:'miniBall',    cat:'summon', name:'꼬마볼', desc:'전투 시작 시 벽을 튕겨 다니다 적과 부딪히면 접촉당 피해 10을 주는 아군 볼 소환' },
   { id:'twins',       cat:'summon', name:'쌍둥이', desc:'꼬마볼 +1', req:'miniBall' },
-  { id:'legion',      cat:'summon', name:'군단', desc:'소환수 체력·피해·크기 +30%', req:'miniBall' },
+  { id:'legion',      cat:'summon', name:'군단', desc:'소환수 체력·피해·크기 +50%', req:'miniBall' },
+  { id:'thornLeash',  cat:'summon', name:'가시목줄', desc:'꼬마볼과 내 공 사이에 가시 줄이 생긴다. 줄에 닿은 상대는 피해 4 (같은 상대는 0.5초에 한 번)', req:'miniBall' },
   { id:'minionRevenge',cat:'summon', name:'복수하는 부하', desc:'소환수 사망 시 주변에 피해 20의 폭발', req:'miniBall' },
   // ---- 사망 관련 ----
   { id:'split',    cat:'death', name:'분열', desc:'HP 0 시 현재 장비와 증강을 복제한 공 2개로 분열. 각 HP 10%, 모든 피해 50% (전투당 1회)' },
@@ -179,7 +182,7 @@ const AUGMENTS = [
   { id:'warmonger',  cat:'onhit', name:'전투광', desc:'무기 공격 성공마다 공격력 +5% (최대 5스택)' },
   { id:'rotMomentum',cat:'onhit', name:'연격 가속', desc:'무기 적중마다 공격속도 +6% (최대 8스택)' },
   { id:'chase',      cat:'onhit', name:'추격 본능', desc:'공격 성공 시 3초간 이동속도 +20%' },
-  { id:'vampiric',   cat:'onhit', name:'흡혈 폭주', desc:'무기 공격 성공 시 HP 5% 회복' },
+  { id:'vampiric',   cat:'onhit', name:'흡혈 폭주', desc:'무기 공격 성공 시 HP 4% 회복' },
   { id:'mark',       cat:'onhit', name:'표식', desc:'같은 상대에게 5번째 무기 적중 시 추가 피해' },
   { id:'counter',    cat:'onhit', name:'반격', desc:'피해를 받은 뒤 다음 무기 공격 피해 +30%' },
   { id:'hitCharge',  cat:'onhit', name:'피격 충전', desc:'피해를 받을 때마다 모든 피해량 +3% (최대 5중첩)' },
