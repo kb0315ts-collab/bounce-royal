@@ -156,7 +156,7 @@ const AUGMENTS = [
   { id:'gravityWell', cat:'cc', name:'중력장', desc:'10초마다 상대 진행 방향을 자신 쪽으로 변경' },
   { id:'repulse', cat:'cc', name:'반발심', desc:'8초마다 주변(반경 130)의 적을 밀어내 나에게서 멀어지는 쪽으로 보낸다. 충전된 뒤 적이 가까이 오면 터진다' },
   // ---- 자동 공격 ----
-  { id:'missile',    cat:'auto', name:'유도 미사일', desc:'3초마다 피해 2의 유도탄 2발 발사' },
+  { id:'missile',    cat:'auto', name:'유도 미사일', desc:'4초마다 피해 2의 유도탄 2발 발사' },
   { id:'missilePlus',cat:'auto', name:'미사일 증식', desc:'유도 미사일 +1발', req:'missile' },
   { id:'missileUp',  cat:'auto', name:'고폭 탄두', desc:'미사일 피해 +30%', req:'missile' },
   { id:'flame',      cat:'auto', name:'화염 흔적', desc:'지나간 자리에 2초간 불꽃 생성, 밟는 동안 초당 피해 1' },
@@ -167,7 +167,7 @@ const AUGMENTS = [
   { id:'shuriken',   cat:'auto', name:'표창', desc:'2초마다 상대 현재 위치를 향해 피해 5의 표창 발사' },
   { id:'shurikenSpd',cat:'auto', name:'표창 강화', desc:'표창 속도 +50%', req:'shuriken' },
   { id:'shurikenUp', cat:'auto', name:'강화 표창', desc:'표창 피해 +30%', req:'shuriken' },
-  { id:'satellite',  cat:'auto', name:'위성체', desc:'주위를 공전하며 접촉당 피해 3을 주는 구체 생성' },
+  { id:'satellite',  cat:'auto', name:'위성체', desc:'주위를 공전하며 접촉당 피해 5를 주는 구체 생성' },
   { id:'satellitePlus',cat:'auto', name:'위성 증식', desc:'위성체 +1', req:'satellite' },
   // ---- 소환수 ----
   { id:'miniBall',    cat:'summon', name:'꼬마볼', desc:'전투 시작 시 벽을 튕겨 다니다 적과 부딪히면 접촉당 피해 10을 주는 아군 볼 소환' },

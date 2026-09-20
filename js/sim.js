@@ -534,7 +534,7 @@ function buildFighter(player, battle) {
   const exp = f.flags.autoExpert ? 0.7 : 1;
   f.autoCdMult = exp;
   f.cd = {
-    fire: 0.5, mine: 0.8, missile: 3 * exp, shuriken: 2 * exp, flame: 0, sticky: 0,
+    fire: 0.5, mine: 0.8, missile: MISSILE_CD * exp, shuriken: 2 * exp, flame: 0, sticky: 0,
     gasT: SLEEP_GAS_CD * exp, gravT: 10 * exp, repelT: REPULSE_CD * exp, medT: 5, bloodT: 5, flameTick: 0,
   };
   /* 거인의 날(이벤트): 공·무기·투사체가 모두 30% 크다. 무기 크기는 weaponScale이,
@@ -767,6 +767,8 @@ function boltFx(b, x1, y1, x2, y2) {
 const EVENT_PILLAR_R = 21;   // 쌍둥이 기둥 반지름
 const EVENT_GIANT_SCALE = 1.3;   // 거인의 날: 공·무기·투사체 크기 배율
 const SLEEP_GAS_CD = 12;   // 수면 가스 간격(초). 첫 발동도 이만큼 뒤
+const MISSILE_CD = 4;      // 유도 미사일 간격(초). 첫 발사도 이만큼 뒤
+const SATELLITE_DMG = 5;   // 위성체가 스치는 한 번의 피해
 // 반발심: 충전 시간, 밀어내는 반경(충격파 112보다 조금 넓게)
 const REPULSE_CD = 8, REPULSE_R = 130;
 // 가시목줄: 줄에 닿은 상대가 받는 피해, 같은 상대를 다시 찌를 수 있는 간격, 줄의 굵기
@@ -2160,8 +2162,8 @@ const CHAIN_INHERIT = 1;
 /* 조이스틱이 추에 주는 힘(px/s², GAME_SPEED 곱하기 전). 조이스틱은 공을 조향하는
  * 동시에 추를 당긴 쪽으로 민다 — 스틱을 돌리면 추가 따라 돌고, 반대로 꺾으면 크게
  * 휘둘린다. 공격속도가 오르면 이 힘이 같은 배율로 세진다(연결부 회전 대신).
- * 900 -> 600 -> 450 -> 500. 쉽게 다뤄지지 않게 낮췄다가 조금 되돌렸다. */
-const CHAIN_STEER_ACCEL = 500;
+ * 900 -> 600 -> 450 -> 500 -> 600. 낮췄다가 손맛을 보며 되돌렸다. */
+const CHAIN_STEER_ACCEL = 600;
 const CHAIN_STEP = 1 / 120;
 
 /* 사슬은 공 가운데가 아니라 공 표면에 매여 있다. 매인 자리(attach)는 사슬
@@ -2757,7 +2759,7 @@ function autoSystems(b, f, dt) {
   if (Fl.missile) {
     f.cd.missile -= dt;
     if (f.cd.missile <= 0) {
-      f.cd.missile = 3 * f.autoCdMult;
+      f.cd.missile = MISSILE_CD * f.autoCdMult;
       const n = 2 + (Fl.missilePlus ? 1 : 0);
       for (let i = 0; i < n; i++) {
         const a = f.weaponAngle + rand(-0.6, 0.6) + i * 0.5;
@@ -2859,7 +2861,7 @@ function updateSatellites(b, f, dt) {
       for (const e of b.enemiesOf(f)) {
         for (const body of b.bodiesOf(e)) {
           if (dist(sx, sy, body.x, body.y) < 9 + bodyRadius(body)) {
-            dealDamage(b, f, body, 3 * f.st.dmg, { kind: 'auto', autoType: 'satellite' });
+            dealDamage(b, f, body, SATELLITE_DMG * f.st.dmg, { kind: 'auto', autoType: 'satellite' });
             s.cd = 0.8;
             sparks(b, sx, sy, 5, '#9fd0ff', 120);
             break;

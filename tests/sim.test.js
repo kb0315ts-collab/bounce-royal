@@ -451,6 +451,8 @@ test('자동 공격·소환수·유체화·반사 충전의 변경 수치가 적
   autoSystems(autoBattle, auto, 1 / 60);
   assert.equal(autoBattle.projectiles.filter(p => p.kind === 'missile').length, 2);
   assert.ok(autoBattle.projectiles.filter(p => p.kind === 'missile').every(p => p.dmg === 2));
+  assert.equal(auto.cd.missile, 4, '유도 미사일은 4초마다');
+  assert.equal(makeBattle({ augments: ['missile'] }).fighters[0].cd.missile, 4, '첫 발사도 4초 뒤');
   assert.equal(autoBattle.flames[0].life, 2);
 
   const legionBattle = makeBattle({ augments: ['miniBall', 'legion'] });
@@ -1992,6 +1994,7 @@ test('위성체는 공 중심에서 반지름+41(기본 63)을 돌고, 그 자�
     return e.hp < 1e9;
   };
   assert.ok(probe(63, -1) && probe(63, 1), '63을 도는 위성체에 닿은 상대는 맞는다');
+  assert.ok(Math.abs((1e9 - e.hp) - 5 * f.st.dmg) < 1e-9, '스치면 피해 5 (' + (1e9 - e.hp) + ')');
   assert.equal(probe(62, -1), false, '1px 더 안쪽에 선 상대는 닿지 않는다 — 판정이 넉넉해서 통과한 게 아니다');
   f.radius = 30;
   assert.equal(satelliteOrbit(f), 71, '공이 커지면 같이 멀어진다');
