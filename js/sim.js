@@ -525,7 +525,7 @@ function buildFighter(player, battle) {
   f.maxHp = Math.max(30, Math.round(ch.hp * f.perm.hp));
   f.hp = f.maxHp;
   if (player.weaponId === 'pistol') {
-    const mag = wp.burst + (f.flags.extMag ? 4 : 0);
+    const mag = wp.burst + (f.flags.extMag ? EXT_MAG_BULLETS : 0);
     f.gun = { mag, burst: mag, shotT: 0.4, reloadT: 0, focus: false };
   }
   const satN = (f.flags.satellite ? 1 : 0) + (f.flags.satellitePlus ? 1 : 0);
@@ -768,6 +768,9 @@ const EVENT_PILLAR_R = 21;   // 쌍둥이 기둥 반지름
 const EVENT_GIANT_SCALE = 1.3;   // 거인의 날: 공·무기·투사체 크기 배율
 const SLEEP_GAS_CD = 12;   // 수면 가스 간격(초). 첫 발동도 이만큼 뒤
 const MISSILE_CD = 4;      // 유도 미사일 간격(초). 첫 발사도 이만큼 뒤
+const EXT_MAG_BULLETS = 3; // 확장 탄창이 늘려 주는 탄환 수
+// 분열 직후 잠깐 무적. 분열시킨 그 공격(칼날·불길 등)이 분열체까지 곧장 잡지 못하게 한다.
+const SPLIT_GRACE = 0.6;
 const SATELLITE_DMG = 5;   // 위성체가 스치는 한 번의 피해
 // 반발심: 충전 시간, 밀어내는 반경(충격파 112보다 조금 넓게)
 const REPULSE_CD = 8, REPULSE_R = 130;
@@ -918,6 +921,8 @@ class Battle {
       clone.timers = {
         ...f.timers,
         actingDead: 0, dashPrep: 0, dashT: 0, fuse: 0, det: 0,
+        // 분열시킨 그 공격이 갓 태어난 분열체를 곧장 잡지 못하게 잠깐 무적
+        immune: Math.max(f.timers.immune || 0, SPLIT_GRACE),
       };
       clone.cd = { ...f.cd };
       clone.gun = f.gun ? { ...f.gun, focus: false } : null;
@@ -2069,8 +2074,11 @@ function updateFlame(b, f, dt) {
         if (Math.abs(angleDelta(aim, to)) > halfArc + edge) continue;
         if (b.simT + 1e-6 < (f.flameHits.get(body.uid) || 0)) continue;   // 프레임 합의 부동소수 오차로 한 프레임 밀리지 않게
         f.flameHits.set(body.uid, b.simT + wp.tickT);
-        if (shieldGuards(b, f, body, { x: f.x, y: f.y }, 'weapon:flame', wp.tickDmg)) continue;
-        dealDamage(b, f, body, wp.tickDmg * f.st.atk * f.st.dmg, { kind: 'weapon' });
+        /* 다른 무기와 같은 길(weaponDamage)로 피해를 준다. 예전에는 여기서 바로
+         * dealDamage를 불러, 무기 적중에 붙는 효과(흡혈 폭주·출혈·서리·연격 가속·
+         * 사냥 본능·표식·반사 충전·반격)가 화염방사기에서만 하나도 안 터졌다.
+         * 방패 막기는 weaponDamage가 from을 보고 대신 판정한다. */
+        weaponDamage(b, f, body, wp.tickDmg, undefined, { from: { x: f.x, y: f.y } });
       }
     }
     if (f.flameHits.size > 40) f.flameHits.clear();

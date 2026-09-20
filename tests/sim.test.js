@@ -55,9 +55,12 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
     [18, 30, 5.8],
   );
   assert.deepEqual([WEAPONS.bow.dmg, WEAPONS.bow.interval, WEAPONS.bow.projSpeed], [8, 1.5, 300]);
-  assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [3, 7, 0.12, 3]);
-  assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [15, 2.5]);
-  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval], [9, 3.5]);
+  assert.deepEqual([WEAPONS.pistol.dmg, WEAPONS.pistol.burst, WEAPONS.pistol.shotGap, WEAPONS.pistol.reload], [3, 6, 0.12, 3]);
+  // 확장 탄창은 +3발
+  assert.equal(makeBattle({ weaponId: 'pistol' }).fighters[0].gun.mag, 6);
+  assert.equal(makeBattle({ weaponId: 'pistol', augments: ['p_mag'] }).fighters[0].gun.mag, 9);
+  assert.deepEqual([WEAPONS.staff.dmg, WEAPONS.staff.interval], [12, 2.5]);
+  assert.deepEqual([WEAPONS.mine.dmg, WEAPONS.mine.interval], [10, 3.5]);
   assert.equal(WEAPONS.mine.maxMines, undefined, '지뢰 설치 개수 제한은 없앴다');
 });
 
@@ -588,6 +591,8 @@ test('분열은 같은 캐릭터·무기·증강 빌드의 공 둘을 10% 체력
   assert.equal(b.projectiles.length, 2, '분열체도 실제 무기 업데이트로 샷건을 뿌려야 한다');
   assert.ok(b.projectiles.every(p => p.owner === firstClone), '분열체가 만든 탄환은 분열체를 소유자로 기록해야 한다');
 
+  // 분열 직후 잠깐 무적은 아래 따로 본다. 여기서는 빌드 복제와 사망 처리를 본다.
+  for (const clone of f.splitBalls) clone.timers.immune = 0;
   e.x = 300; e.y = 300;
   const allyHp = secondClone.hp;
   for (const p of b.projectiles) {
@@ -615,6 +620,90 @@ test('분열은 같은 캐릭터·무기·증강 빌드의 공 둘을 10% 체력
   assert.equal(f.dead, true, '두 분열체가 모두 죽으면 원본도 최종 사망해야 한다');
   assert.equal(b.fighterAlive(f), false);
   assert.equal(b.result.winner, e, '마지막 분열체 사망 시 상대 승리로 전투가 끝나야 한다');
+});
+
+/* 흡혈 폭주·출혈·서리·연격 가속 같은 '무기 적중' 효과는 weaponDamage를 거쳐야 붙는다.
+ * 화염방사기만 그 길을 건너뛰어 하나도 안 터지고 있었다. 무기마다 실제 공격 경로로
+ * 한 대 때려, 빠지는 무기가 없는지 본다. */
+function weaponHit(weaponId, augments) {
+  const b = makeBattle({ weaponId, augments }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; f.vx = 1; f.vy = 0; f.weaponAngle = 0;
+  e.x = 40; e.y = 0; e.vx = 0; e.vy = 0; e.st.move = 0; e.maxHp = e.hp = 1e6;
+  e._motionX = e.x; e._motionY = e.y;
+  f.maxHp = 200; f.hp = 100;
+  const shoot = () => {
+    for (let i = 0; i < 240 && !b.projectiles.length; i++) updateWeapon(b, f, 1 / 60);
+    assert.ok(b.projectiles.length, weaponId + ': 발사되지 않았다');
+    for (const p of b.projectiles) { p.x = e.x; p.y = e.y; p.spd = 0; }
+    b.updateProjectiles(1 / 120);
+  };
+  const attacks = {
+    sword: () => meleeHits(b, f, 1 / 60),
+    dagger: () => meleeHits(b, f, 1 / 60),
+    shield: () => meleeHits(b, f, 1 / 60),
+    bow: shoot, pistol: shoot, staff: shoot,
+    flame: () => {
+      f.steer = { active: true, angle: 0, magnitude: 1 }; f.flame.aim = 0; f.flame.fuel = 100;
+      setFlameInput(f, true);
+      updateFlame(b, f, 1 / 60);
+    },
+    mine: () => {
+      for (let i = 0; i < 300 && !b.mines.length; i++) updateWeapon(b, f, 1 / 60);
+      assert.ok(b.mines.length, '지뢰가 놓이지 않았다');
+      const m = b.mines[0];
+      m.arm = 0; m.x = e.x; m.y = e.y;
+      b.updateMines(1 / 60);
+    },
+    chain: () => {
+      ensureChainHeads(f);
+      const h = f.chainHeads[0], at = { x: e.x, y: e.y - 60 };
+      h.attach = Math.atan2(at.y - f.y, at.x - f.x);
+      const a0 = chainAttach(f, h);
+      Object.assign(h, { x: at.x, y: at.y, vx: 0, vy: 1800 });
+      h.nodes.forEach((n, i) => {
+        const t = (i + 1) / 5;
+        Object.assign(n, { x: a0.x + (at.x - a0.x) * t, y: a0.y + (at.y - a0.y) * t, vx: 0, vy: 1800 * t });
+      });
+      updateChain(b, f, 0.1);
+    },
+  };
+  const before = { hp: f.hp, enemy: e.hp };
+  attacks[weaponId]();
+  return { b, f, e, healed: f.hp - before.hp, dealt: before.enemy - e.hp };
+}
+
+test('흡혈 폭주와 출혈은 모든 무기의 기본 공격에서 터진다 — 화염방사기만 빠져 있었다', () => {
+  for (const weaponId of ['sword', 'dagger', 'shield', 'bow', 'pistol', 'staff', 'mine', 'chain', 'flame']) {
+    const { f, e, healed, dealt } = weaponHit(weaponId, ['vampiric', 'd_bleed']);
+    assert.ok(dealt > 0, weaponId + ': 맞히지 못했다');
+    assert.ok(Math.abs(healed - f.maxHp * 0.04) < 1e-9, weaponId + ': 흡혈 폭주가 안 터졌다 (회복 ' + healed + ')');
+    assert.ok(e.bleed.n > 0, weaponId + ': 출혈이 안 묻었다');
+  }
+});
+
+test('분열시킨 그 공격은 갓 태어난 분열체를 곧장 잡지 못한다', () => {
+  const b = makeBattle({ augments: ['split'] }, { weaponId: 'sword' });
+  const [f, e] = b.fighters;
+  computeStats(f); computeStats(e);
+  f.x = 0; f.y = 0; e.x = 40; e.y = 0; e.weaponAngle = Math.PI; e.meleeContact = new Set();
+  // 칼날을 댄 채로 본체를 잡는다 — 분열체는 그 칼날 위에서 태어난다
+  weaponDamage(b, e, f, f.maxHp * 10);
+  assert.equal(f.mainDead, true);
+  assert.equal(f.splitBalls.length, 2);
+  for (const clone of f.splitBalls) {
+    assert.ok(Math.abs(clone.timers.immune - 0.6) < 1e-9, '0.6초 무적으로 태어난다');
+    clone.x = 0; clone.y = 0;                  // 칼날 한가운데에 그대로 둔다
+  }
+  const hp = f.splitBalls.map(c => c.hp);
+  for (let i = 0; i < 30; i++) { meleeHits(b, e, 1 / 60); e.meleeContact.clear(); }
+  assert.deepEqual(f.splitBalls.map(c => c.hp), hp, '분열 직후 0.5초 동안은 그 칼날에 안 맞는다');
+  assert.equal(f.splitBalls.length, 2, '둘 다 살아 있다');
+  // 무적이 끝나면 평소대로 맞는다
+  for (const clone of f.splitBalls) updateTimers(b, clone, 0.7);
+  meleeHits(b, e, 1 / 60);
+  assert.ok(f.splitBalls.length < 2 || f.splitBalls.some(c => c.hp < hp[0]), '무적이 끝나면 맞는다');
 });
 
 /* 샷건 — 쫓아가며 한 발씩 맞히는 대신 남은 탄창을 한순간에 건다.

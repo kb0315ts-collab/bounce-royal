@@ -100,6 +100,8 @@ test('소환수에 준 피해는 제외하고 분열체의 피해·회복은 원
   r.weaponDamage(b, a, target.summons[0], 3);
   assert.deepEqual(json(b.roundReport[a.pid].damage), {});
   b.spawnSplits(a); b.spawnSplits(target);
+  // 분열 직후 잠깐 무적은 다른 테스트가 본다. 여기서는 귀속만 본다.
+  for (const s of [...a.splitBalls, ...target.splitBalls]) s.timers.immune = 0;
   const split = a.splitBalls[0];
   r.weaponDamage(b, split, target.splitBalls[0], 2);
   const actual = b.commentaryEvents.at(-1).amount;

@@ -36,10 +36,10 @@ const WEAPONS = {
   bow:    { name:'활', ico:'🏹', type:'ranged', dmg:8, interval:1.5, projSpeed:300, rot:2.6, moveMult:1.0, chargeDmg:15,
     desc:'상대를 자동으로 겨눠 화살을 계속 발사하는 안정적인 원거리 무기.', stat:{atk:.55,spd:.65,rng:.95,mob:.7},
     skillName:'차지 샷', skillDesc:'자동 조준을 끄고 두 바퀴에 걸쳐 천천히 회전한다. 1초 후부터 다시 눌러 노린 방향으로 발사 — 적과 장애물을 관통하는 피해 15. 안 쏘면 두 바퀴째에 그대로 나간다.' },
-  pistol: { name:'권총', ico:'🔫', type:'ranged', dmg:3, burst:7, shotGap:0.12, reload:3.0, projSpeed:500, rot:3.0, moveMult:1.0,
+  pistol: { name:'권총', ico:'🔫', type:'ranged', dmg:3, burst:6, shotGap:0.12, reload:3.0, projSpeed:500, rot:3.0, moveMult:1.0,
     desc:'상대를 자동으로 겨눠 7연사 후 3초 재장전. 화력과 공백이 명확하다.', stat:{atk:.6,spd:.9,rng:.85,mob:.7},
     skillName:'회전 난사', skillDesc:'1.5초간 빙글빙글 돌며 재장전 없이 사방으로 난사한다.' },
-  staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:15, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
+  staff:  { name:'지팡이', ico:'🪄', type:'ranged', dmg:12, interval:2.5, projSpeed:135, bounces:1, rot:2.5, moveMult:1.0,
     desc:'상대를 자동으로 겨누는 느리고 강한 마법 투사체. 벽에 한 번 반사된다.', stat:{atk:1,spd:.15,rng:.8,mob:.7},
     skillName:'마력 폭주', skillDesc:'3초간 자신이 발사한 모든 마법 투사체의 크기가 2배가 된다.' },
   /* 평소엔 검처럼 돌며 닿으면 피해. 스킬로 바라보는 방향에 던진다.
@@ -76,7 +76,7 @@ const WEAPONS = {
     desc:'조이스틱으로 공을 조향하면 매달린 추도 그쪽으로 휘둘린다. 천천히 닿으면 피해가 없다.', stat:{atk:.7,spd:.5,rng:.55,mob:.8},
     skillName:'위치 교환', skillDesc:'공과 추의 위치·속도를 즉시 맞바꾼다. 상대가 붙었을 때 쓰면 그 자리에 추가 남는다.' },
   // maxMines를 없앴다. 이제 제한 없이 깔아 둘 수 있다.
-  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:9, interval:3.5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
+  mine:   { name:'지뢰', ico:'🧨', type:'mine', dmg:10, interval:3.5, triggerR:28, blastR:62, moveMult:1.0, rot:1.5,
     desc:'휘두르지 않고 이동 경로에 지뢰를 설치한다. 공간 장악형.', stat:{atk:.8,spd:.3,rng:.5,mob:.75},
     skillName:'원격 폭파', skillDesc:'1초 후 설치된 모든 지뢰를 하나당 피해 18, 반경 93으로 동시 폭파한다.' },
 };
@@ -201,7 +201,7 @@ const AUGMENTS = [
   { id:'b_homing',cat:'weapon', weapon:'bow', name:'유도 화살', desc:'상대에게 가까워진 화살만 살짝 휘어 따라붙는다. 멀리서는 그대로 직진' },
   { id:'b_kb',    cat:'weapon', weapon:'bow', name:'넉백 화살', desc:'적중 시 상대를 살짝 밀어낸다 (진행 방향 유지)' },
   { id:'p_shotgun',cat:'weapon', weapon:'pistol', name:'샷건', desc:'한 발씩 쏘지 않고 탄창을 모아 산탄으로 한 번에 뿌린다' },
-  { id:'p_mag',   cat:'weapon', weapon:'pistol', name:'확장 탄창', desc:'한 번에 발사 가능한 탄환 수 증가 (+4)' },
+  { id:'p_mag',   cat:'weapon', weapon:'pistol', name:'확장 탄창', desc:'한 번에 발사 가능한 탄환 수 증가 (+3)' },
   { id:'p_bayonet',cat:'weapon',weapon:'pistol', name:'총검술', desc:'재장전 동안 피해 10의 단검을 들고 근접 공격한다' },
   { id:'s_double',cat:'weapon', weapon:'staff', name:'이중 마법', desc:'마법 투사체가 양옆 두 갈래로 갈라져 나간다. 정면이 비어 똑바로 오는 상대는 놓칠 수 있다' },
   { id:'s_steal', cat:'weapon', weapon:'staff', name:'무기 강탈', desc:'마법 적중 시 상대 무기를 1초간 사용 불가' },
