@@ -1019,7 +1019,8 @@ function updateCountdown(battle) {
   const el = $('hud-count');
   if (!el) return;
   const live = !!battle && !battle.result;
-  const left = live && battle.phase === 'fight' && typeof BATTLE_TIME === 'number'
+  // 제한시간이 없는 전투(로그라이크)는 끝나기 전 카운트다운이 없다
+  const left = live && battle.phase === 'fight' && typeof BATTLE_TIME === 'number' && !battle.noTimeLimit
     ? BATTLE_TIME - (battle.simT || 0) : Infinity;
   const kind = live && battle.phase === 'count' ? 'start' : left > 0 && left <= FINAL_COUNT ? 'final' : '';
   const n = kind === 'start' ? Math.max(1, Math.ceil(battle.countT || 0)) : kind === 'final' ? Math.ceil(left) : 0;

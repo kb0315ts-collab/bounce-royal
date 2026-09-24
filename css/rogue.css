@@ -1,0 +1,111 @@
+/* BOUNCE ROYALE / SOLO ROGUELIKE
+ * 솔로 로그라이크 화면. 우주 스포츠 테마의 크림 카드 · 굵은 먹선 · 아래 그림자 문법을 따른다.
+ * 조이스틱·스킬 버튼·스탯판 배치는 건드리지 않는다 (tests/ui.test.js가 그 자리를 잰다). */
+
+/* ---------------- 타이틀 입구 ---------------- */
+#scr-title .title-brand{height:76cqw;min-height:76cqw}
+.hub-main.rogue-entry{grid-column:1/-1;height:14.5cqw;min-height:14.5cqw;grid-template-columns:10cqw minmax(0,1fr) 5cqw;
+  justify-items:start;text-align:left;padding:1.2cqw 3.5cqw;background:#a6dd8a;--menu-accent:#4f8f3a}
+.hub-main.rogue-entry:hover{background:#b2e596}
+.hub-main.rogue-entry .hub-ico .ui-svg{width:9cqw;height:9cqw}
+.hub-main.rogue-entry strong{font-size:4.6cqw}
+.hub-main.rogue-entry small{margin-top:.8cqw;color:#35522b}
+.hub-main.rogue-entry .hub-arrow{display:block;justify-self:end;color:#243747}
+.hub-main.rogue-entry .hub-arrow .ui-svg{width:4.2cqw;height:4.2cqw}
+
+/* ---------------- 공통 카드 ---------------- */
+.rogue-screen .screen-scroll{padding:3cqw 3.5cqw 8cqw}
+.rogue-card,.rogue-hero-card,.rogue-over-hero{
+  border:var(--outline);border-radius:3.6cqw;background:var(--cosmic-cream,#fff4d9);color:#243747;box-shadow:var(--panel-shadow)}
+.rogue-face{display:block;width:9cqw;height:9cqw}
+.rogue-face.big{width:22cqw;height:22cqw;flex:none}
+
+.rogue-hero-card{display:flex;align-items:center;gap:3cqw;padding:3cqw 3.5cqw}
+.rogue-hero-portrait{flex:none;border-radius:50%;background:radial-gradient(circle at 50% 42%,#fff9e6,#e9dcb8 70%)}
+.rogue-hero-copy .eyebrow{color:#9a6a2a;font-size:2.5cqw}
+.rogue-hero-copy h3{font:5.2cqw/1.1 'Jua',sans-serif;margin:.8cqw 0}
+.rogue-hero-copy p{font:2.6cqw/1.42 'Jua',sans-serif;color:#4c5a64}
+.rogue-hero-copy small{display:block;margin-top:1.2cqw;font:2.2cqw/1.35 'Jua',sans-serif;color:#7b7560}
+.rogue-screen .subt{margin:3.5cqw auto 3cqw}
+
+.rogue-lobby-actions{display:flex;flex-direction:column;align-items:center;gap:3cqw;margin-top:5cqw}
+.rogue-lobby-actions .bigbtn{min-width:62cqw}
+#btn-rogue-continue{min-width:62cqw;display:flex;flex-direction:column;align-items:center;gap:.6cqw}
+#btn-rogue-continue.hidden{display:none}
+#btn-rogue-continue small{font:2.3cqw/1 'Jua',sans-serif;color:#6b5a3a}
+.rogue-dev{margin:5cqw auto 0;padding:2.5cqw;display:flex;flex-wrap:wrap;gap:1.6cqw;align-items:center;justify-content:center;
+  border:.4cqw dashed #9dcdd4;border-radius:3cqw;color:#c9d3df}
+.rogue-dev small{width:100%;text-align:center;font:2.3cqw/1 'Jua',sans-serif}
+.rogue-dev select{height:8cqw;border-radius:2cqw;border:var(--outline);font:2.8cqw 'Jua',sans-serif;max-width:60cqw}
+.rogue-hall-link{display:inline-flex;align-items:center;text-decoration:none}
+
+/* ---------------- 갈림길 (선택형 웨이브의 난이도 고르기) ---------------- */
+/* 증강 선택과 같은 가로 3칸 카드 */
+.rogue-choices{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:1cqw}
+.rogue-choice{min-height:52cqw;align-items:stretch;text-align:center}
+.rogue-choice .art{display:grid;place-items:center;height:20cqw;letter-spacing:1.2cqw}
+.rogue-pips{font-size:5cqw;line-height:1}
+.rogue-choice.weak .rogue-pips{color:#54b4c6}
+.rogue-choice.normal .rogue-pips{color:#e0a92c}
+.rogue-choice.strong .rogue-pips{color:#e0503f}
+.rogue-choice.weak .art{background:#dff3f7}.rogue-choice.normal .art{background:#fff1cd}.rogue-choice.strong .art{background:#ffdfda}
+.rogue-choice .desc{font-size:2.45cqw;line-height:1.45;text-align:center;padding:1.5cqw 1.5cqw 2.5cqw;color:#5b6773}
+.rogue-dock{margin:3cqw 0 1cqw;min-height:22cqw}
+
+/* ---------------- 런 종료 ---------------- */
+.rogue-over-hero{display:flex;align-items:center;gap:3cqw;padding:3cqw}
+.rogue-over-hero strong{display:block;font:8cqw/1 'Jua',sans-serif;color:#b24f45}
+.rogue-over-hero.cleared{background:#fff0b8}
+.rogue-over-hero.cleared strong{color:#c08a14}
+.rogue-over-hero span{display:block;margin:1cqw 0;font:3cqw/1.35 'Jua',sans-serif}
+.rogue-over-hero em{display:block;font:2.4cqw/1.35 'Jua',sans-serif;font-style:normal;color:#5b6773}
+.rogue-over-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.6cqw;margin:3cqw 0}
+.rogue-over-stats div{padding:2cqw 1cqw;text-align:center;border:.4cqw solid #243747;border-radius:2.6cqw;background:#202d45;color:#fff4d9}
+.rogue-over-stats b{display:block;font:5cqw/1 'Jua',sans-serif;color:#ffd25a}
+.rogue-over-stats span{display:block;margin-top:1cqw;font:2.2cqw/1 'Jua',sans-serif;color:#b7c3d0}
+
+/* ---------------- 전투 HUD ---------------- */
+#hud.rogue-mode #hud-players{display:none}
+#rogue-hud{display:flex;align-items:center;gap:2cqw;height:11cqw;pointer-events:auto}
+#rogue-hud.hidden{display:none}
+.rogue-hud-wave{flex:none;display:flex;flex-direction:column;justify-content:center;padding:1cqw 2.4cqw;height:10cqw;
+  border:.45cqw solid #243747;border-radius:2.6cqw;background:#fff4d9;color:#243747;box-shadow:0 .7cqw 0 #243747}
+.rogue-hud-wave b{font:4.4cqw/1 'Jua',sans-serif}
+.rogue-hud-wave span{margin-top:.5cqw;font:2.2cqw/1 'Jua',sans-serif;color:#8a6a2a;white-space:nowrap}
+.rogue-hud-foes{flex:1;min-width:0;display:flex;align-items:center;gap:1.2cqw;overflow:hidden}
+.rogue-foe-chip{position:relative;flex:none;width:9.5cqw;height:9.5cqw;border:.4cqw solid #243747;border-radius:50%;background:#fff4d9}
+.rogue-foe-chip .rogue-face{width:100%;height:100%}
+.rogue-foe-chip b{position:absolute;right:-1cqw;bottom:-1cqw;min-width:4.2cqw;padding:0 .7cqw;border-radius:99px;
+  background:#ffd25a;border:.3cqw solid #243747;color:#243747;font:2.2cqw/3.4cqw 'Jua',sans-serif;text-align:center}
+.rogue-foe-chip b:empty{display:none}
+#btn-rogue-pause{flex:none;width:9.5cqw;height:9.5cqw;display:grid;place-items:center;padding:0}
+#btn-rogue-pause svg{width:4.6cqw;height:4.6cqw;color:#243747}
+/* 오른쪽 위 칸은 PvP에서 라운드·맵·남은 시간을 보인다. 로그라이크는 웨이브를 왼쪽 위에 이미 보이므로
+ * 여기에는 남은 적 수만 작게 남긴다 — 넓어지면 선인장 말풍선과 겹친다. */
+#hud.rogue-mode #hud-round,#hud.rogue-mode #hud-map{display:none}
+#hud.rogue-mode #hud-top{min-width:0;padding:1.2cqw 1.8cqw}
+#hud.rogue-mode #hud-timer{margin-top:0;font-size:3.6cqw;white-space:nowrap}
+/* 보스전은 적이 하나다. 남은 적 칸 대신 보스 체력 막대가 그 자리를 쓴다. */
+#hud.rogue-boss #hud-top{display:none}
+#rogue-bossbar{position:absolute;z-index:3;left:3cqw;right:3cqw;top:14.6cqw;pointer-events:none}
+#rogue-bossbar.hidden{display:none}
+.rogue-boss-name{display:inline-block;margin-left:2cqw;padding:.5cqw 2cqw;border:.4cqw solid #243747;border-bottom:0;border-radius:2cqw 2cqw 0 0;
+  background:#c9a36b;color:#243747;font:2.6cqw/1 'Jua',sans-serif}
+#rogue-bossbar.current .rogue-boss-name{background:#b8a5ff}
+.rogue-boss-track{position:relative;height:3.6cqw;border:.45cqw solid #243747;border-radius:99px;background:#34435e;overflow:hidden;box-shadow:0 .6cqw 0 rgba(0,0,0,.35)}
+.rogue-boss-track i{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(180deg,#ff8a6a,#e0503f);transition:width .15s}
+#rogue-bossbar.current .rogue-boss-track i{background:linear-gradient(180deg,#b8a5ff,#7c5cff)}
+.rogue-boss-track em{position:absolute;left:50%;top:0;bottom:0;width:.5cqw;background:#243747;opacity:.7}
+#rogue-bossbar.phase2 .rogue-boss-track{box-shadow:0 0 3cqw rgba(255,90,60,.7),0 .6cqw 0 rgba(0,0,0,.35);animation:rogueBoss .5s ease-in-out infinite alternate}
+@keyframes rogueBoss{to{filter:brightness(1.25)}}
+
+/* ---------------- 일시정지 ---------------- */
+#rogue-pause{position:absolute;inset:0;z-index:85;display:flex;align-items:center;justify-content:center;background:rgba(5,9,20,.72)}
+#rogue-pause.hidden{display:none}
+.rogue-pause-card{width:70cqw;padding:5cqw 4cqw;display:flex;flex-direction:column;align-items:center;gap:3cqw;
+  border:var(--outline);border-radius:4cqw;background:#fff4d9;color:#243747;box-shadow:var(--panel-shadow)}
+.rogue-pause-card h3{font:6cqw/1 'Jua',sans-serif}
+.rogue-pause-card p{font:2.8cqw/1.3 'Jua',sans-serif;color:#566470}
+.rogue-pause-card .bigbtn{min-width:52cqw}
+
+@media (prefers-reduced-motion:reduce){.rogue-node.current .rogue-node-ico,#rogue-bossbar.phase2 .rogue-boss-track{animation:none}}

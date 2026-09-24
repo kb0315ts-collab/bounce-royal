@@ -216,6 +216,8 @@ class BattleScene extends Phaser.Scene {
       drawProjectiles(this.gProj, this.gProjGlow, b);
       drawFx(this.gFx, this.gFxGlow, b, this);
       drawUnitUI(this.gUI, b, this);
+      // 로그라이크: 붐볼 카운트다운·마법진 순서·영웅의 점액/기절 표시 (js/rogue-render.js)
+      if (b.rogueHazards && typeof drawRogueOverlay === 'function') drawRogueOverlay(this.gUI, b, this);
       drawStatPanel(this.gUI, b, this);
     }
     // 남는 텍스트는 숨긴다
@@ -289,8 +291,10 @@ function watchBattleSounds(b) {
     projMark = -1; mineMark = -1;
     return;
   }
+  // 로그라이크는 몬스터가 전투 중에 태어난다(멀티젤 복제). 참가자 목록으로 전투를 구분하면
+  // 복제될 때마다 '새 전투'로 오인해 그 틱의 소리를 버리므로 전투 번호만 본다.
   const key = (b.soundSource || 'local') + ':' + (b.soundId == null ? 'legacy' : b.soundId)
-    + ':' + (b.fighters || []).map(f => f.uid).join(',');
+    + ':' + (b.rogueHazards ? 'rogue' : (b.fighters || []).map(f => f.uid).join(','));
   const freshBattle = key !== battleSoundKey;
   if (freshBattle) {
     battleSoundKey = key;
@@ -558,6 +562,8 @@ function drawGroundFx(g, glow, b) {
     glow.fillStyle(0xffffff, armed ? 0.65 + 0.3 * Math.sin(t * 10 + m.x) : 0.2);
     glow.fillCircle(m.x - mr * 0.16, m.y - mr * 0.17, mr * 0.15);
   }
+  // 로그라이크: 위험지역 예고·점액 웅덩이·전기장·돌진선·전기줄 (js/rogue-render.js)
+  if (b.rogueHazards && typeof drawRogueGround === 'function') drawRogueGround(g, glow, b);
 }
 
 /* ============================================================
@@ -1075,6 +1081,8 @@ function splitProxy(f, sp, sr) {
 
 function drawUnits(g, b) {
   for (const f of b.fighters) {
+    // 로그라이크 몬스터·보스는 캐릭터·무기가 없어 제 그림을 쓴다 (js/rogue-render.js)
+    if (f.monster) { if (typeof drawMonsterG === 'function') drawMonsterG(g, f, b); continue; }
     // 가시목줄: 주인 공과 꼬마볼을 잇는 가시 줄. 판정과 같은 직선이다.
     if (f.flags && f.flags.thornLeash && !f.mainDead && !f.dead) {
       for (const s of f.summons) {
@@ -1211,6 +1219,9 @@ function drawProjectiles(g, glow, b) {
         target.fillTriangle(18, 0, -18, -9, -18, 9);
         break;
       }
+      default:
+        // 로그라이크 몬스터의 점액탄·챔피언 마법탄
+        if (typeof drawRogueProjectileG === 'function') drawRogueProjectileG(target, p, t);
     }
     target.restore();
   }
@@ -1296,6 +1307,7 @@ function drawFx(g, glow, b, sc) {
  * ============================================================ */
 function drawUnitUI(g, b, sc) {
   for (const f of b.fighters) {
+    if (f.monster) { if (typeof drawMonsterUIG === 'function') drawMonsterUIG(g, f, b, sc); continue; }
     // 소환수 체력바. 본체보다 작게 그려 구분한다.
     for (const s of f.summons) {
       if (!s.maxHp) continue;

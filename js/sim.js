@@ -212,7 +212,8 @@ function applySteering(f, dt) {
   const len = Math.hypot(f.vx, f.vy);
   if (len <= 1e-9 || s.power <= 0) return;
   const current = Math.atan2(f.vy, f.vx);
-  const maxTurn = STEER_MAX_RAD * steerSpeedScale(f) * s.power * s.magnitude * dt;
+  // modSteer는 바깥 규칙(로그라이크의 점액 등)이 거는 조향 배율이다. PvP에서는 비어 있다.
+  const maxTurn = STEER_MAX_RAD * steerSpeedScale(f) * (f.modSteer || 1) * s.power * s.magnitude * dt;
   const next = current + clamp(angleDelta(current, s.angle), -maxTurn, maxTurn);
   // 방향만 바꾸고 벡터의 길이는 그대로 둔다. 실제 이동속도는 st.move가 맡는다.
   f.vx = Math.cos(next) * len;
@@ -471,7 +472,9 @@ function buildFighter(player, battle) {
     uid: ++UID, kind: 'main', b: battle,
     player, pid: player.id, name: player.name, isAI: player.isAI, color: player.color,
     charId: player.charId, weaponId: player.weaponId,
-    perm: { atk: 1, dmg: (player.damageRewardMult || 1) * (player.eventDamageMult || 1), hp: 1, move: wp.moveMult, aspd: 1, size: ch.size, dmgTaken: 1 },
+    // bonusAtk·bonusAspd·bonusMove는 로그라이크의 '약한 적' 보상(기본 스탯 +10%)이 쌓인 배율이다.
+    // PvP 플레이어에게는 없어서 1로 시작한다.
+    perm: { atk: player.bonusAtk || 1, dmg: (player.damageRewardMult || 1) * (player.eventDamageMult || 1), hp: 1, move: wp.moveMult * (player.bonusMove || 1), aspd: player.bonusAspd || 1, size: ch.size, dmgTaken: 1 },
     flags: {},
     x: 0, y: 0, vx: 1, vy: 0, hp: 1, maxHp: 1, shield: 0, radius: 22,
     weaponAngle: rand(0, TAU), spinAcc: 0, spinRemaining: 0,
@@ -565,12 +568,16 @@ function augWeight(a) {
   return 1;
 }
 function rollAugmentOffers(player, n = 3, opts = {}) {
+  /* exclude는 이 선택지에서 빼야 하는 증강 id 목록이다. 로그라이크는 코인·연승·패배처럼
+   * 아레나에만 있는 규칙에 기대는 증강을 여기로 걸러 낸다. PvP는 넘기지 않는다. */
+  const excluded = opts.exclude ? new Set(opts.exclude) : null;
+  const allowed = a => augEligible(a, player) && !(excluded && excluded.has(a.id));
   /* 무기강화소(이벤트): 이번 선택지를 내 무기 전용 증강으로 채운다. 이미 가진 것은
    * 빠지고, 비는 칸은 평소처럼 뽑는다. */
   const forged = opts.weaponForge
-    ? shuffle(AUGMENTS.filter(a => a.weapon && a.weapon === player.weaponId && augEligible(a, player))).slice(0, n)
+    ? shuffle(AUGMENTS.filter(a => a.weapon && a.weapon === player.weaponId && allowed(a))).slice(0, n)
     : [];
-  const pool = AUGMENTS.filter(a => augEligible(a, player) && !forged.includes(a));
+  const pool = AUGMENTS.filter(a => allowed(a) && !forged.includes(a));
   const offers = forged.slice();
   const used = new Set(forged.map(a => a.id));
   for (let k = offers.length; k < n && pool.length; k++) {
@@ -819,6 +826,13 @@ class Battle {
     }
     // 1대1은 서로 만날 확률을 높이기 위해 경기장을 좁힌다. 4인 난투는 그대로 둔다.
     if (this.arena.type === 'diamond' && players.length <= 2) this.arena.L = DUEL_ARENA_L;
+    /* 로그라이크 확장점. PvP는 셋 다 넘기지 않으므로 아래 코드는 모두 기존 그대로 돈다.
+     *  arenaL       경기장 크기를 직접 정한다 (몬스터 웨이브는 혼자여도 넓은 경기장을 쓴다)
+     *  noTimeLimit  제한시간 없이 한쪽이 전멸할 때까지 싸운다
+     *  rogue        웨이브 규칙 훅 { step, checkEnd, afterMove } — js/rogue-sim.js가 만든다 */
+    if (opts.arenaL) this.arena.L = opts.arenaL;
+    this.noTimeLimit = !!opts.noTimeLimit;
+    this.rogue = opts.rogue || null;
     this.fighters = players.map(p => buildFighter(p, this));
     for (const f of this.fighters) recordRoundFact(this, f, 'init', '');
     this.placeFighters();
@@ -934,21 +948,26 @@ class Battle {
     }
   }
 
+  /* phased는 잠깐 맞지도 부딪히지도 않는 상태다 (벽 속의 드릴볼, 달라붙은 흡착볼,
+   * 뛰어오른 보스). 로그라이크 몬스터만 쓰고 PvP 전투원에게는 없다. */
   bodiesOf(f) {
     const arr = [];
-    if (!f.mainDead && !f.dead) arr.push(f);
+    if (!f.mainDead && !f.dead && !f.phased) arr.push(f);
     for (const s of f.summons) arr.push(s);
     for (const s of f.splitBalls) arr.push(s);
     return arr;
   }
+  /* 같은 team끼리는 적이 아니다. 로그라이크의 몬스터들이 한 편이다.
+   * PvP 전투원에는 team이 없어서 예전처럼 나 말고 전부가 적이다. */
   enemiesOf(f) {
     const team = teamOwner(f);
-    return this.fighters.filter(x => x !== team);
+    const side = team && team.team != null ? team.team : null;
+    return this.fighters.filter(x => x !== team && !(side != null && x.team === side));
   }
   activeFighterBodies() {
     const arr = [];
     for (const f of this.fighters) {
-      if (!f.mainDead && !f.dead) arr.push(f);
+      if (!f.mainDead && !f.dead && !f.phased) arr.push(f);
       for (const s of f.splitBalls) if (!s.dead) arr.push(s);
     }
     return arr;
@@ -959,7 +978,7 @@ class Battle {
     let best = null, bd = 1e9;
     for (const e of this.enemiesOf(f)) {
       if (!this.fighterAlive(e)) continue;
-      const candidates = !e.mainDead && !e.dead ? [e] : e.splitBalls.filter(s => !s.dead);
+      const candidates = !e.mainDead && !e.dead && !e.phased ? [e] : e.splitBalls.filter(s => !s.dead);
       for (const body of candidates) {
         const d = dist(f.x, f.y, body.x, body.y);
         if (d < bd) { bd = d; best = body; }
@@ -986,7 +1005,8 @@ class Battle {
       // 3 · 2 · 1. 세는 동안 조이스틱이 가리키는 쪽이 곧 출발 방향이다.
       this.countT -= rdt;
       for (const f of this.fighters) {
-        if (!f.isAI || f.aimTouched) continue;
+        // 두뇌(brain)가 따로 있는 몬스터는 제 방향을 스스로 정한다
+        if (!f.isAI || f.aimTouched || f.brain) continue;
         f.aiT -= rdt;
         if (f.aiT <= 0) { this.setDir(f, aiChooseStartDir(this, f)); f.aimTouched = true; }
       }
@@ -1005,7 +1025,7 @@ class Battle {
         this.marathonDone = true;
         for (const f of this.fighters) if (f.flags.marathoner && this.fighterAlive(f)) healFighter(this, f, (f.maxHp - f.hp) * 0.5);
       }
-      if (this.simT >= BATTLE_TIME) { this.timeoutResolve(); return; }
+      if (!this.noTimeLimit && this.simT >= BATTLE_TIME) { this.timeoutResolve(); return; }
       this.step(rdt);
     } else if (this.phase === 'ending') {
       // 거의 멈춘 상태에서 시작해 서서히 풀린다. 파편과 팝업도 같은 속도로
@@ -1039,13 +1059,17 @@ class Battle {
       body._motionX = body.x; body._motionY = body.y;
     }
     this.arena.update(dt);
+    /* brain이 있는 전투원(로그라이크 몬스터·보스)은 스탯·이동·공격을 제 두뇌가 맡는다.
+     * 캐릭터·무기가 없어서 공용 파이프라인을 태울 수 없다. PvP 전투원에는 brain이 없다. */
     // 통계/타이머/상태
     for (const f of this.fighters) {
-      computeStats(f);
+      if (f.brain) f.brain.stats(this, f); else computeStats(f);
       updateTimers(this, f, dt);
     }
     // 이동 + 벽
-    for (const f of this.fighters) moveFighter(this, f, dt);
+    for (const f of this.fighters) {
+      if (f.brain) f.brain.move(this, f, dt); else moveFighter(this, f, dt);
+    }
     // 볼·볼 충돌 (메인끼리)
     this.mainCollisions(dt);
     // 소환수/분열체
@@ -1053,6 +1077,7 @@ class Battle {
     // 무기 · 자동 시스템 · AI
     for (const f of this.fighters) {
       updateCooldowns(this, f, dt);
+      if (f.brain) { f.brain.act(this, f, dt); continue; }
       updateWeapon(this, f, dt);
       autoSystems(this, f, dt);
       updateSatellites(this, f, dt);
@@ -1062,12 +1087,14 @@ class Battle {
     this.updateMines(dt);
     this.updateGroundFx(dt);
     this.updateCube(dt);
+    // 로그라이크 웨이브 규칙 — 위험지역, 넉백, 흡착 같은 것
+    if (this.rogue && this.rogue.step) this.rogue.step(this, dt);
     this.inStep = false;
     this.checkEnd();
   }
 
   mainCollisions(dt) {
-    const mains = this.fighters.filter(f => !f.mainDead && !f.dead);
+    const mains = this.fighters.filter(f => !f.mainDead && !f.dead && !f.phased);
     for (let i = 0; i < mains.length; i++) for (let j = i + 1; j < mains.length; j++) {
       resolveFighterCollision(this, mains[i], mains[j]);
     }
@@ -1169,7 +1196,8 @@ class Battle {
     for (let i = projs.length - 1; i >= 0; i--) {
       const p = projs[i];
       p.life -= dt;
-      if (p.life <= 0) { reportNearMisses(this, p); projs.splice(i, 1); continue; }
+      // onExpire는 떨어진 자리에 무언가를 남기는 투사체(로그라이크 점액탄)가 쓴다
+      if (p.life <= 0) { reportNearMisses(this, p); if (p.onExpire) p.onExpire(this, p); projs.splice(i, 1); continue; }
       if (p.homing) {
         const tgt = this.nearestEnemyBody(p.owner);
         if (tgt && tgt !== p.owner) {
@@ -1195,7 +1223,7 @@ class Battle {
       // 벽
       if (this.arena.reflectProj(p)) {
         if (p.bounces > 0) { p.bounces--; p.reflected = true; sparks(this, p.x, p.y, 3, '#c9d6ff', 90); battleSound(this, 'augment.reflect', p.owner, 0.12); }
-        else { sparks(this, p.x, p.y, 4, '#8a93b8', 80); reportNearMisses(this, p); projs.splice(i, 1); continue; }
+        else { sparks(this, p.x, p.y, 4, '#8a93b8', 80); reportNearMisses(this, p); if (p.onExpire) p.onExpire(this, p); projs.splice(i, 1); continue; }
       }
       // 본체 적중
       let dead = false;
@@ -1325,6 +1353,8 @@ class Battle {
   checkEnd() {
     if (this.phase !== 'fight' || this.result) return;
     if (this.inStep) return;
+    // 로그라이크는 '적을 모두 쓰러뜨리면 승리, 내가 쓰러지면 패배'를 웨이브 규칙이 정한다
+    if (this.rogue && this.rogue.checkEnd) { this.rogue.checkEnd(this); return; }
     const alive = this.fighters.filter(f => this.fighterAlive(f));
     if (this.fighters.length <= 2) {
       if (alive.length === 1) this.finish(alive[0], '격파');
@@ -1384,6 +1414,9 @@ function computeStats(f) {
   if (T.balloon > 0) size *= 1.6;
   if (T.atkBuff > 0) atk *= 1.3;
   if (T.spdBuff > 0) move *= 1.3;
+  // 바깥 규칙이 매 틱 거는 배율 (로그라이크의 점액·흡착볼). PvP에서는 비어 있다.
+  if (f.modMove) move *= f.modMove;
+  if (f.modAspd) aspd *= f.modAspd;
   if (f.rocketActive) move = Math.max(move, ROCKET_SPEED);
   if (f.berserkPhase === 1) { atk *= 1.45; move *= 1.45; aspd *= 1.45; dmg *= 1.15; }
   if (f.berserkPhase === 2) { atk *= 0.72; move *= 0.72; aspd *= 0.72; dmg *= 0.85; }
@@ -1500,7 +1533,7 @@ function moveFighter(b, f, dt) {
   if (f.mainDead || f.dead) return;
   if (f.timers.stun > 0) return;
   applySteering(f, dt);
-  const px = f.x, py = f.y;
+  const px = f.x, py = f.y, pvx = f.vx, pvy = f.vy;
   const wasRocket = f.rocketActive;
   if (f.timers.dashPrep > 0) { /* 정지 */ }
   else if (f.timers.dashT > 0 && f.dash) {
@@ -1514,6 +1547,10 @@ function moveFighter(b, f, dt) {
     f.x += (f.vx * f.st.move + (f.thrustX || 0)) * GAME_SPEED * dt;
     f.y += (f.vy * f.st.move + (f.thrustY || 0)) * GAME_SPEED * dt;
   }
+  /* 넉백 — 로그라이크의 해머·돌진에 맞아 날아가는 속도. 스스로 가는 방향과 따로 더한다.
+   * 줄어드는 것과 벽에 박히는 것은 웨이브 규칙(afterMove)이 맡는다. PvP에는 없다. */
+  if (f.knock) { f.x += f.knock.vx * GAME_SPEED * dt; f.y += f.knock.vy * GAME_SPEED * dt; }
+  const ox = f.x, oy = f.y;
   const n = b.arena.collideBody(f);
   // High-speed rocket movement can cross a body completely in one tick, so
   // use a swept segment instead of relying on overlap at the final position.
@@ -1525,6 +1562,13 @@ function moveFighter(b, f, dt) {
     const dashing = f.timers.dashT > 0 ? f.dash : null;
     onWallBounce(b, f, n);
     if (dashing && f.dash === dashing) { f.timers.dashT = 0; f.dash = null; }
+  }
+  /* 벽에 얼마나 세게 부딪혔는지(impact: 진행 방향이 벽 법선과 이루는 정도, 0~1)와
+   * 벽에 밀려났는지(pushed)를 웨이브 규칙에 넘긴다. 흡착볼 떼기·넉백 벽꽝이 이걸 본다. */
+  if (b.rogue && b.rogue.afterMove) {
+    const pushed = Math.hypot(f.x - ox, f.y - oy) > 1e-3;
+    const impact = n > 0 ? Math.min(1, Math.hypot(f.vx - pvx, f.vy - pvy) / 2) : 0;
+    b.rogue.afterMove(b, f, dt, n, pushed, impact);
   }
   // 돌진 경로 판정 (터널링 방지)
   if (f.timers.dashT > 0) {
@@ -1575,11 +1619,14 @@ function resolveFighterCollision(b, a, c) {
   } else if (a.rocketActive && c.rocketActive) {
     const ax = a.x, ay = a.y; a.x = c.x; a.y = c.y; c.x = ax; c.y = ay;
   } else {
-    a.x -= nx * ov / 2; a.y -= ny * ov / 2;
-    c.x += nx * ov / 2; c.y += ny * ov / 2;
+    /* 무게(mass)가 다르면 가벼운 쪽이 더 밀린다. 로그라이크의 거인·보스만 무게가 있고,
+     * 같은 무게(PvP 전부)에서는 wa = wc = 0.5라 예전 식과 똑같은 값이 나온다. */
+    const ma = a.mass || 1, mc = c.mass || 1, wa = mc / (ma + mc), wc = ma / (ma + mc);
+    a.x -= nx * ov * wa; a.y -= ny * ov * wa;
+    c.x += nx * ov * wc; c.y += ny * ov * wc;
     const p = (a.vx - c.vx) * nx + (a.vy - c.vy) * ny;
     if (p > 0) {
-      a.vx -= p * nx; a.vy -= p * ny; c.vx += p * nx; c.vy += p * ny;
+      a.vx -= p * nx * 2 * wa; a.vy -= p * ny * 2 * wa; c.vx += p * nx * 2 * wc; c.vy += p * ny * 2 * wc;
       const n1 = normDir(a.vx, a.vy); a.vx = n1.x; a.vy = n1.y;
       const n2 = normDir(c.vx, c.vy); c.vx = n2.x; c.vy = n2.y;
     }
@@ -2698,6 +2745,8 @@ function projectileHit(b, p, body) {
   const dealt = p.weapon
     ? weaponDamage(b, owner, body, p.dmg, source, via)
     : dealDamage(b, owner, body, p.dmg * owner.st.dmg, { kind: 'auto', autoType: p.kind, ...via });
+  // 맞힌 뒤 따로 할 일이 있는 투사체 (로그라이크 점액탄의 둔화 등)
+  if (p.onHit) p.onHit(b, p, body, dealt);
   if (dealt <= 0) return;
   // 화살 넉백
   if (p.kind === 'arrow' && owner.flags.kbArrow && isFighterBody(body)) {
@@ -2995,7 +3044,8 @@ function dealDamage(b, src, body, raw, opts = {}) {
     // 그 정도는 0.08초 만에 사그라들어 맞은 느낌이 거의 없었다.
     // 이미 폭발 등으로 더 크게 흔들리는 중이면 그대로 둔다.
     // min만 쓰면 큰 흔들림이 작은 피격 때문에 오히려 줄어든다.
-    b.shake = Math.max(b.shake, Math.min(11, b.shake + Math.min(8, 2.5 + dmg * 0.18)));
+    // shakeScale: 몬스터가 여럿 맞을 때마다 화면이 흔들리면 멀미가 난다. 몬스터만 작게 둔다.
+    b.shake = Math.max(b.shake, Math.min(11, b.shake + Math.min(8, 2.5 + dmg * 0.18) * (t.shakeScale ?? 1)));
   }
   if (src && src.flags && src.flags.lifesteal) healFighter(b, src, dmg * src.flags.lifesteal, true, 'lifesteal');
   if (body.hp <= 0 && !body.downPending) { body.downPending = true; killBody(b, body, src); }
@@ -3013,6 +3063,8 @@ function healFighter(b, f, amount, quiet, source = 'heal') {
 }
 
 function killBody(b, body, src) {
+  // 로그라이크 몬스터는 쓰러지는 방식(자폭·복제·연쇄)이 저마다 달라 제 두뇌가 맡는다
+  if (body.brain && body.brain.down) { body.brain.down(b, body, src); return; }
   if (body.kind === 'summon') {
     const arr = body.owner.summons;
     const i = arr.indexOf(body); if (i >= 0) arr.splice(i, 1);
@@ -3318,8 +3370,10 @@ const AI_FUMBLE_WEAPONS = new Set(['sword', 'dagger', 'pistol', 'chain', 'bow'])
 
 function aiProfile(f) {
   const owner = f.kind === 'split' && f.owner && f.owner.ai ? f.owner.ai : null;
+  // aiSkill을 정해 둔 봇(로그라이크 라이벌)은 그 솜씨로 싸운다. 없으면 예전처럼 봇마다 뽑는다.
+  const fixed = f.player && Number.isFinite(f.player.aiSkill) ? clamp(f.player.aiSkill, 0, 1) : null;
   return {
-    skill: owner ? owner.skill : rand(AI_SKILL_MIN, AI_SKILL_MAX),
+    skill: owner ? owner.skill : fixed != null ? fixed : rand(AI_SKILL_MIN, AI_SKILL_MAX),
     seen: new Map(),      // 투사체 uid -> 그 투사체에 대한 반응
     skillAt: null,        // 무기 스킬을 쓸까 보기 시작하는 시각
     charAt: 0,            // 캐릭터 스킬 조건이 이만큼 이어져야 쓴다

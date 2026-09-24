@@ -240,6 +240,7 @@ body{display:flex;align-items:center;justify-content:center}
 <link rel="stylesheet" href="css/casual-renewal.css">
 <link rel="stylesheet" href="css/cosmic-sports.css">
 <link rel="stylesheet" href="css/commentary.css">
+<link rel="stylesheet" href="css/rogue.css">
 </head>
 <body>
 <main id="app" aria-label="바운스 로얄 720×1280 세로 게임 화면" data-render-target="720x1280">
@@ -248,7 +249,14 @@ body{display:flex;align-items:center;justify-content:center}
   <canvas id="game" aria-label="전투 경기장"></canvas>
 
   <section id="hud" class="hidden" aria-label="전투 정보">
-    <div class="hud-top-band"><div id="hud-players"></div></div>
+    <div class="hud-top-band"><div id="hud-players"></div>
+      <div id="rogue-hud" class="hidden" aria-label="로그라이크 웨이브 정보">
+        <div class="rogue-hud-wave"><b id="rogue-hud-wave">WAVE 1</b><span id="rogue-hud-kind">라이벌전</span></div>
+        <div class="rogue-hud-foes" id="rogue-hud-foes" aria-label="남은 적"></div>
+        <button class="iconbtn" id="btn-rogue-pause" type="button" aria-label="일시정지"></button>
+      </div>
+    </div>
+    <div id="rogue-bossbar" class="hidden" role="progressbar" aria-label="보스 체력"><div class="rogue-boss-name" id="rogue-boss-name"></div><div class="rogue-boss-track"><i id="rogue-boss-fill"></i><em aria-hidden="true"></em></div></div>
     <div id="hud-top">
       <div id="hud-round">ROUND 1</div><div id="hud-map">다이아 경기장</div><div id="hud-timer">40.0</div>
     </div>
@@ -321,6 +329,7 @@ body{display:flex;align-items:center;justify-content:center}
     <nav class="hub-menu" aria-label="메인 메뉴">
       <button class="hub-main ranked" id="btn-ranked" type="button"><span class="hub-ico" data-ui-icon="ranked"></span><span class="hub-copy"><strong>경쟁전</strong><small>승리를 향해!</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
       <button class="hub-main friendly" id="btn-friendly" type="button"><span class="hub-ico" data-ui-icon="friendly"></span><span class="hub-copy"><strong>친선전</strong><small>친구·AI와 한 판</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
+      <button class="hub-main rogue-entry" id="btn-rogue" type="button"><span class="hub-ico" data-ui-icon="rogue"></span><span class="hub-copy"><strong>솔로 로그라이크</strong><small>20웨이브 · 라이벌 · 챔피언 도전</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
       <div class="hub-subnav">
         <button class="hub-small" data-menu="bag" id="btn-bag" type="button"><span class="hub-ico" data-ui-icon="bag"></span><span class="hub-copy"><strong>가방</strong><small>장착 캐릭터와 보유 항목</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
         <button class="hub-small" data-menu="codex" id="btn-codex" type="button"><span class="hub-ico" data-ui-icon="codex"></span><span class="hub-copy"><strong>도감</strong><small>캐릭터·무기·증강 정보</small></span><span class="hub-arrow" data-ui-icon="chevron"></span></button>
@@ -430,6 +439,44 @@ body{display:flex;align-items:center;justify-content:center}
     <div class="screen-scroll"><div id="over-rank"></div><div id="over-rating"></div><div id="over-content"></div><button class="bigbtn" id="btn-restart" type="button">타이틀로</button></div>
   </section>
 
+  <!-- 솔로 로그라이크 (js/rogue.js) -->
+  <section class="screen hidden rogue-screen" id="scr-rogue">
+    <header class="screen-head"><button class="backbtn" id="btn-rogue-back" type="button" aria-label="뒤로" data-ui-icon="back"></button><h2>솔로 로그라이크</h2><span class="head-extra" id="rogue-best"></span></header>
+    <div class="screen-scroll">
+      <div class="rogue-hero-card" id="rogue-lobby-hero"></div>
+      <p class="subt">20웨이브를 모두 이겨야 클리어입니다. 한 번 지면 런이 끝나요.<br>웨이브마다 제한시간 없이 적을 전멸시키고, 끝날 때마다 증강을 고릅니다.<br>어떤 적이 나올지는 들어가 봐야 압니다.</p>
+      <div class="rogue-lobby-actions">
+        <button class="bigbtn" id="btn-rogue-new" type="button">새 런 시작</button>
+        <button class="midbtn ghostbtn hidden" id="btn-rogue-continue" type="button">이어하기</button>
+      </div>
+      <div class="rogue-dev hidden" id="rogue-dev"><small>테스트용 바로가기 (?dev=1)</small><select id="rogue-dev-wave" aria-label="시작 웨이브"></select><button class="smbtn ghostbtn" id="btn-rogue-dev" type="button">이 웨이브부터</button><a class="smbtn ghostbtn rogue-hall-link" href="monster-hall.html">몬스터 전시관</a></div>
+    </div>
+  </section>
+
+  <section class="screen hidden rogue-screen" id="scr-rogue-map">
+    <header class="screen-head"><button class="backbtn" id="btn-rogue-map-home" type="button" aria-label="저장하고 나가기" data-ui-icon="back"></button><h2 id="rogue-map-title">WAVE 3</h2><span class="head-extra" id="rogue-map-extra"></span></header>
+    <div class="screen-scroll">
+      <p class="subt">누구와 겨룰지 고르세요. 강할수록 보상이 큽니다.</p>
+      <div class="cards rogue-choices" id="rogue-choices"></div>
+      <div class="caster-dock rogue-dock" id="rogue-caster-dock"></div>
+    </div>
+  </section>
+
+  <section class="screen hidden rogue-screen" id="scr-rogue-over">
+    <header class="screen-head"><span></span><h2 id="rogue-over-title">런 종료</h2><span></span></header>
+    <div class="screen-scroll">
+      <div class="rogue-over-hero" id="rogue-over-hero"></div>
+      <div class="rogue-over-stats" id="rogue-over-stats"></div>
+      <div class="rogue-lobby-actions"><button class="bigbtn" id="btn-rogue-again" type="button">다시 도전</button><button class="midbtn ghostbtn" id="btn-rogue-title" type="button">타이틀로</button></div>
+    </div>
+  </section>
+
+  <div id="rogue-pause" class="hidden" role="dialog" aria-modal="true" aria-labelledby="rogue-pause-title">
+    <div class="rogue-pause-card"><h3 id="rogue-pause-title">일시정지</h3><p id="rogue-pause-info"></p>
+      <button class="bigbtn" id="btn-rogue-resume" type="button">계속</button>
+      <button class="midbtn ghostbtn dangerbtn" id="btn-rogue-giveup" type="button">런 포기</button></div>
+  </div>
+
   <section class="screen hidden" id="scr-intro">
     <div class="intro-kicker">매칭 완료!</div><div class="intro-title">이번 판의 주인공</div><div id="intro-players"></div><div class="intro-count" id="intro-countdown">3</div>
   </section>
@@ -446,6 +493,8 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/audio-design.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/sim.js"></script>
+<script src="js/rogue-data.js"></script>
+<script src="js/rogue-sim.js"></script>
 <script src="js/matchmaking.js"></script>
 <script src="js/events.js"></script>
 <script src="js/match-conclusion.js"></script>
@@ -454,6 +503,7 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/commentary.js"></script>
 <script src="js/highlights.js"></script>
 <script src="js/render.js"></script>
+<script src="js/rogue-render.js"></script>
 <script src="js/net.js"></script>
 <script src="js/augment-assets.js"></script>
 <script src="js/augment-art.js"></script>
@@ -461,6 +511,7 @@ body{display:flex;align-items:center;justify-content:center}
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 <script src="js/multi.js"></script>
+<script src="js/rogue.js"></script>
 <script>
 window.addEventListener('error', e => {
   let el = document.getElementById('__err');

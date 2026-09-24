@@ -670,6 +670,8 @@ const Game = {
 
   returnToTitle() {
     if (this.mode === 'multi' && typeof BounceRoyalMulti !== 'undefined') BounceRoyalMulti.stop();
+    // 솔로 로그라이크 전투를 치우고 나온다. 진행 중인 런은 웨이브 사이 저장본으로 남는다.
+    if (typeof BounceRoyalRogue !== 'undefined') BounceRoyalRogue.stopBattle();
     this.mode = 'single';
     this.cancelRankedSearch();
     cancelEventVoteTimers(this);
@@ -733,6 +735,8 @@ const Game = {
   update(dt) {
     // 멀티 모드에서는 로컬 sim을 절대 돌리지 않는다. 서버 스냅샷만 그린다.
     if (this.mode === 'multi') { if (typeof BounceRoyalMulti !== 'undefined') BounceRoyalMulti.update(dt); return; }
+    // 솔로 로그라이크는 js/rogue.js가 웨이브 전투를 돌리고 그린다
+    if (this.mode === 'rogue') { if (typeof BounceRoyalRogue !== 'undefined') BounceRoyalRogue.update(dt); return; }
     if (this.state === 'battle' && this.battles) {
       for (const b of this.battles) b.update(dt);
       if (!this.resolving && typeof BounceRoyalMatchConclusion !== 'undefined') {
@@ -1038,7 +1042,9 @@ const Game = {
    * 스킬은 캐릭터·무기 두 칸으로 고정이다. */
   pressSkill(slot) {
     if (this.mode === 'multi') { BounceRoyalMulti.sendSkill(slot); SFX.ui(); return; }
-    if (this.state !== 'battle' || !this.focus) return;
+    // 로그라이크 전투(rogueBattle)도 같은 로컬 전투다. 일시정지 중에는 받지 않는다.
+    if ((this.state !== 'battle' && this.state !== 'rogueBattle') || !this.focus) return;
+    if (this.state === 'rogueBattle' && typeof BounceRoyalRogue !== 'undefined' && BounceRoyalRogue.paused) return;
     const b = this.focus, h = b.human();
     if (!h) return;
     useSkill(b, h, slot);
@@ -1192,7 +1198,8 @@ function bindSteerJoystick(controlId, baseId, knobId) {
       const battle = BounceRoyalMulti?.view, fighter = battle?.human?.();
       return { battle, fighter };
     }
-    const battle = Game.state === 'battle' ? Game.focus : null;
+    const paused = Game.state === 'rogueBattle' && typeof BounceRoyalRogue !== 'undefined' && BounceRoyalRogue.paused;
+    const battle = (Game.state === 'battle' || Game.state === 'rogueBattle') && !paused ? Game.focus : null;
     return { battle, fighter:battle?.human?.() || null };
   };
 

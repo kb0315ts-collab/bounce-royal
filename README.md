@@ -20,6 +20,8 @@ cd bounce-royal
 npx serve .        # 또는 python -m http.server
 ```
 
+혼자 20웨이브를 넘는 **솔로 로그라이크**(로컬 전용)는 [ROGUELIKE.md](ROGUELIKE.md) 참고.
+
 ## 조작
 
 | 행동 | 조작 |
@@ -70,6 +72,13 @@ npx serve .        # 또는 python -m http.server
 - 콘솔에서 `__autotest(20)` 실행 시 AI 4인 풀게임 20회 헤드리스 시뮬레이션으로 안정성 검증
 
 ## 자동 검증
+
+### 몬스터 전시관
+
+`node server/index.js` 뒤 [몬스터 전시관](http://localhost:8080/monster-hall.html)에서
+솔로 로그라이크에 나오는 몬스터 15종(고블린볼 5 · 기믹 8 · 보스 2)의 생김새와 공격 모션을 볼 수 있다.
+게임과 같은 두뇌·그림을 그대로 돌리는 화면이라 따로 그린 그림이나 흉내 낸 모션이 아니다.
+느리게 보기, 인형 고정, 보스 패턴 지정, 2페이즈 보기를 지원한다. 자세한 것은 [ROGUELIKE.md](ROGUELIKE.md).
 
 ### 효과음과 사운드룸
 

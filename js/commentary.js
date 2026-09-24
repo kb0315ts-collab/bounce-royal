@@ -122,7 +122,8 @@
       if (!finalized) showFinale(director.decideMatch(b.matchConclusion, now, matchSerial), now, true);
       return;
     }
-    const key = (b.soundSource || 'local') + ':' + b.soundId + ':' + b.fighters.map(f => f.uid).join(',');
+    // 로그라이크는 전투 중에 몬스터가 태어난다(멀티젤 복제) — 참가자 목록이 아니라 전투 번호로 구분한다
+    const key = (b.soundSource || 'local') + ':' + b.soundId + ':' + (b.rogueWave ? 'rogue' : b.fighters.map(f => f.uid).join(','));
     if (key !== lastKey) { clearSpeech(); lastKey = key; }
     const line = director.observe(b, now);
     // 카운트다운부터 자리를 지킨다. 대사는 전투가 시작돼야 나온다(감독이 count에서는 말하지 않는다).
@@ -187,6 +188,11 @@
     host.classList.toggle('is-arena-finale', arena);
     speak(line, now);
   }
+  // 솔로 로그라이크 20웨이브 완주 — 아레나 최종 승부와 같은 GG 무대
+  function rogueFinale(player) {
+    const now = performance.now();
+    showFinale(director.rogueFinale(player, now), now);
+  }
   function hideForHud() { if (!finale && !studio) hide(); }
   button.addEventListener('click', event => {
     event.stopPropagation(); muted = !muted;
@@ -209,7 +215,7 @@
     }
   });
   paintMute();
-  root.BounceRoyalCommentary = Object.freeze({ observe, hide, hideForHud, onScreen, finishMatch, rememberReport,
+  root.BounceRoyalCommentary = Object.freeze({ observe, hide, hideForHud, onScreen, finishMatch, rogueFinale, rememberReport,
     eventResult, studioLines, remainingFinale:()=>finale?Math.max(0,until-performance.now()):0,
     get muted() { return muted; } });
 })(globalThis);

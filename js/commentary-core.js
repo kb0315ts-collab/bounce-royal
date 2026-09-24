@@ -529,6 +529,14 @@
     }
 
     observe(battle, nowMilliseconds) {
+      // 솔로 로그라이크 웨이브는 따로 본다 (라이벌 관계·챔피언 소개·기믹 중계)
+      if (battle && battle.rogueWave && !battle.demo) return this.observeRogue(battle, nowMilliseconds);
+      return this.observeCombat(battle, nowMilliseconds, null);
+    }
+
+    /* 전투 중계. rogue가 넘어오면(로그라이크 라이벌전) 소개와 결과는 로그라이크 쪽이 맡고,
+     * rogue.extra가 기믹·소개 후보를 더한다. PvP는 rogue 없이 예전 그대로 돈다. */
+    observeCombat(battle, nowMilliseconds, rogue) {
       if (!battle || battle.demo) { this.activeKey = null; return null; }
       const now = finite(nowMilliseconds);
       const time = finite(battle.simT);
@@ -558,7 +566,10 @@
 
       state.simT = Math.max(state.simT, time);
       state.phase = battle.phase;
-      if (battle.result && !state.resultDone) return this.roundEnd(battle, state, now);
+      if (battle.result && !state.resultDone) {
+        if (rogue) { state.resultDone = true; return null; }
+        return this.roundEnd(battle, state, now);
+      }
       if (battle.phase !== 'fight' || battle.result) return null;
 
       const candidates = [];
@@ -567,7 +578,8 @@
       const roster = battle.fighters || [];
       const fighters = new Map(roster.map(f => [f.uid, f]));
 
-      if (starting) {
+      if (starting && rogue) { state.introDone = true; state.lastHitT = time; }
+      if (starting && !rogue) {
         state.introDone = true;
         state.lastHitT = time;
         const active = roster.filter(f => !f.dead);
@@ -678,8 +690,8 @@
         state.downs.add(f.uid);
         if (roster.length > 2) add('knockout', 85, f, pick(LINES.knockout(nameOf(f.name)), spin(state.seq + ':' + f.uid)), '탈락');
       }
-      // 남은 시간
-      if (!state.timeDone && time >= this.battleTime - TIME_WARNING) {
+      // 남은 시간 — 제한시간이 없는 전투(로그라이크)에는 없다
+      if (!battle.noTimeLimit && !state.timeDone && time >= this.battleTime - TIME_WARNING) {
         add('time', 66, null, pick(LINES.timeLeft(), spin(key + ':time')), '남은 시간',
           { onSpoken: () => { state.timeDone = true; } });
       }
@@ -750,6 +762,12 @@
         if (recent.length) state.hits.set(pair, recent); else state.hits.delete(pair);
       }
 
+      if (rogue && rogue.extra) rogue.extra(add, time);
+      return this.choose(state, candidates, now);
+    }
+
+    /* 후보 중 하나를 고른다. 중요 해설은 끼어들고, 일반 해설은 틈을 기다린다. */
+    choose(state, candidates, now) {
       // 말할 틈을 기다리던 중요 해설
       if (state.pending) {
         if (now <= state.pending.expires) candidates.push(state.pending);
@@ -781,9 +799,296 @@
       if (onSpoken) onSpoken();
       return this.speak(line, now);
     }
+
+    /* ═══════════ 솔로 로그라이크 ═══════════
+     * 해설자는 추측하지 않는다 — 전투가 남긴 rogueEvents(기믹이 실제로 일어난 순간)만 읽는다.
+     * 우선순위: 이번 런에서 처음 본 기믹 > 강한 위험 > 특이한 결과 > 평범한 반복.
+     * 평범한 반복은 한두 번 말한 뒤 한동안 침묵한다. 몬스터를 때릴 때마다의 적중 해설은 하지 않는다. */
+    rogueRunMemory(runId) {
+      const key = String(runId || 'run');
+      if (!this.rogueRuns) this.rogueRuns = new Map();
+      let mem = this.rogueRuns.get(key);
+      if (!mem) {
+        mem = { seen: new Set(), again: new Map() };
+        this.rogueRuns.set(key, mem);
+        if (this.rogueRuns.size > 8) this.rogueRuns.delete(this.rogueRuns.keys().next().value);
+      }
+      return mem;
+    }
+    rogueState(battle) {
+      const key = this.battleKey(battle) + ':rogue';
+      let rs = this.battles.get(key);
+      if (!rs) {
+        rs = { rseq: 0, seq: 0, introBuilt: false, intro: [], introAt: 0, endDone: false, follow: [],
+          sourceTimes: new Map(), pending: null, lowArmed: new Set(), veryLowArmed: new Set(), once: new Set() };
+        this.battles.set(key, rs);
+        if (this.battles.size > 64) this.battles.delete(this.battles.keys().next().value);
+      }
+      return rs;
+    }
+    rogueIntro(battle) {
+      const info = battle.rogueWave;
+      const seed = spin(info.runId + ':' + info.n);
+      const take = (list, n) => {
+        const out = [];
+        for (let i = 0; out.length < Math.min(n, list.length) && i < list.length * 3; i++) {
+          const line = pick(list, seed + i * 7);
+          if (!out.includes(line)) out.push(line);
+        }
+        return out;
+      };
+      const events = battle.rogueEvents || [];
+      const has = type => events.some(e => e.type === type);
+      if (info.kind === 'rival') {
+        const rival = nameOf(info.rivalName);
+        const L = ROGUE_LINES.rival(rival);
+        if (has('RIVAL_APPEAR_1') || info.meet === 1) return take(L.first, 2);
+        if (has('RIVAL_APPEAR_2') || info.meet === 2) return [L.second[0]].concat(take(L.second.slice(1), 1));
+        if (has('RIVAL_APPEAR_3') || info.meet === 3) {
+          const lines = [pick(L.third.slice(0, 1).concat(L.third.slice(2)), seed), L.third[1]];
+          if (info.rivalAugments >= 16) lines.push(pick(L.armed, seed));
+          return lines;
+        }
+        return [pick(L.final.slice(0, 2), seed), pick(L.final.slice(2, 4), seed + 1), L.final[4]];
+      }
+      if (info.kind === 'boss') {
+        // 소개는 짧게 — 보스는 곧 첫 예고를 시작하고, 그 순간은 기믹 해설이 맡는다
+        const B = info.boss === 'former' ? ROGUE_LINES.formerIntro : ROGUE_LINES.currentIntro;
+        return info.boss === 'former' ? [B[0], B[1], pick(B.slice(2), seed)]
+          : [pick(B.slice(0, 2), seed), B[2], pick(B.slice(3, 5), seed + 1), B[5]];
+      }
+      if (info.kind === 'choice') return [pick(ROGUE_LINES.choice[info.tier] || ROGUE_LINES.choice.normal, seed)];
+      if (info.n === 2) return [ROGUE_LINES.firstMonsters];
+      return [pick(info.late ? ROGUE_LINES.late : ROGUE_LINES.wave(info.n), seed)];
+    }
+    rogueEnd(battle, now) {
+      const info = battle.rogueWave, r = battle.result;
+      const hero = battle.rogueHero;
+      const won = r && r.winner === hero;
+      const who = nameOf(hero && hero.name);
+      const turn = spin(info.runId + ':end:' + info.n);
+      let text, label = won ? '웨이브 클리어' : '런 종료';
+      if (won) {
+        if (info.kind === 'rival') text = pick(ROGUE_LINES.rivalWin(who, nameOf(info.rivalName))[info.meet - 1], turn);
+        else if (info.kind === 'boss') text = pick(info.boss === 'former' ? ROGUE_LINES.formerDown : ROGUE_LINES.currentDown, turn);
+        else if (info.kind === 'choice' && info.tier === 'strong') text = pick(ROGUE_LINES.strongWin, turn);
+        else text = pick(ROGUE_LINES.waveWin(info.n), turn);
+        if (info.kind === 'boss') label = '보스 격파';
+        // 첫 만남에서는 아직 '라이벌'이라 부르지 않는다
+        if (info.kind === 'rival') label = info.meet === 1 ? '첫 대결' : '라이벌전';
+      } else {
+        text = info.kind === 'rival' ? pick(ROGUE_LINES.rivalLose(nameOf(info.rivalName)), turn)
+          : info.kind === 'boss' ? pick(ROGUE_LINES.bossLose, turn) : pick(ROGUE_LINES.lose(who), turn);
+      }
+      return this.speak(this.line('rg-end', 95, won ? hero : null, text, label), now);
+    }
+    rogueFinale(player, nowMilliseconds) {
+      const who = nameOf(player && player.name);
+      return this.speak(this.line('gg', 100, { uid: 0, name: who, color: player && player.color },
+        pick(ROGUE_LINES.finale(who), spin(who + ':finale')), '새 챔피언', true), finite(nowMilliseconds));
+    }
+    /* 기믹 이벤트 → 후보. first는 런에서 처음 본 순간, 이후는 tier에 따라 강도가 다르다. */
+    rogueEventCandidates(battle, rs, mem, add, time) {
+      const events = (battle.rogueEvents || []).filter(e => finite(e.seq) > rs.rseq).slice().sort((a, b) => a.seq - b.seq);
+      const fighters = new Map((battle.fighters || []).map(f => [f.uid, f]));
+      for (const e of events) {
+        const et = finite(e.t, -Infinity);
+        if (et > time + .05) break;
+        rs.rseq = Math.max(rs.rseq, finite(e.seq));
+        if (time - et > EVENT_MAX_AGE + 0.5) continue;
+        const spec = ROGUE_EVENT_LINES[e.type];
+        if (!spec) continue;
+        const actor = fighters.get(e.actor) || null;
+        const turn = spin(e.seq + ':' + e.type);
+        const label = spec.label || '중계';
+        const kind = 'rg-' + e.type;
+        if (spec.once) {
+          if (rs.once.has(e.type)) continue;
+          add(kind, spec.priority || 70, null, pick(spec.lines(e, actor), turn), label, { onSpoken: () => rs.once.add(e.type) });
+          continue;
+        }
+        const first = !mem.seen.has(e.type);
+        if (first) {
+          if (!spec.first) { mem.seen.add(e.type); continue; }
+          const lines = spec.first(e, actor);
+          add(kind, 90, null, pick(lines, turn), label, {
+            onSpoken: () => {
+              mem.seen.add(e.type);
+              if (spec.follow) rs.follow.push({ kind: kind + '-tip', text: pick(spec.follow, turn), label });
+            },
+          });
+          continue;
+        }
+        const count = mem.again.get(e.type) || 0;
+        if (spec.tier === 'routine' && count >= (spec.max ?? 1)) continue;
+        const priority = spec.tier === 'danger' ? 64 : spec.tier === 'result' ? 55 : 38;
+        add(kind, priority, null, pick(spec.again(e, actor), turn), label, {
+          cooldownKey: 'rg:' + e.type, cooldownMs: spec.cd || 25000,
+          onSpoken: () => mem.again.set(e.type, count + 1),
+        });
+      }
+    }
+    /* 몬스터 웨이브의 전투 사실은 나(영웅)에 관한 것만 고른다: 내 스킬 적중, 내가 크게 맞음, 내 위기. */
+    rogueHeroFacts(battle, rs, add, time) {
+      const hero = battle.rogueHero;
+      if (!hero) return;
+      const who = nameOf(hero.name);
+      const events = (battle.commentaryEvents || []).filter(e => finite(e.seq) > rs.seq).slice().sort((a, b) => a.seq - b.seq);
+      for (const e of events) {
+        const et = finite(e.t, -Infinity);
+        if (et > time + .05) break;
+        rs.seq = Math.max(rs.seq, finite(e.seq));
+        if (time - et > EVENT_MAX_AGE) continue;
+        const source = typeof e.source === 'string' ? e.source : '';
+        const turn = spin(e.seq + ':' + source);
+        if (e.actor === hero.uid && (e.type === 'last-stand' || e.type === 'split')) {
+          add('last-stand', 84, hero, pick(e.type === 'split' ? LINES.split(who) : LINES.lastStand(who), turn), '버티기');
+          continue;
+        }
+        if (e.type !== 'hit' || !(e.amount > 0)) continue;
+        if (e.actor === hero.uid) {
+          const skillHit = source.startsWith('skill:') || source === 'char:bomb' || source === 'char:bball';
+          if (skillHit) add('skill-hit', 80, hero, pick(LINES.skillHit(who, this.skillName(source)), turn), '스킬 적중',
+            { cooldownKey: 'skill-hit:' + hero.uid, cooldownMs: 12000 });
+          else if (Object.prototype.hasOwnProperty.call(SPECIALS, source)) add('special-hit', 58, hero, pick(LINES[SPECIALS[source]](), turn), '특수 공격',
+            { cooldownKey: 'special:' + source, cooldownMs: 15000 });
+        } else if (e.target === hero.uid) {
+          const share = e.amount / Math.max(1, finite(hero.maxHp, 1));
+          if (share >= BIG_BLOW * 0.8) add('big-blow', 78, hero, pick(ROGUE_LINES.bigHit, turn), '큰 한 방', { cooldownKey: 'big-in', cooldownMs: 8000 });
+        }
+      }
+      for (const f of [hero].concat(hero.splitBalls || [])) {
+        if (f.dead || f.mainDead) { rs.lowArmed.delete(f.uid); rs.veryLowArmed.delete(f.uid); continue; }
+        const r = ratio(f);
+        if (r > .35) rs.lowArmed.delete(f.uid);
+        if (r > .2) rs.veryLowArmed.delete(f.uid);
+        if (r > 0 && r <= .1 && !rs.veryLowArmed.has(f.uid)) {
+          rs.veryLowArmed.add(f.uid); rs.lowArmed.add(f.uid);
+          add('very-low', 62, f, pick(LINES.veryLow(), spin(rs.seq + ':' + f.uid)), '위기');
+        } else if (r > 0 && r <= .25 && !rs.lowArmed.has(f.uid)) {
+          rs.lowArmed.add(f.uid);
+          add('low-hp', 60, f, pick(LINES.lowHp(nameOf(f.name)), spin(rs.seq + ':' + f.uid)), '위기');
+        }
+      }
+    }
+    observeRogue(battle, nowMilliseconds) {
+      const now = finite(nowMilliseconds);
+      const info = battle.rogueWave;
+      const rs = this.rogueState(battle);
+      const mem = this.rogueRunMemory(info.runId);
+      const time = finite(battle.simT);
+      this.activeKey = this.battleKey(battle);
+      if (battle.result) {
+        if (!rs.endDone) { rs.endDone = true; rs.intro = []; rs.follow = []; return this.rogueEnd(battle, now); }
+        return null;
+      }
+      // 소개 — 카운트다운부터 이어서 한 줄씩. 처음 보는 기믹이 끼어들면 그 뒤에 잇는다.
+      if (!rs.introBuilt) { rs.introBuilt = true; rs.intro = this.rogueIntro(battle); rs.introAt = now + 200; }
+      const cur = this.current;
+      const free = !cur || now >= cur.until + 250;
+      if (rs.follow.length && free) {
+        const tip = rs.follow.shift();
+        return this.speak(this.line(tip.kind, 88, null, tip.text, tip.label), now);
+      }
+      // 싸움이 한창인데 소개가 남아 있으면 버린다 (늦게 나온 소개는 지금 일과 어긋난다)
+      if (rs.intro.length && battle.phase === 'fight' && time > 8) rs.intro = [];
+      if (rs.intro.length && now >= rs.introAt && free) {
+        const text = rs.intro.shift();
+        rs.introAt = now + displayMs(text) + 350;
+        const who = info.kind === 'rival' ? (battle.fighters || []).find(f => f.rival) : null;
+        return this.speak(this.line('rg-intro', 88, who && text.includes(nameOf(who.name)) ? who : null, text,
+          info.kind === 'boss' ? (info.boss === 'former' ? '전 챔피언' : '현 챔피언')
+            : info.kind === 'rival' ? (info.meet === 1 ? '첫 대결' : '라이벌') : 'ON AIR'), now);
+      }
+      if (battle.phase !== 'fight') return null;
+      const extra = add => this.rogueEventCandidates(battle, rs, mem, (kind, p, fighter, text, label, more = {}) => add(kind, p, fighter, text, label, more), time);
+      if (info.kind === 'rival') {
+        // 라이벌전은 1대1이다. 아레나 중계를 그대로 쓰고 기믹·소개만 로그라이크가 더한다.
+        return this.observeCombat(battle, now, { extra: (add) => extra(add) });
+      }
+      const candidates = [];
+      const add = (kind, priority, fighter, text, label, more = {}) => candidates.push({ ...this.line(kind, priority, fighter, text, label), ...more });
+      extra(add);
+      this.rogueHeroFacts(battle, rs, add, time);
+      return this.choose(rs, candidates, now);
+    }
   }
 
-  const api = { Director, displayMs };
+  /* ---------------- 로그라이크 대사 사전 (기획서 18~21절의 예시를 그대로 담았다) ---------------- */
+  const ROGUE_LINES = {
+    rival: n => ({
+      first: ['신예 두 명이 여기서 붙는군요.', '둘 다 이제 막 올라오기 시작한 선수들입니다.', '첫 대결입니다. 누가 먼저 앞서갈까요.', '새 얼굴끼리 만났네요.'],
+      second: [`${n} 선수, 아직 아레나에 남아 있었습니다.`, '다시 만났네요.', '복수전의 시간인가요?', '첫 경기를 기억하고 있을 겁니다.', '둘 다 여기까지 올라왔군요.'],
+      third: ['또 만났습니다.', '이쯤 되면 라이벌이라고 불러야겠네요.', '서로 참 오래 살아남았습니다.', `${n} 선수도 많이 달라졌습니다.`, '세 번째 대결입니다. 이제 서로를 잘 알겠죠.'],
+      armed: [`${n} 선수, 이번엔 무장이 상당합니다.`, '지난번과 같은 상대라고 생각하면 곤란하겠습니다.'],
+      final: ['결국 둘 다 여기까지 왔습니다.', '네 번째 대결. 아마 마지막이겠죠.', '챔피언에게 가기 전에 넘어야 할 상대가 있습니다.', `${n} 선수와의 마지막 승부입니다.`, '한쪽만 챔피언에게 도전할 수 있습니다.'],
+    }),
+    formerIntro: ['상대가 심상치 않습니다.', '한때 이 아레나의 정상에 있었던 선수입니다.', '세월은 흘렀지만 저 해머는 여전합니다.', '예전에는 저 한 방으로 수많은 선수들이 쓰러졌죠.'],
+    currentIntro: ['여기까지 왔군요.', '이제 남은 상대는 단 한 명입니다.', '현재 아레나의 챔피언.', '지금까지 본 선수들과는 움직임부터 다릅니다.', '속도와 마법을 동시에 다루는 선수입니다.', '챔피언전, 시작합니다.'],
+    firstMonsters: '첫 몬스터전입니다. 모두 쓰러뜨리면 끝나요.',
+    wave: n => [`웨이브 ${n}, 시작합니다.`, '몬스터들이 몰려옵니다.', `${n}번째 웨이브입니다. 하나씩 정리하죠.`, '조합을 먼저 보세요. 누구부터 칠지가 중요합니다.'],
+    late: ['후반입니다. 기믹이 한꺼번에 작동합니다.', '이제부터는 조합이 무섭습니다.', '여기서부터가 진짜 고비예요.'],
+    choice: {
+      weak: ['안전한 쪽을 골랐습니다. 착실하게 가죠.', '약한 적입니다. 기본기를 챙기는 선택이에요.'],
+      normal: ['무난한 선택입니다. 증강 하나가 걸려 있어요.', '표준 구성입니다. 방심만 안 하면 돼요.'],
+      strong: ['강한 쪽을 골랐어요. 대담합니다.', '위험한 구성입니다. 대신 증강이 두 개예요.'],
+    },
+    waveWin: n => [`웨이브 ${n} 정리됐습니다.`, '깔끔하게 전멸시켰습니다.', '다음 웨이브로 갑니다.', '전부 쓰러뜨렸어요.'],
+    strongWin: ['강한 쪽을 넘었습니다. 보상이 두둑해요.', '위험을 감수한 보람이 있네요.'],
+    rivalWin: (who, rival) => [
+      [`첫 대결은 ${who}의 승리입니다.`, `${rival} 선수, 이번엔 ${who}에게 졌습니다.`],
+      [`두 번째도 ${who}가 가져갑니다.`, `${rival} 선수, 또 한 번 막혔네요.`],
+      [`라이벌전, 이번에도 ${who}.`, `${rival} 선수, 세 번째도 넘지 못했습니다.`],
+      [`${who}, 챔피언에게 도전할 자격을 얻었습니다!`, `마지막 라이벌전, 승자는 ${who}입니다!`],
+    ],
+    rivalLose: rival => [`${rival} 선수가 이번엔 이겼습니다.`, `${rival}, 끝내 넘어섰네요.`, '라이벌에게 막혔습니다. 여기까지예요.'],
+    formerDown: ['전 챔피언이 쓰러졌습니다!', '노장을 넘었습니다.', '해머가 멈췄습니다. 대단해요.'],
+    currentDown: ['현 챔피언이 쓰러집니다!', '해냈습니다! 챔피언을 넘었어요!'],
+    bossLose: ['챔피언의 벽은 높았습니다.', '이번엔 여기까지입니다.', '아쉽습니다. 다음엔 넘을 수 있을 거예요.'],
+    lose: who => [`${who}, 쓰러졌습니다.`, '여기까지입니다.', '아쉽습니다. 런이 끝났어요.'],
+    bigHit: ['와, 이건 아픕니다.', '크게 맞았어요.', '방금 건 컸습니다.', '체력이 쑥 빠졌어요.'],
+    finale: who => [`GG~~! 새 챔피언의 탄생, ${who}!`, `GG~~! ${who}, 아레나의 정상에 섰습니다!`, `GG~~! 20웨이브 완주, ${who}가 챔피언입니다!`],
+  };
+  /* 기믹 이벤트 → 대사. first: 런에서 처음 본 순간 · follow: 처음 뒤에 붙는 한마디 ·
+   * again: 두 번째부터 · tier: danger(강한 위험) result(특이한 결과) routine(평범한 반복) · max: routine 최대 횟수 */
+  const L1 = list => () => list;
+  const ROGUE_EVENT_LINES = {
+    VOLTTWIN_LINK_CREATED: { label: '볼트윈', first: L1(['둘 사이에 전기가 연결됐습니다.']), again: L1(['다시 전기줄이 이어졌어요.']), tier: 'routine', max: 1, cd: 40000 },
+    VOLTTWIN_LINK_HIT: { label: '볼트윈', first: L1(['전기선을 가로질렀네요.']), again: L1(['전기줄에 걸렸습니다.', '또 감전됐어요.']), tier: 'result', cd: 18000 },
+    SUCTIONBALL_ATTACHED: { label: '흡착볼', first: L1(['흡착볼이 붙었습니다.']), follow: ['벽에 강하게 부딪히면 떨어질 겁니다.'],
+      again: L1(['또 붙었어요.', '흡착볼이 달라붙습니다.']), tier: 'routine', max: 2, cd: 30000 },
+    SUCTIONBALL_DETACHED: { label: '흡착볼', first: L1(['벽에 부딪혀서 떼어냈습니다!']), again: L1(['떼어냈어요. 지금 정리하죠.', '벽꽝으로 털어냈습니다.']), tier: 'result', cd: 20000 },
+    BOOMBALL_COUNTDOWN: { label: '붐볼', first: L1(['붐볼이 터지려 합니다.']), follow: ['다른 몬스터 쪽으로 끌고 가면 같이 터집니다.'],
+      again: L1(['또 불이 붙었어요.']), tier: 'routine', max: 1, cd: 40000 },
+    BOOMBALL_CHAIN: { label: '붐볼', first: e => e.data && e.data.count >= 3 ? ['한꺼번에 날아갔습니다!'] : ['폭발이 다른 녀석까지 휘말렸네요.'],
+      again: e => e.data && e.data.count >= 3 ? ['한꺼번에 날아갔습니다!'] : ['같이 터졌습니다. 잘 끌고 갔어요.', '폭발이 다른 녀석까지 휘말렸네요.'], tier: 'result', cd: 12000 },
+    DRILLBALL_BURROW: { label: '드릴볼', first: L1(['벽 속으로 들어갔습니다.']), again: L1(['또 파고듭니다.']), tier: 'routine', max: 1, cd: 40000 },
+    DRILLBALL_EMERGE: { label: '드릴볼', first: L1(['다른 쪽에서 나옵니다.']), follow: ['금이 간 자리를 보세요.'], again: L1(['곧 튀어나옵니다.']), tier: 'routine', max: 2, cd: 25000 },
+    MULTIGEL_DUPLICATED: { label: '멀티젤', first: L1(['멀티젤이 늘어났습니다.']), follow: ['빨리 처리하지 않으면 계속 불어나요.'], again: L1(['또 늘었어요.']), tier: 'routine', max: 1, cd: 30000 },
+    MULTIGEL_SWARM: { label: '멀티젤', once: true, priority: 72, lines: () => ['너무 오래 놔뒀네요.', '젤리가 경기장을 덮고 있습니다.'] },
+    RUSHHORN_CHARGE: { label: '러시혼', first: L1(['돌진합니다.']), follow: ['피하면 벽에 박힐 거예요.'], again: L1(['또 겨눕니다.', '돌진 준비.']), tier: 'routine', max: 2, cd: 20000 },
+    RUSHHORN_WALL_CRASH: { label: '러시혼', first: L1(['제대로 벽에 박혔습니다.']), again: L1(['벽에 박혔어요. 지금이 기회입니다.', '제대로 벽에 박혔습니다.']), tier: 'result', cd: 15000 },
+    SPARKGEL_FIELD_ON: { label: '스파크젤', first: L1(['주변에 전기가 들어왔습니다.']), again: L1(['전기장이 다시 켜졌어요.']), tier: 'routine', max: 1, cd: 40000 },
+    SPARKGEL_FIELD_OFF: { label: '스파크젤', first: L1(['지금은 접근할 수 있겠네요.']), again: L1(['전기가 꺼졌습니다.']), tier: 'routine', max: 1, cd: 40000 },
+    MEDICBALL_HEAL: { label: '메딕볼', first: L1(['메딕볼이 회복시키고 있습니다.']), again: L1(['또 회복시킵니다.']), tier: 'routine', max: 1, cd: 30000 },
+    MEDICBALL_BIG_HEAL: { label: '메딕볼', first: L1(['저 녀석부터 처리하는 게 좋겠습니다.']), again: L1(['회복량이 상당합니다. 메딕볼부터요.', '저 녀석부터 처리하는 게 좋겠습니다.']), tier: 'danger', cd: 20000 },
+    WALL_SLAM: { label: '벽꽝', first: L1(['벽까지 날아갔습니다. 잠깐 멍해요.']), again: L1(['또 벽에 박혔어요.', '벽 충돌, 아프죠.']), tier: 'result', cd: 20000 },
+    LAST_MONSTER: { label: '마지막', once: true, priority: 70, lines: () => ['마지막 하나 남았습니다.', '이제 한 마리.', '거의 다 왔어요. 하나 남았습니다.'] },
+    HAMMER_RAISE: { label: '전 챔피언', first: L1(['해머가 올라갑니다.']), again: L1(['또 해머를 듭니다.']), tier: 'routine', max: 1, cd: 30000 },
+    HAMMER_SLAM: { label: '전 챔피언', again: L1(['또 경기장을 찍어버리는군요.']), tier: 'routine', max: 2, cd: 30000 },
+    HAMMER_SWEEP: { label: '전 챔피언', first: L1(['넓게 옵니다.']), again: L1(['넓게 휘두릅니다.']), tier: 'routine', max: 1, cd: 30000 },
+    HAMMER_SHOCKWAVE: { label: '전 챔피언', first: L1(['충격파입니다.']), again: L1(['벽에서 충격파가 번집니다.']), tier: 'routine', max: 1, cd: 30000 },
+    HAMMER_LEAP: { label: '전 챔피언', first: L1(['바닥을 보세요.']), again: L1(['또 뛰어오릅니다!', '그림자를 피하세요.']), tier: 'danger', cd: 25000 },
+    HAMMER_SPIN: { label: '전 챔피언', first: L1(['해머를 돌리기 시작합니다.']), again: L1(['또 돌립니다. 거리를 벌리세요.']), tier: 'danger', cd: 25000 },
+    CHAMPION_BLINK: { label: '현 챔피언', first: L1(['순간 위치를 바꿨습니다.']), again: L1(['또 위치를 바꿉니다.']), tier: 'routine', max: 2, cd: 25000 },
+    CHAMPION_TRAIL: { label: '현 챔피언', first: L1(['움직이면서 주문까지 이어갑니다.']), again: L1(['지나간 자리가 터집니다.']), tier: 'routine', max: 1, cd: 30000 },
+    CHAMPION_CIRCLES: { label: '현 챔피언', first: L1(['마법진이 깔리고 있습니다.']), follow: ['순서대로 터집니다. 숫자를 보세요.'], again: L1(['다시 마법진입니다.']), tier: 'routine', max: 1, cd: 30000 },
+    CHAMPION_BEAMS: { label: '현 챔피언', first: L1(['한 곳만 보고 있을 수 없겠네요.']), again: L1(['가로세로로 옵니다.']), tier: 'danger', cd: 25000 },
+    CHAMPION_NOVA: { label: '현 챔피언', first: L1(['챔피언다운 공격입니다.']), again: L1(['또 쏟아집니다!']), tier: 'danger', cd: 30000 },
+    BOSS_PHASE2: { label: '보스', once: true, priority: 86, lines: e => e.data && e.data.boss === 'former' ? ['노장이 본색을 드러냅니다.', '이제부터 더 빨라집니다.'] : ['이제부터가 진짜입니다.', '챔피언이 진심입니다.'] },
+  };
+
+  const api = { Director, displayMs, ROGUE_EVENT_LINES, ROGUE_LINES };
   root.BounceRoyalCommentaryCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -1,0 +1,92 @@
+/* BOUNCE ROYALE / MONSTER HALL
+ * 몬스터 전시관. 사운드룸과 같은 우주 스포츠 결: 짙은 밤하늘 위 크림 카드와 굵은 먹선.
+ * 게임 화면(index.html)과는 별개 페이지라 여기 규칙은 게임 레이아웃에 영향을 주지 않는다. */
+:root{
+  --hall-ink:#243747;
+  --hall-cream:#fff4d9;
+  --hall-night:#141b33;
+  --hall-panel:#1d2745;
+  --hall-line:rgba(136,164,214,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  min-height:100vh;background:radial-gradient(120% 90% at 50% -10%,#24325c 0%,var(--hall-night) 55%,#0d1226 100%);
+  color:#e9eefb;font-family:'Jua','Noto Sans KR',sans-serif;
+}
+.hall-shell{max-width:1240px;margin:0 auto;padding:18px 20px 40px}
+
+/* ---------------- 머리 ---------------- */
+.hall-header{display:flex;align-items:center;gap:18px;padding:6px 2px 16px;border-bottom:2px solid var(--hall-line)}
+.hall-header h1{flex:1;margin:0;font-size:22px;letter-spacing:.5px}
+.brand{display:flex;align-items:center;gap:8px;color:#cfe0ff;text-decoration:none;font-size:15px}
+.brand strong{color:#ffd25a}
+.brand-emblem{width:26px;height:26px;display:grid;place-items:center}
+.brand-emblem svg,.back-link svg{width:100%;height:100%}
+.back-link{display:inline-flex;align-items:center;gap:6px;color:#9fb6e4;text-decoration:none;font-size:14px}
+.back-link span{width:16px;height:16px;display:inline-grid;place-items:center}
+.back-link:hover{color:#fff}
+
+/* ---------------- 3단 배치 ---------------- */
+.hall{display:grid;grid-template-columns:240px minmax(320px,1fr) 300px;gap:18px;margin-top:18px;align-items:start}
+@media (max-width:1080px){.hall{grid-template-columns:200px minmax(280px,1fr)}.hall-info{grid-column:1/-1}}
+/* 좁은 화면(브라우저 패널 등)에서는 목록을 무대 위 가로 줄로 올린다 — 스크롤 없이 바로 고르게 */
+@media (max-width:720px){
+  .hall{grid-template-columns:1fr}
+  .hall-list{order:0;flex-direction:row;overflow-x:auto;gap:10px;padding-bottom:4px}
+  .list-group{flex:none;padding:8px 10px}
+  .list-group h2{margin-bottom:6px}
+  .list-grid{grid-auto-flow:column;grid-template-columns:none}
+  .mon-card{width:58px}
+  .hall-info{order:3}
+}
+
+/* ---------------- 목록 ---------------- */
+.hall-list{display:flex;flex-direction:column;gap:14px}
+.list-group{border:2px solid var(--hall-line);border-radius:14px;background:rgba(29,39,69,.7);padding:10px}
+.list-group h2{margin:2px 4px 8px;font-size:13px;color:#9fb6e4;letter-spacing:.5px}
+.list-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
+.mon-card{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;cursor:pointer;
+  border:2px solid transparent;border-radius:12px;background:#2a3557;color:#dfe8fb;font:inherit;font-size:11px}
+.mon-card canvas{width:44px;height:44px;display:block}
+.mon-card:hover{background:#35426b}
+.mon-card.on{border-color:#ffd25a;background:#3d4a72;color:#fff}
+.mon-card.boss canvas{width:52px;height:52px}
+
+/* ---------------- 무대 ---------------- */
+.hall-stage{display:flex;flex-direction:column;gap:10px}
+.stage-frame{position:relative;border:2px solid var(--hall-line);border-radius:18px;overflow:hidden;background:#0f1730}
+#app{position:relative;width:100%;aspect-ratio:3/4;max-height:70vh;margin:0 auto}
+#game{display:block;width:100%;height:100%}
+.stage-tag{position:absolute;left:12px;top:12px;padding:5px 12px;border-radius:999px;border:2px solid var(--hall-ink);
+  background:var(--hall-cream);color:var(--hall-ink);font-size:13px}
+.stage-bar,.stage-patterns{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.stage-patterns.hidden{display:none}
+.patterns-label{font-size:13px;color:#9fb6e4}
+.patterns-row{display:flex;flex-wrap:wrap;gap:8px}
+.hall-btn{padding:8px 16px;border-radius:999px;border:2px solid var(--hall-ink);background:var(--hall-cream);
+  color:var(--hall-ink);font:inherit;font-size:14px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.hall-btn:hover{background:#fffaf0}
+.hall-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.hall-btn.primary{background:#ffd25a}
+.hall-btn.small{padding:6px 12px;font-size:13px;background:#cfe0ff}
+.hall-btn.small:hover{background:#e6efff}
+.hall-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#cfe0ff;cursor:pointer}
+.hall-toggle input{width:16px;height:16px;accent-color:#ffd25a}
+
+/* ---------------- 설명 ---------------- */
+.hall-info{border:2px solid var(--hall-line);border-radius:18px;background:rgba(29,39,69,.7);padding:16px}
+.info-head{display:flex;align-items:center;gap:12px}
+.info-face{width:64px;height:64px;flex:none}
+.info-kind{display:inline-block;padding:2px 10px;border-radius:999px;background:#38456d;color:#cfe0ff;font-size:11px}
+.hall-info h2{margin:4px 0 0;font-size:19px}
+.info-desc{margin:12px 0 0;font-size:14px;line-height:1.5;color:#cfd9ef}
+.info-sub{margin:18px 0 8px;font-size:13px;color:#9fb6e4;border-top:1px dashed var(--hall-line);padding-top:12px}
+.info-sub small{color:#7f93bd;font-size:11px}
+.info-motion{margin:0;padding-left:18px;font-size:13.5px;line-height:1.6;color:#dfe8fb}
+.info-motion li+li{margin-top:4px}
+.info-stats{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:13px}
+.info-stats dt{color:#9fb6e4}
+.info-stats dd{margin:0;color:#fff;text-align:right}
+.hall-foot{margin:22px 2px 0;font-size:12px;color:#8ea4cd;line-height:1.6}
+.hall-foot code{background:#20294a;padding:1px 6px;border-radius:6px;color:#cfe0ff}

@@ -26,7 +26,7 @@
     {name:'전체', color:'#7bd8ff'}, {name:'무기', color:'#79d8ff'},
     {name:'무기 스킬', color:'#b69cff'}, {name:'캐릭터 스킬', color:'#83ddc0'},
     {name:'증강', color:'#ffc58a'}, {name:'전투', color:'#ff9fa7'},
-    {name:'인터페이스', color:'#87b9ff'},
+    {name:'인터페이스', color:'#87b9ff'}, {name:'로그라이크', color:'#a8e06a'},
   ];
   const catalog = engine.catalog.filter(item => item && !item.internal && typeof item.id === 'string' && typeof item.name === 'string');
   const sounds = new Map(catalog.map(item => [item.id, item]));
