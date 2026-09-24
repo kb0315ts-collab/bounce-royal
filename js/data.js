@@ -45,7 +45,7 @@ const WEAPONS = {
   /* 평소엔 검처럼 돌며 닿으면 피해. 스킬로 바라보는 방향에 던진다.
    * 던진 뒤에는 주울 때까지 무기가 없으니 신중해야 한다.
    * 횟수 제한이 필요 없다 — 주워야만 다시 던질 수 있어 제한이 저절로 걸린다. */
-  shield: { name:'방패', ico:'🛡️', type:'melee', dmg:15, reach:42, tip:14, rot:2.2, moveMult:0.95,
+  shield: { name:'방패', ico:'🛡️', type:'melee', dmg:15, reach:42, tip:14, rot:3.3, moveMult:0.95,
     throwSpd:520, throwDmg:8, decel:0.82, restSpd:40, pickupPad:18, discR:15, hitBounce:0.5,
     // 자기 방패(sh_magnet): 던지면 recallCd초 쿨타임, 끝나면 스킬로 불러온다(recallSpd로 날아옴)
     recallCd:8, recallSpd:700,

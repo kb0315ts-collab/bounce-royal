@@ -50,6 +50,8 @@ test('캐릭터와 무기의 기본 밸런스 수치가 기획값과 일치한�
     [WEAPONS.sword.dmg, WEAPONS.sword.reach, WEAPONS.sword.rot],
     [20, 60, 2.6],
   );
+  // 방패는 검보다 빨리 돈다 — 던질 방향을 잡을 기회가 그만큼 자주 온다
+  assert.deepEqual([WEAPONS.shield.dmg, WEAPONS.shield.reach, WEAPONS.shield.rot], [15, 42, 3.3]);
   assert.deepEqual(
     [WEAPONS.dagger.dmg, WEAPONS.dagger.reach, WEAPONS.dagger.rot],
     [18, 30, 5.8],
