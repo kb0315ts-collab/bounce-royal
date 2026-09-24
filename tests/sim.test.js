@@ -1681,7 +1681,24 @@ test('맞을 때 진동은 피해량에 비례하고 스냅샷에 실릴 만큼 
     '작은 피격이 큰 흔들림을 깎으면 안 된다 (실제 ' + b.shake.toFixed(1) + ')');
 });
 
-/* 이중 마법 — 정면을 비우고 양옆으로 갈라진다. 똑바로 굴러오는 상대는
+test('괴력은 공격력 +25%에 공격속도 -15%, 연격 가속은 4스택까지만 쌓인다', () => {
+  const b = makeBattle({ augments: ['brute'] });
+  const [f] = b.fighters;
+  computeStats(f);
+  assert.ok(Math.abs(f.st.atk - 1.25) < 1e-9);
+  assert.ok(Math.abs(f.st.aspd - 0.85) < 1e-9, '공격속도 -15% (실제 ' + f.st.aspd + ')');
+
+  const r = makeBattle({ augments: ['rotMomentum'] }, { weaponId: 'sword' });
+  const [g, e] = r.fighters;
+  computeStats(g); computeStats(e);
+  e.maxHp = e.hp = 1e6;
+  for (let i = 0; i < 10; i++) weaponDamage(r, g, e, 5);
+  assert.equal(g.rotStacks, 4, '4스택에서 멈춘다');
+  computeStats(g);
+  assert.ok(Math.abs(g.st.aspd - (1 + 0.06 * 4)) < 1e-9, '스택마다 +6%');
+});
+
+/* 이중 마법 — 정면을 비우고 양옆으로 갈라진다./* 이중 마법 — 정면을 비우고 양옆으로 갈라진다. 똑바로 굴러오는 상대는
  * 두 발 다 비껴갈 수 있다는 게 이 증강의 값이자 위험이다. */
 test('이중 마법은 정면을 비우고 양옆 두 갈래로 나간다', () => {
   const b = makeBattle({ weaponId: 'staff', augments: ['s_double'] });
@@ -1697,7 +1714,12 @@ test('이중 마법은 정면을 비우고 양옆 두 갈래로 나간다', () =
   assert.ok(offs[0] < -0.1 && offs[1] > 0.1,
     '좌우로 갈라져야 한다 (실제 ' + offs.map(o => o.toFixed(2)).join(', ') + ')');
   assert.ok(!offs.some(o => Math.abs(o) < 1e-6), '정면으로 곧장 가는 발이 있으면 안 된다');
-  assert.ok(b.projectiles.every(p => p.dmg === WEAPONS.staff.dmg), '발당 피해는 그대로다');
+  assert.ok(b.projectiles.every(p => p.dmg === WEAPONS.staff.dmg * 0.5), '두 갈래인 대신 발당 피해는 절반이다');
+  // 증강이 없으면 한 발에 온전한 피해
+  const plain = makeBattle({ weaponId: 'staff' });
+  fireStaff(plain, plain.fighters[0]);
+  assert.equal(plain.projectiles.length, 1);
+  assert.equal(plain.projectiles[0].dmg, WEAPONS.staff.dmg);
 });
 
 /* 몇 연승·연패 중인지 화면에 띄우려면 셈이 있어야 한다.

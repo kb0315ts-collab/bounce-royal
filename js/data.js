@@ -140,7 +140,7 @@ const AUGMENTS = [
   { id:'gamble',   cat:'coin', name:'승부사 기질', desc:'다음 패배 시 코인 추가 -1. 승리 시 모든 피해량 +20%' },
   // ---- 대가성 ----
   { id:'glass',    cat:'trade', name:'유리칼날', desc:'공격력 +20% / 최대 체력 -15%' },
-  { id:'brute',    cat:'trade', name:'괴력', desc:'공격력 +25% / 공격속도 -25%' },
+  { id:'brute',    cat:'trade', name:'괴력', desc:'공격력 +25% / 공격속도 -15%' },
   { id:'bloodWeapon',cat:'trade', name:'피의 무기', desc:'공격력 +30% / 전투 중 5초마다 현재 체력 5% 소모' },
   // ---- 물리 상호작용 ----
   { id:'reflectCharge',cat:'physics', name:'반사 충전', desc:'벽 3회 접촉 후 다음 공격 피해 +30%' },
@@ -180,7 +180,7 @@ const AUGMENTS = [
   { id:'lastStand',cat:'death', name:'최후의 3초', desc:'HP 0 이후에도 3초간 행동 가능. 그 안에 쓰러뜨리면 승리' },
   // ---- 타격/피격 ----
   { id:'warmonger',  cat:'onhit', name:'전투광', desc:'무기 공격 성공마다 공격력 +5% (최대 5스택)' },
-  { id:'rotMomentum',cat:'onhit', name:'연격 가속', desc:'무기 적중마다 공격속도 +6% (최대 8스택)' },
+  { id:'rotMomentum',cat:'onhit', name:'연격 가속', desc:'무기 적중마다 공격속도 +6% (최대 4스택)' },
   { id:'chase',      cat:'onhit', name:'추격 본능', desc:'공격 성공 시 3초간 이동속도 +20%' },
   { id:'vampiric',   cat:'onhit', name:'흡혈 폭주', desc:'무기 공격 성공 시 HP 4% 회복' },
   { id:'mark',       cat:'onhit', name:'표식', desc:'같은 상대에게 5번째 무기 적중 시 추가 피해' },
@@ -203,7 +203,7 @@ const AUGMENTS = [
   { id:'p_shotgun',cat:'weapon', weapon:'pistol', name:'샷건', desc:'한 발씩 쏘지 않고 탄창을 모아 산탄으로 한 번에 뿌린다' },
   { id:'p_mag',   cat:'weapon', weapon:'pistol', name:'확장 탄창', desc:'한 번에 발사 가능한 탄환 수 증가 (+3)' },
   { id:'p_bayonet',cat:'weapon',weapon:'pistol', name:'총검술', desc:'재장전 동안 피해 10의 단검을 들고 근접 공격한다' },
-  { id:'s_double',cat:'weapon', weapon:'staff', name:'이중 마법', desc:'마법 투사체가 양옆 두 갈래로 갈라져 나간다. 정면이 비어 똑바로 오는 상대는 놓칠 수 있다' },
+  { id:'s_double',cat:'weapon', weapon:'staff', name:'이중 마법', desc:'마법 투사체가 양옆 두 갈래로 갈라져 나간다. 발당 피해는 절반. 정면이 비어 똑바로 오는 상대는 놓칠 수 있다' },
   { id:'s_steal', cat:'weapon', weapon:'staff', name:'무기 강탈', desc:'마법 적중 시 상대 무기를 1초간 사용 불가' },
   { id:'s_bounce',cat:'weapon', weapon:'staff', name:'이중 반사', desc:'마법 투사체 벽 반사 +1회' },
   { id:'m_big',   cat:'weapon', weapon:'mine', name:'대형 지뢰', desc:'지뢰를 밟는 판정 범위와 폭발 피해 판정 범위 증가' },

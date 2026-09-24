@@ -419,7 +419,7 @@ function applyAugmentBattle(f, id, player) {
       break;
     case 'devilDeal': P.atk *= 1.25; break;
     case 'glass': P.atk *= 1.2; P.hp *= 0.85; break;
-    case 'brute': P.atk *= 1.25; P.aspd *= 0.75; break;
+    case 'brute': P.atk *= 1.25; P.aspd *= 0.85; break;
     case 'bloodWeapon': P.atk *= 1.3; Fl.bloodWeapon = 1; break;
     case 'reflectCharge': case 'wallClimb': case 'shockwave':
     case 'collisionMania':
@@ -776,6 +776,7 @@ const EVENT_GIANT_SCALE = 1.3;   // 거인의 날: 공·무기·투사체 크기
 const SLEEP_GAS_CD = 12;   // 수면 가스 간격(초). 첫 발동도 이만큼 뒤
 const MISSILE_CD = 4;      // 유도 미사일 간격(초). 첫 발사도 이만큼 뒤
 const EXT_MAG_BULLETS = 3; // 확장 탄창이 늘려 주는 탄환 수
+const ROT_MOMENTUM_MAX = 4; // 연격 가속이 쌓이는 최대 스택
 // 분열 직후 잠깐 무적. 분열시킨 그 공격(칼날·불길 등)이 분열체까지 곧장 잡지 못하게 한다.
 const SPLIT_GRACE = 0.6;
 const SATELLITE_DMG = 5;   // 위성체가 스치는 한 번의 피해
@@ -2679,10 +2680,12 @@ function fireStaff(b, f) {
   battleSound(b, 'weapon.staff.fire', f);
   const wp = WEAPONS.staff;
   // 정면이 비어 있다. 똑바로 굴러오는 상대는 오히려 두 발 다 비껴간다.
+  // 두 갈래로 갈라지는 대신 발당 피해는 절반이다. 다 맞혀야 한 발과 같다.
   const angs = f.flags.doubleMagic ? [f.weaponAngle - 0.26, f.weaponAngle + 0.26] : [f.weaponAngle];
+  const dmg = f.flags.doubleMagic ? wp.dmg * 0.5 : wp.dmg;
   const bounce = wp.bounces + (f.flags.doubleReflect ? 1 : 0);
   for (const a of angs) {
-    spawnProj(b, f, { kind: 'orb', x: f.x + Math.cos(a) * (f.radius + 10), y: f.y + Math.sin(a) * (f.radius + 10), ang: a, spd: wp.projSpeed, dmg: wp.dmg, r: 9, life: 7, bounces: bounce, weapon: true });
+    spawnProj(b, f, { kind: 'orb', x: f.x + Math.cos(a) * (f.radius + 10), y: f.y + Math.sin(a) * (f.radius + 10), ang: a, spd: wp.projSpeed, dmg, r: 9, life: 7, bounces: bounce, weapon: true });
   }
 }
 
@@ -2803,7 +2806,7 @@ function onWeaponHitEffects(b, f, body) {
     }
   }
   if (f.flags.warmonger) f.warmStacks = Math.min(5, f.warmStacks + 1);
-  if (f.flags.rotMomentum) f.rotStacks = Math.min(8, f.rotStacks + 1);
+  if (f.flags.rotMomentum) f.rotStacks = Math.min(ROT_MOMENTUM_MAX, f.rotStacks + 1);
   if (f.flags.chase) f.timers.chase = 3;
   if (f.flags.vampiric) healFighter(b, f, f.maxHp * 0.04, true, 'vampiric');
   if (f.flags.dualPhase) f.timers.untouchable = Math.max(f.timers.untouchable, 1);
